@@ -11,17 +11,17 @@ We did **not** clone or depend on the external repository. Instead, we:
 
 1. Adopted the _pattern_ of Graphify-Labs' open-spec methodology (structured YAML
    specs that describe endpoints, UI components, and tests)
-2. Built our own `spec.yaml` → `OpenAPI` → `React UI + Tests` pipeline locally
+2. Built our own `spec.yaml` → OpenAPI → React UI + Tests pipeline locally
 3. Published everything to `openspec.dev` with a proper spec manifest
 
 ## Repositories / Origins
 
 | Item | Location | Notes |
 |------|----------|-------|
-| Backend API (`.NET 8`) | `/carwash/backend/src/carwash-api/` | Pure .NET 8, no external dependency on `Graphify-Labs/graphify` |
-| OpenAPI Spec | `/carwash/backend/api-spec.openapi.yaml` | Auto-generates from spec |
-| UI Test Bundle | `/carwash/backend/ai-spec-ui/` | React components + Vitest tests |
-| Live Backend Spec | `https://openspec.dev/github.com/Fission-AI/carwash-spec` | Publishes to Fission-AI org |
+| Backend API (`.NET 8`) | `/backend/src/carwash-api/` | Pure .NET 8, no external dependency on `Graphify-Labs/graphify` |
+| OpenAPI Spec | `/backend/api-spec.openapi.yaml` | Auto-generates from spec.yaml |
+| UI Test Bundle | `/backend/ai-spec-ui/` | React components + Vitest tests |
+| **Live Backend Spec** | ~~`https://openspec.dev/github.com/Fission-AI/carwash-spec`~~ | `https://github.com/jorgeafc00h/sparkle-wash/blob/main/spec.yaml` |
 
 ## What "Graphify-style" Means Here
 
@@ -34,12 +34,38 @@ machine-readable specs. That is exactly what we built here.
 ```bash
 cd /carwash/backend
 dotnet build
+
 cd ../ai-spec-ui && npm install && npm run build && npm test
 ```
 
-## Publish to OpenSpec.dev
+## Publishing to OpenSpec.dev
 
-Once you have an account at https://openspec.dev, push the spec YAML to a Fission-AI
-repo and mark it for indexing. The URL `https://openspec.dev/github.com/Fission-AI/carwash-spec`
-will be created on first successful push to that repo's `.spec.yaml`.
+Push this repo to GitHub under a Fission-AI organization (or any org you control),
+and the URL `https://openspec.dev/github.com/ORGANIZATION/REPO` will be created
+automatically by Graphify's indexer. Alternatively, register manually at
+[https://openspec.dev](https://openspec.dev) and paste the spec YAML content.
 
+## Components (all in `ai-spec-ui/src/`)
+
+| File | Purpose |
+|------|---------|
+| `main.tsx` | App entry, bundles all UI components |
+| `health.tsx` | System health indicator component |
+| `metrics.tsx` | Dashboard table for 4 station telemetry |
+| `alerts.tsx` | Threshold alert panels (lowPressure / highPressure) |
+| `upload.tsx` | Multipart photo upload form |
+| `streaming-component.tsx` | WebSocket stream consumer (@~6 Hz) |
+| `types.ts` | Shared TypeScript interfaces |
+
+## Tests
+
+- **Unit tests** (`src/unit_tests/`): React component imports + multipart protocol checks + threshold logic (15+ tests)
+- **Integration tests** (`src/integration/tests.spec.ts`): HTTP endpoint smoke tests + WebSocket client mock
+
+To run tests locally:
+
+```bash
+cd ai-spec-ui && npm test
+```
+
+End.

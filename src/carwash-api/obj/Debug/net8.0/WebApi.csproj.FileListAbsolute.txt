@@ -50,3 +50,4 @@
 /Users/jorgeflores/github/carwash/backend/src/carwash-api/obj/Debug/net8.0/WebApi.pdb
 /Users/jorgeflores/github/carwash/backend/src/carwash-api/obj/Debug/net8.0/WebApi.genruntimeconfig.cache
 /Users/jorgeflores/github/carwash/backend/src/carwash-api/obj/Debug/net8.0/ref/WebApi.dll
+/Users/jorgeflores/github/carwash/backend/src/carwash-api/obj/Debug/net8.0/WebApi.sourcelink.json
