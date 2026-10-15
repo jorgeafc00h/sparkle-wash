@@ -1,0 +1,13 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31902.541
+MinimumVisualStudioVersion = 10.0.40554.0
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "carwash-api", "src/carwash-api/WebApi.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF0123456789}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "carwash-api.Tests", "src/carwash-api.Tests/CarwashApi.Tests.csproj", "{B2C3D4E5-F6A7-8901-BCDE-F01234567891}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+EndGlobal

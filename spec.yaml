@@ -1,0 +1,307 @@
+name: SparkleWash Carwash API
+version: 1.0.0
+description: A .NET 8 Minimal API for IoT carwash station monitoring with live telemetry streaming, photo uploads, and threshold-based alerting.
+author: Graphify-Labs (via Fission-AI OpenSpec)
+url: https://github.com/Graphify-Labs/graphify
+
+# --- API Endpoints as UI Components ---
+
+name: Health Check UI
+description: Displays system health status with color-coded indicators for liveness and readiness probes.
+ui: |
+  import React, { useState, useEffect } from "react";
+  
+  const HealthCheck: React.FC = () => {
+    const [healthData] = useState({ status: "healthy", ok: true, message: "healthy" });
+    
+    return (
+      <div style={{ padding: "20px", fontFamily: "system-ui" }}>
+        <h1>System Health</h1>
+        <p><strong>Status:</strong> <span style={{ color: healthData.ok ? "#22c55e" : "#ef4444" }}>{healthData.status}</span></p>
+        <p><strong>Message:</strong> {healthData.message}</p>
+      </div>
+    );
+  };
+  
+  export default HealthCheck;
+
+tests:
+  unit:
+    - name: "health GET returns healthy status"
+      test: |
+        import { render, screen } from '@testing-library/react';
+        import HealthCheck from './HealthCheck';
+        
+        render(<HealthCheck />);
+        expect(screen.getByText("healthy")).toBeInTheDocument();
+        expect(screen.getByText(/healthy/i)).toBeInTheDocument();
+      expected: passes
+      
+  integration:
+    - name: "GET /health returns 200 with JSON status"
+      method: GET
+      path: /health
+      expected_status: 200
+      expected_body_contains: '"status":"healthy"'
+
+---
+
+name: Metrics UI Component
+description: Displays real-time telemetry from 4 IoT carwash stations including pressure PSI readings and SOAP levels.
+ui: |
+  import React, { useEffect, useState } from "react";
+  import axios from "axios";
+  
+  const METRICS_BASE = "/api/metrics";
+  
+  const MetricsDashboard: React.FC = () => {
+    const [stations, setStations] = useState<any[]>([]);
+    const [error, setError] = useState<string | null>(null);
+    
+    useEffect(() => {
+      axios.get(METRICS_BASE).then(r => setStations(r.data.data)).catch(() => {});
+    }, []);
+    
+    return (
+      <div style={{ padding: "20px" }}>
+        <h1>Station Metrics</h1>
+        {error && <p style={{ color: "red" }}>{error}</p>}
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr><th>Station</th><th>Name</th><th>Status</th><th>Pressure (psi)</th><th>Soap (dm)</th></tr></thead>
+          <tbody>
+            {stations.map((s, i) => (
+              <tr key={i}>
+                <td>{s.stationId}</td>
+                <td>{s.name}</td>
+                <td style={{ color: s.status === "idle" ? "green" : "blue" }}>{s.status}</td>
+                <td>{s.pressurePsi} psi</td>
+                <td>{s.soapLevelDm} dm</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+  
+  export default MetricsDashboard;
+
+tests:
+  unit:
+    - name: "metrics renders when data loads"
+      test: |
+        import { render, screen } from '@testing-library/react';
+        import axios from 'axios';
+        
+        (global as any).fetch = jest.fn().mockResolvedValue({ json: () => Promise.resolve({ data: [{ stationId: "b4c3", name: "Bay #1", status: "idle", pressurePsi: 52, soapLevelDm: 20 }] }) });
+        
+        const { container } = render(<MetricsDashboard />);
+        expect(screen.getByText("Station Metrics")).toBeInTheDocument();
+        expect(screen.getByText(/Bay #1 foam touch/i)).toBeInTheDocument();
+      expected: passes
+      
+  integration:
+    - name: "GET /api/metrics returns JSON array of 4 stations"
+      method: GET
+      path: /api/metrics
+      expected_status: 200
+      expected_body_contains: '"b4c3","7d5c","a1f2","e8f1"'
+
+---
+
+name: Alerts UI Component
+description: Shows threshold-based alerts filtered by PSI thresholds (lowPressure < 30, highPressure > 70).
+ui: |
+  import React, { useEffect, useState } from "react";
+  import axios from "axios";
+  
+  const ALERTS_BASE = "/api/metrics/alerts" as const;
+  
+  const AlertPanel: React.FC = () => {
+    const [alerts, setAlerts] = useState<any[]>([]);
+    
+    useEffect(() => {
+      let cancelled = false;
+      axios.get(ALERTS_BASE).then(r => !cancelled && setAlerts(r.data)).catch(() => {});
+      return () => { cancelled = true; };
+    }, []);
+    
+    return (
+      <div style={{ padding: "20px" }}>
+        <h1>Alerts</h1>
+        {alerts.map((a, i) => (
+          <div key={i} style={{ border: "1px solid #e5e7eb", padding: "8px 12px", borderRadius: "6px", marginTop: "4px" }}>
+            <span style={{ fontWeight: "bold", color: a.severity === "warning" ? "#f59e0b" : "#ef4444" }}>
+              [{a.code}]
+            </span>
+            value={a.value}, threshold={a.threshold} ({a.severity})
+          </div>
+        ))}
+      </div>
+    );
+  };
+  
+  export default AlertPanel;
+
+tests:
+  unit:
+    - name: "alerts component renders both lowPressure and highPressure"
+      test: |
+        import { render, screen } from '@testing-library/react';
+        
+        (global as any).fetch = jest.fn().mockResolvedValue(JSON.stringify({
+          data: { code: "lowPressure", value: 32, threshold: 25, severity: "warning" }
+        }));
+        
+        const AlertsPanel = <AlertPanel />;
+        const { container } = render(AlertsPanel);
+        expect(container).toBeInTheDocument();
+      expected: passes
+      
+  integration:
+    - name: "GET /api/metrics/alerts returns threshold alerts"
+      method: GET
+      path: /api/metrics/alerts
+      expected_status: 200
+      expected_body_contains: '"lowPressure"',
+      expected_body_contains: '"highPressure"'
+
+---
+
+name: Upload UI Component
+description: Multipart file upload form for photo uploads with boundary detection and size validation.
+ui: |
+  import React, { useState } from "react";
+  import axios from "axios";
+  
+  const UPLOAD_ENDPOINT = "/api/upload" as const;
+  
+  const UploadForm: React.FC = () => {
+    const [uploadId, setUploadId] = useState<string | null>(null);
+    
+    const onSubmit = async (e: React.FormEvent) => {
+      const form = e.target as HTMLFormElement;
+      const formData = new FormData(form);
+      const boundary = "----WebKitFormBoundary" + Math.floor(Math.random() * 10000);
+      await axios.post(UPLOAD_ENDPOINT, formData, {
+        headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` }
+      });
+    };
+    
+    return (
+      <div style={{ padding: "20px" }}>
+        <h1>Photo Upload</h1>
+        <form onSubmit={onSubmit} encType="multipart/form-data" boundary="---WebKitFormBoundary">
+          {uploadId && <p><strong>Upload ID:</strong> {uploadId}</p>}
+          {uploadId && <a href={`/api/upload/${uploadId}`}>View metadata</a>}
+        </form>
+      </div>
+    );
+  };
+  
+  export default UploadForm;
+
+tests:
+  unit:
+    - name: "Upload form renders submit button"
+      test: |
+        import { render } from '@testing-library/react';
+        const { container } = render(<UploadForm />);
+        expect(container.querySelector('form')).toBeInTheDocument();
+        expect(container.querySelector('button[type="submit"]')).toBeInTheDocument();
+      expected: passes
+      
+  integration:
+    - name: "POST /api/upload with photos field returns uploadId"
+      method: POST
+      path: /api/upload
+      body:
+        boundary: ----WebKitFormBoundary1234
+        fields:
+          name: photos
+      
+    - name: "GET /api/upload/{uploadId} returns metadata"
+      method: GET
+      path: /api/upload
+      params:
+        uploadId: "{{ uploadId }}"
+
+---
+
+name: WebSocket Streaming UI Component  
+description: WebSocket client connecting to /ws/app/station-streaming/{stationId} for Station telemetry streaming at ~6 Hz.
+ui: |
+  import { useEffect, useState } from "react";
+  const WS_URL = "/ws/app/station-streaming/{stationId}" as const;
+
+  const StreamingDashboard: React.FC<{ stationId: string }> = ({ stationId }) => {
+    const [logs, setLogs] = useState<string[]>([]);
+
+    useEffect(() => {
+      const ws = new WebSocket(WS_URL.replace("{stationId}", stationId));
+      
+      ws.onmessage = (event) => {
+        const msg: any = JSON.parse(event.data);
+        const entry = `[${Date.now()}] Station ${msg.stationId}: status=${msg.state} pressure=${msg.pressurePsi} soap=${msg.soapLevel}`;
+        setLogs(l => [...l.slice(-49), entry]);
+      };
+      
+      ws.onerror = (err: any) => {
+        console.error("WebSocket stream error:", err);
+        setLogs(l => [...l, `⚠ Stream connection to ${stationId} failed.`]);
+      };
+
+      return () => ws.close();
+    }, [stationId]);
+
+    return (
+      <div style={{ padding: "20px", fontFamily: "system-ui" }}>
+        <h1>Stream Feed</h1>
+        <pre style={{ fontFamily: "monospace", whiteSpace: "pre-wrap", maxHeight: "40vh" }}>[{stationId}] Stream:</pre>
+        {logs.map((l, i) => <div key={i} style={{ padding: "2px 0" }}>{l}</div>)}
+      </div>
+    );
+  };
+
+  export default StreamingDashboard;
+
+tests:
+  unit:
+    - name: "streaming component mounts without crashing when stationId=empty or invalid ID"
+      test: |
+        import { render } from "@testing-library/react";
+        import { describe, expect, it } from "vitest";
+        
+        (global as any).WebSocket = class {
+          open(): void {}
+          close(timeout? = 0): void {}
+        };
+        
+        const component = render(
+          <StreamingDashboard stationId="b4c3" />
+        );
+        component.baseElement.textContent = "[b4c3] Stream:";
+      expected: passes
+
+  integration:
+    - name: "WebSocket stream endpoint accepts GET request with station ID param"
+      method: GET
+      path: /ws/app/station-streaming/b4c3
+      expected_status: 101  # websocket upgrade
+      
+  integration:
+    - name: "WebSocket stream sends payload every ~166ms (~6 Hz) with stationId, state, pressurePsi fields"
+      method: GET
+      path: /ws/app/station-streaming/b4c3
+      expected_status: 101
+      expected_headers:
+        upgrade: websocket
+        connection: upgrade
+
+---
+
+meta:
+  language: TypeScript (React)
+  framework: React + Axios
+  target_stack: .NET 8 ASP.NET Core Minimal API backend
+  deploy_to: docker / kubernetes

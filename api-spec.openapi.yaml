@@ -1,0 +1,180 @@
+openapi: 3.1.0
+info:
+  title: SparkleWash Carwash API
+  version: 1.0.0
+  description: |
+    # SparkleWash IoT Carwash API
+    ## Endpoints
+    
+    ### GET /health
+    Returns the health status of the service.
+    
+    ### POST /health  
+    Liveness probe (POST).
+    
+    ### GET /api/metrics
+    Returns current telemetry for all 4 wash stations.
+    
+    ### GET /api/metrics/alerts
+    Returns threshold-based alerts (lowPressure < 30psi, highPressure > 70psi).
+    
+    ### POST /api/upload
+    Accepts multipart/form-data with "photos" boundary; returns a generated uploadId.
+    
+    ### GET /api/upload/{uploadId}
+    Lookup metadata by path ID.
+  
+servers:
+  - url: http://localhost:5001
+paths:
+  /health:
+    get:
+      summary: Health check (readiness)
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+    post:
+      summary: Health probe
+      operationId: healthProbe
+      responses:
+        '200':
+          description: Healthy & ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  message:
+                    type: string
+  /api/metrics:
+    get:
+      summary: Station telemetry snapshots
+      operationId: metricsSnapshot
+      responses:
+        '200':
+          description: Latest reading for each bay
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        stationId: { type: string }
+                        name: { type: string }
+                        status: { type: string, enum: [idle, washing, cleaning] }
+                        pressurePsi: { type: number }
+                        soapLevelDm: { type: integer }
+                        timestamp: { type: string }
+  /api/metrics/alerts:
+    get:
+      summary: Threshold alerts
+      operationId: alerts
+      responses:
+        '200':
+          description: Current alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    code: { type: string, enum: [lowPressure, highPressure] }
+                    value: { type: integer }
+                    threshold: { type: number }
+                    severity: { type: string, enum: [warning, critical] }
+  /api/upload:
+    post:
+      summary: Upload photos (multipart form-data)
+      operationId: photoUpload
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name: { type: string, example: photos }
+                file: type: file
+      responses:
+        '200':
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  uploadId:
+                    type: string
+  /api/upload/{uploadId}:
+    get:
+      summary: Get upload metadata by ID
+      operationId: uploadMetadata
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Metadata returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  uploadId:
+                    type: string
+  /ws/app/station-streaming/{stationId}:
+    get:
+      summary: WebSocket real-time stream for a station
+      operationId: stationStream
+      parameters:
+        - name: stationId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '101':
+          description: Switching Protocols
+          content:
+            text/plain: { schema: { type: string } }
+components:
+  schemas:
+    StationSnapshot:
+      type: object
+      properties:
+        stationId: { type: string, example: b4c3 }
+        name: { type: string, example: Bay #1 foam touch }
+        status: { type: string, enum: [idle, washing, cleaning] }
+        pressurePsi: { type: number, minimum: 0, maximum: 120 }
+        soapLevelDm: { type: integer, minimum: 0, maximum: 30 }
+        timestamp: { type: string, format: date-time }
+    Alert:
+      type: object
+      properties:
+        code: { type: string, enum: [lowPressure, highPressure] }
+        value: { type: integer }
+        threshold: { type: number }
+        severity: { type: string, enum: [info, warning, critical] }
+
