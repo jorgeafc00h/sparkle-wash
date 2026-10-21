@@ -126,7 +126,7 @@ final class SparkleWashUITests: XCTestCase {
         let name = element("carwash-name")
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         name.tap()
-        name.typeText("Autolavado Brillante")
+        name.typeText("Autolavado Brillante\n") // Return closes the keyboard, which covers the button on iPhone
         let submit = element("register-demo-button")
         XCTAssertTrue(reveal(submit), "register button")
         submit.tap()
