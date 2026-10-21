@@ -11,17 +11,17 @@ Read `CLAUDE.md` (project rules) and `ios/README.md` (architecture) first. Recor
 
 ---
 
-## 0. Where things stand (2026-10-21, commit `e73fb59`)
+## 0. Where things stand (2026-10-21, commit `c10be8f`)
 
 | Suite | Where it runs | Last result |
 |---|---|---|
 | SparkleKit package tests (36, incl. 4 against a live API) | `ios.yml` → "SparkleKit (swift test + live API)" | ✅ green |
-| App unit tests `SparkleWashTests` (22) | `ios.yml` → "App (iPhone 16)" / "App (iPad Pro 13-inch (M4))" | ✅ 22/22 on iPhone (commit `4ac597b`); iPad not yet confirmed |
-| App UI tests `SparkleWashUITests` (6) | same jobs | ⚠️ 2/6 on iPhone at `4ac597b`; the other 4 failed on "Multiple matching elements". Fixed in `e73fb59`, **not yet confirmed** |
+| App unit tests `SparkleWashTests` (22) | `ios.yml` → "App (iPhone 16)" / "App (iPad Pro 13-inch (M4))" | ✅ 22/22 on iPhone and iPad |
+| App UI tests `SparkleWashUITests` (6) | same jobs | ✅ 6/6 on iPhone and iPad ([run](https://github.com/jorgeafc00h/sparkle-wash/actions/runs/39686843731)) |
 | ESP32-CAM firmware build | `ios.yml` → arduino-cli | ✅ green |
 | API / gateway / web | `ci.yml` | ✅ green |
 
-**First task:** confirm `e73fb59` (or later) is green on both simulators (§2). If not, fix it using §3.
+**First task:** run §2 locally to confirm your machine matches CI, then start the backlog at A2 (§5).
 
 ---
 
@@ -194,6 +194,9 @@ General patterns:
 - **"Multiple matching elements"** → use `element(id)` (firstMatch), or narrow the query (`app.buttons[id]`).
 - **"Not hittable"** → the element is off-screen or behind a sheet. Swipe up, wait for the sheet to close
   (`waitForNonExistence`), or on iPhone walk back with `open(section)`.
+- **Lazy lists and keyboards:** Forms and Lists only create rows that are on screen, so use `reveal(element)`
+  (swipes until hittable) before tapping anything below the fold. Close the keyboard (`typeText("\n")`) before
+  tapping buttons it could cover on iPhone.
 - **Waits:** always `waitForExistence(timeout:)` before tapping anything that appears after navigation or a sheet.
   Never `sleep`.
 - **System alerts** (local network, Bluetooth): UI tests don't trigger them, because Bonjour is skipped under
@@ -261,7 +264,7 @@ Real hardware (needs a device and an ESP32-CAM with firmware 1.2; see `edge/READ
 Each item lists what "done" means. Keep commits small: one item per commit, and CI green before the next.
 
 ### P0: make CI green and keep it green
-- **A1. Confirm the UI tests on both simulators** (§2.3). Done: `ios.yml` green on the latest commit.
+- ~~**A1. Confirm the UI tests on both simulators.**~~ Done 2026-10-21 (`c10be8f`).
 - **A2. De-flake.** Run the UI suite 3 times on each simulator (`-test-iterations 3`) to detect flaky tests. Fix each one
   at its root cause; never add retries or skip tests to get green. Done: 3/3 green on both.
 - **A3. Make the result summary a script.** Move the §2.4 parser into `ios/scripts/test_summary.py`; CI and local runs both
@@ -352,4 +355,6 @@ Done: about 15 UI tests, all green on both simulators, each under 60 s.
 | Date | Commit | What changed | Test result |
 |---|---|---|---|
 | 2026-10-21 | `4ac597b` | In-memory store under XCTest; CI lists failed tests | Unit 22/22 ✅ (iPhone); UI 2/6 |
-| 2026-10-21 | `e73fb59` | UI tests use `firstMatch`; arrival rows combined for accessibility | pending CI |
+| 2026-10-21 | `e73fb59` | UI tests use `firstMatch`; arrival rows combined for accessibility | iPad 5/6, iPhone 4/6 |
+| 2026-10-21 | `e3fefd1` | `reveal()` scrolls lazy forms; offline switch flipped via its control and asserted | iPad 6/6 ✅, iPhone 5/6 |
+| 2026-10-21 | `c10be8f` | Register test closes the keyboard first | **All green**: unit 22/22 + UI 6/6 on iPhone and iPad ✅ |

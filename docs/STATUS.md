@@ -17,7 +17,7 @@
 | **iOS / iPadOS app** (new, `ios/`) | SwiftUI, iOS 17. `NavigationSplitView` (sections · list · detail) on iPad, a stack on iPhone. Same features as the console, Spanish by default (strings generated from the console's). SwiftData cache with an ordered outbox: changes made offline apply at once and sync, in order, with idempotency keys. Google sign-in (PKCE). Cameras: Bonjour discovery with live view and flash; Wi-Fi setup over Bluetooth LE. Shared code in the `SparkleKit` Swift package. See `ios/README.md`. |
 | **Camera firmware 1.2** (new) | Bluetooth LE setup mode (no Wi-Fi saved, saved Wi-Fi unreachable, or BOOT held), settings in flash (no sketch editing), mDNS `_sparklewash._tcp` with TXT `id`/`fw`, host `sparklecam-<id>.local`. Builds on ESP32 core 3.x with esp32cam + NimBLE-Arduino 1.4.x. |
 | **CI** | `ci.yml`: API, gateway and console tests (also on `claude/**` branches). `ios.yml`: SparkleKit tests against a live API, the app's unit and UI tests on iPhone and iPad simulators (macOS runner, XcodeGen), and an arduino-cli firmware build. The Static Web Apps job now builds and tests the site itself, checks every landing asset, and smoke-tests the deployed URLs. |
-| **Tests** | API 46, gateway 16, console 36, SparkleKit 36, iOS app 22 unit + 6 UI. |
+| **Tests** | API 46, gateway 16, console 36, SparkleKit 36, iOS app 22 unit + 6 UI (iPhone and iPad). All green in CI as of `c10be8f`. |
 
 ## Review findings
 
@@ -84,7 +84,7 @@ UI added for the new features:
 
 Still open:
 
-* **Deploy:** the site only deploys from `main`. The branch needs a merge (or a PR for a preview), and the repo variables `VITE_GOOGLE_CLIENT_ID` and `VITE_API_BASE_URL` must be set, or the deployed console is demo-only.
+* **Deploy:** live at https://ashy-pond-08a770d10.2.azurestaticapps.net, deployed from `main` (PRs #1 and #2). The "Paquetes de servicio" price section was removed from the landing page. Still needed: the repo variables `VITE_GOOGLE_CLIENT_ID` and `VITE_API_BASE_URL`, without which the deployed console is demo-only.
 * **Google OAuth clients:** web and iOS clients still need creating in Google Cloud Console. The API accepts a comma-separated `SPARKLEWASH_GOOGLE_CLIENT_ID`.
 * **UI follow-ups from the audit:**
   * iOS layouts at accessibility text sizes.
