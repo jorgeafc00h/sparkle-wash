@@ -10,6 +10,7 @@
 | **Staff console** (new, `web/`) | React + TS + Vite. Live floor, arrival review, job board, plate tracker, bays. Google sign-in, plus an in-browser demo. 18 tests. Deployed by the Static Web Apps workflow (repointed from `ai-spec-ui`). |
 | **Exit cameras + live updates** (new) | `SPARKLEWASH_EXIT_CAMERAS`: exit sightings close the loop on a job and suggest *Mark done*. `GET /api/events` pushes arrival/job changes to consoles. |
 | **Languages** (new) | Console is Spanish by default with English available. The catalog matches the posted price sheet (Quick/Essential/Renew/Supreme Spa) and has English translations. |
+| **Landing page + video** (new) | `/` is a Spanish paper-cut landing page with the demo, ESP32-CAM details and real console screens. A 64 s Spanish explainer video is rendered from `web/video/explainer.html`. The console moved to `/app/`. |
 | **CI** (new) | `.github/workflows/ci.yml` runs all three test suites. |
 
 ## Review findings

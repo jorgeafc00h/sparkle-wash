@@ -4,7 +4,13 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  build: { outDir: "build" },
+  build: {
+    outDir: "build",
+    rollupOptions: {
+      // "/" is the public landing page; "/app/" is the staff console.
+      input: { landing: "index.html", app: "app/index.html" },
+    },
+  },
   server: {
     proxy: { "/api": "http://localhost:5001" },
   },

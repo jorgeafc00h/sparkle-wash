@@ -28,7 +28,7 @@ export function demoPhoto(plate: string, color: string): string {
 <circle cx="236" cy="146" r="20" fill="#0f172a"/><circle cx="236" cy="146" r="9" fill="#94a3b8"/>
 <rect x="124" y="114" width="84" height="24" rx="3" fill="#f8fafc" stroke="#0f172a" stroke-width="2"/>
 <text x="166" y="132" font-family="monospace" font-size="16" font-weight="700" text-anchor="middle" fill="#0f172a">${plate}</text>
-<text x="10" y="18" font-family="monospace" font-size="11" fill="#94a3b8">ESP32-CAM ${new Date().toLocaleTimeString()}</text></svg>`;
+<text x="10" y="18" font-family="monospace" font-size="11" fill="#94a3b8">ESP32-CAM ${new Date().toLocaleTimeString("es-SV")}</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 

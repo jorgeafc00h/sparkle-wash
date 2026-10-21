@@ -1,6 +1,31 @@
-# SparkleWash staff console
+# SparkleWash web: landing page + staff console
 
-React + TypeScript + Vite. Staff use it on a tablet or phone at the wash:
+React + TypeScript + Vite, deployed to Azure Static Web Apps as two pages:
+
+| Path | What |
+|---|---|
+| `/` | Public landing page in Spanish (paper-cut style): hero, explainer video, how it works, ESP32-CAM hardware and installation, real console screens, packages and prices from the catalog, FAQ. |
+| `/app/` | Staff console. `/app/?demo=1` opens the in-browser demo directly (all the landing's demo buttons link here). |
+
+## Explainer video
+
+`public/landing/video/como-funciona.mp4` (64 s, 1920×1080, Spanish captions burned in plus `como-funciona.es.vtt`)
+is generated from `video/explainer.html`, a paper-cut animation made with CSS on a single timeline that uses the
+real console screenshots.
+
+```bash
+npm run build && npx vite preview --port 4173 &   # serves the console for the captures
+node scripts/capture-screens.mjs                   # real console screens (Spanish, demo data) -> public/landing/screens
+node scripts/render-video.mjs --preview            # a few stills to check timing
+node scripts/render-video.mjs                      # every frame -> ffmpeg -> MP4 + poster (needs ffmpeg)
+```
+
+Open `video/explainer.html` through any static server rooted at `web/` to watch it play live while editing.
+To change a scene, edit its `--t0` / `--dur` and the captions (keep `como-funciona.es.vtt` in sync).
+
+## Staff console
+
+Staff use it on a tablet or phone at the wash:
 
 | Screen | What it's for |
 |---|---|

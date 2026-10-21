@@ -26,6 +26,8 @@ const NAV: { route: Route; label: MessageKey; icon: LucideIcon }[] = [
 const TOKEN_KEY = "sparklewash.session";
 
 function storedApi(): SparkleApi | null {
+  // Links from the landing page open straight into the demo: /app/?demo=1
+  if (new URLSearchParams(window.location.search).has("demo")) return new DemoApi();
   try {
     const token = sessionStorage.getItem(TOKEN_KEY);
     return token ? new HttpApi(API_BASE, token) : null;
