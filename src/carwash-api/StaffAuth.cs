@@ -35,7 +35,8 @@ public sealed class GoogleIdentityVerifier : IGoogleIdentityVerifier
 
 public sealed class StaffAuth
 {
-    private readonly string? _clientId;
+    // Comma-separated: the web console, the iOS app and any other client each have their own OAuth client ID.
+    private readonly string[] _clientIds;
     private readonly Dictionary<string, string> _roles;
     private readonly IGoogleIdentityVerifier _verifier;
     private readonly TenantDirectory _directory;
@@ -44,14 +45,15 @@ public sealed class StaffAuth
 
     public StaffAuth(IConfiguration configuration, TenantDirectory directory, IGoogleIdentityVerifier? verifier = null)
     {
-        _clientId = configuration["SPARKLEWASH_GOOGLE_CLIENT_ID"];
+        _clientIds = (configuration["SPARKLEWASH_GOOGLE_CLIENT_ID"] ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         _roles = ParseRoles(configuration["SPARKLEWASH_STAFF_ROLES"]);
         _registrationOpen = !string.Equals(configuration["SPARKLEWASH_REGISTRATION_OPEN"], "false", StringComparison.OrdinalIgnoreCase);
         _verifier = verifier ?? new GoogleIdentityVerifier();
         _directory = directory;
     }
 
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(_clientId);
+    public bool IsConfigured => _clientIds.Length > 0;
     public bool RegistrationOpen => IsConfigured && _registrationOpen;
 
     /// <summary>Server-configured staff (SPARKLEWASH_STAFF_ROLES) of the default carwash, shown read-only in the admin view.</summary>
@@ -109,15 +111,19 @@ public sealed class StaffAuth
     private async Task<GoogleIdentity?> VerifyAsync(string? idToken)
     {
         if (!IsConfigured || string.IsNullOrWhiteSpace(idToken) || idToken.Length > 8192) return null;
-        try
+        // A token is valid when its audience is any one of our clients.
+        foreach (var clientId in _clientIds)
         {
-            var identity = await _verifier.VerifyAsync(idToken, _clientId!);
-            return string.IsNullOrWhiteSpace(identity?.Subject) ? null : identity;
+            try
+            {
+                var identity = await _verifier.VerifyAsync(idToken, clientId);
+                if (!string.IsNullOrWhiteSpace(identity?.Subject)) return identity;
+            }
+            catch (Exception exception) when (exception is InvalidJwtException or ArgumentException or HttpRequestException)
+            {
+            }
         }
-        catch (Exception exception) when (exception is InvalidJwtException or ArgumentException or HttpRequestException)
-        {
-            return null;
-        }
+        return null;
     }
 
     private (string Token, StaffSession Session)? Issue(GoogleIdentity identity, string tenantId, string role)

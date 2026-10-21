@@ -351,3 +351,27 @@ public sealed class TenancyTests : IAsyncLifetime
         return client.SendAsync(request);
     }
 }
+
+public class MultipleClientIdTests
+{
+    private sealed class PerClient : IGoogleIdentityVerifier
+    {
+        public Task<string?> VerifySubjectAsync(string idToken, string clientId) => Task.FromResult<string?>(null);
+        // Tokens name the client they were issued to, like Google's "aud" claim.
+        public Task<GoogleIdentity?> VerifyAsync(string idToken, string clientId) =>
+            Task.FromResult(idToken == $"token-for-{clientId}" ? new GoogleIdentity("555", "ios@example.com", true, "iOS") : null);
+    }
+
+    [Fact]
+    public async Task TokensFromAnyConfiguredClientAreAccepted()
+    {
+        await using var app = CarwashApi.Program.BuildApp(["--urls", "http://127.0.0.1:0",
+            "--SPARKLEWASH_GOOGLE_CLIENT_ID", "web-client, ios-client", "--SPARKLEWASH_STAFF_ROLES", "555=viewer",
+            "--SPARKLEWASH_TENANTS_DIR", Path.Combine(Path.GetTempPath(), "sparklewash-aud-" + Guid.NewGuid().ToString("N"))], new PerClient());
+        await app.StartAsync();
+        using var client = new HttpClient { BaseAddress = new Uri(app.Urls.First()) };
+        (await client.PostAsJsonAsync("/api/auth/google", new { idToken = "token-for-web-client" })).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.PostAsJsonAsync("/api/auth/google", new { idToken = "token-for-ios-client" })).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.PostAsJsonAsync("/api/auth/google", new { idToken = "token-for-other-client" })).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+}
