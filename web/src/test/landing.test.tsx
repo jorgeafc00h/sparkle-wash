@@ -13,6 +13,7 @@ describe("Landing", () => {
     const track = container.querySelector("video track");
     expect(track).toHaveAttribute("srclang", "es");
     expect(container.querySelector("video source")).toHaveAttribute("src", "/landing/video/como-funciona.mp4");
+    for (const link of screen.getAllByRole("link", { name: /Registrar mi autolavado/ })) expect(link).toHaveAttribute("href", "/app/?registro=1");
   });
 
   it("shows the real catalog prices", () => {

@@ -1,4 +1,4 @@
-# SparkleWash: review and status (updated 2026-10-21)
+# SparkleWash: review and status (updated 2026-10-21, round 3)
 
 ## What is real today
 
@@ -11,6 +11,9 @@
 | **Exit cameras + live updates** (new) | `SPARKLEWASH_EXIT_CAMERAS`: exit sightings close the loop on a job and suggest *Mark done*. `GET /api/events` pushes arrival/job changes to consoles. |
 | **Languages** (new) | Console is Spanish by default with English available. The catalog matches the posted price sheet (Quick/Essential/Renew/Supreme Spa) and has English translations. |
 | **Landing page + video** (new) | `/` is a Spanish paper-cut landing page with the demo, ESP32-CAM details and real console screens. A 64 s Spanish explainer video is rendered from `web/video/explainer.html`. The console moved to `/app/`. |
+| **Registration + multi-carwash** (new) | `POST /api/tenants/register`: a carwash signs up with its owner's Google account (admin). Each carwash has its own data directory; the original single-site setup is the `default` carwash. `SPARKLEWASH_REGISTRATION_OPEN=false` closes sign-ups. |
+| **Linked ESP32 devices** (new) | Per-camera keys (shown once, stored hashed, bound to one camera id), roles entry/bay/exit, rotate/disable, heartbeat with online status. |
+| **Admin view** (new) | Console *Administración*: carwash details, cameras (link wizard with gateway command), team (invite by email, roles, remove), wash employees. Setup checklist for new carwashes. |
 | **CI** (new) | `.github/workflows/ci.yml` runs all three test suites. |
 
 ## Review findings
@@ -32,6 +35,30 @@ Still open, in priority order:
 4. **Stale specs.** `spec.yaml` (duplicate keys, React snippets that don't compile) and `api-spec.openapi.yaml` (`/jobs/stats`, `/jobs/history` don't exist) don't describe the API. Generate OpenAPI from the endpoints, or delete them.
 5. **Dead or duplicate front ends and servers:** `ai-spec-ui/` (doesn't compile), `spa/` (Compose code with non-existent imports), `static/wwwroot/` (about 30 stale hashed bundles with no source), `src/carwash_api/app.py` and `src/carwash-api/server/*` (stub servers in Python, Node and Perl). Nothing deploys from them any more; delete them once the owner approves.
 6. **JSON-file storage** caps out at a few thousand jobs per file, because each write rewrites the whole file. Move to SQLite or Postgres when history matters.
+
+## Round 3 review: registration, devices, admin
+
+What was missing:
+
+1. **There was no registration.** Staff access came only from the server setting `SPARKLEWASH_STAFF_ROLES`, and all data belonged to one site. A second carwash would have shared arrivals, jobs and photos with the first.
+2. **ESP32 devices weren't linked to anything.** Every camera used one shared ingest key, and `cameraId` was free text: any device holding the key could post as any camera, and one leak meant replacing the key everywhere.
+3. **There was no admin view.** Employees and inventory had API endpoints but no screen; cameras and staff access couldn't be managed at all.
+4. **The console ignored roles.** Viewers saw action buttons that always failed with 403.
+
+Bugs fixed:
+
+5. **Confirmed arrivals could vanish from review.** If confirming succeeded and opening the job failed (network, or the plate already had an open job), the arrival left the review queue for good. Now it stays, marked "confirmed, open the job".
+6. **There was no way to discard a false read.** Misreads, duplicates and staff vehicles had no exit from review. Added *Descartar* with a reason.
+7. **An expired or revoked session left the console stuck on error banners.** Any 401, including from the live-update stream, now returns to sign-in with a notice.
+8. **"Done today" was counted in UTC.** In El Salvador that rolls over at 6 pm local time. It now uses the carwash's time zone.
+9. **Bay data leaked between sites.** The console's bay screen read the public `/api/metrics`, which shows the default site's bays to everyone. It now reads the per-carwash `/api/bays`.
+10. **Google sign-in kept stale form values.** The callback was frozen at initialization, so registration would have submitted an empty form. Fixed with a callback ref.
+
+Still open:
+
+* Bay controllers (MQTT and the shared ingest key) report only to the default carwash. Per-carwash bay controllers need their own device keys, the same pattern as cameras.
+* An invitation is matched by verified Google email. There is no email sending yet: the admin tells the person to sign in.
+* One Google account belongs to one carwash. People working at two carwashes need two accounts.
 
 ## Next steps
 

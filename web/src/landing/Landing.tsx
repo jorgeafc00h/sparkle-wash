@@ -9,6 +9,7 @@ import type { Catalog } from "../lib/types";
 const catalog = catalogJson as Catalog;
 const DEMO_URL = "/app/?demo=1";
 const APP_URL = "/app/";
+const REGISTER_URL = "/app/?registro=1";
 const PACKAGE_COLORS: Record<string, { bg: string; fg: string; soft: string }> = {
   quick: { bg: "#dfe2e7", fg: "#13213a", soft: "#f1f2f4" },
   essential: { bg: "#5b7ea6", fg: "#ffffff", soft: "#e4ecf5" },
@@ -81,6 +82,7 @@ function Nav() {
         <Logo />
         <nav aria-label="Secciones" className={`nav-links ${open ? "open" : ""}`}>
           {links.map(([href, label]) => <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>)}
+          <a href={REGISTER_URL} onClick={() => setOpen(false)}>Registrar mi autolavado</a>
           <a className="nav-login" href={APP_URL}><LogIn size={16} aria-hidden />Entrar</a>
         </nav>
         <a className="btn btn-ink nav-cta" href={DEMO_URL}>Probar la demo</a>
@@ -438,6 +440,8 @@ function Packages() {
 }
 
 const FAQ: { q: string; a: ReactNode }[] = [
+  { q: "¿Cómo registro mi autolavado?",
+    a: "Con «Registrar mi autolavado» escribes el nombre, ciudad y país, y entras con tu cuenta de Google, que queda como administradora. Desde Administración vinculas cada ESP32-CAM (cada una recibe su propia llave), invitas a tu equipo por correo y agregas a quienes lavan." },
   { q: "¿Qué pasa si la cámara lee mal una placa?",
     a: "Nunca se abre un trabajo sin que alguien lo confirme. La consola muestra la foto, la placa leída y su nivel de confianza; si la cámara dudó (0/O, 8/B), lo marca para revisar." },
   { q: "¿Funciona de noche?",
@@ -482,10 +486,11 @@ function FinalCta() {
       </div>
       <div className="wrap final-inner" data-reveal>
         <h2>Pruébalo con carros simulados, ahora mismo</h2>
-        <p>La demo corre en tu navegador: llegan carros, lees placas, abres trabajos y ves la cámara de salida en acción.</p>
+        <p>La demo corre en tu navegador: llegan carros, lees placas, abres trabajos y ves la cámara de salida en acción. Cuando estés listo, registra tu autolavado y vincula tus cámaras.</p>
+        <p className="final-login">¿Ya tienes cuenta? <a href={APP_URL}>Entrar al sistema</a></p>
         <div className="cta-row center">
           <a className="btn btn-coral btn-lg" href={DEMO_URL}><PlayCircle size={20} aria-hidden />Abrir la demo</a>
-          <a className="btn btn-paper btn-lg" href={APP_URL}><LogOut size={18} aria-hidden style={{ transform: "scaleX(-1)" }} />Entrar al sistema</a>
+          <a className="btn btn-paper btn-lg" href={REGISTER_URL}><LogOut size={18} aria-hidden style={{ transform: "scaleX(-1)" }} />Registrar mi autolavado</a>
         </div>
       </div>
     </section>

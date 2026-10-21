@@ -26,8 +26,13 @@ export interface ArrivalObservation {
   confirmedBy: string | null;
   confirmedAt: string | null;
   jobId?: string | null;
-  cameraRole?: "entry" | "exit" | null;
+  cameraRole?: CameraRole | null;
+  dismissedAt?: string | null;
+  dismissReason?: DismissReason | null;
 }
+
+export type CameraRole = "entry" | "bay" | "exit";
+export type DismissReason = "misread" | "duplicate" | "staff" | "not-a-customer" | "other";
 
 export interface JobTransition { status: JobStatus; at: string; actor: string }
 export interface JobAssignment { employeeId: string; employeeName: string; assignedAt: string }
@@ -56,6 +61,7 @@ export interface Job {
 export interface JobSummary {
   total: number; arrived: number; queued: number; inProgress: number; completed: number; cancelled: number;
   arrivalsTodayUtc: number; completedTodayUtc: number; averageCompletedSeconds: number | null;
+  arrivalsToday?: number; completedToday?: number;
 }
 
 export interface Employee { id: string; name: string; active: boolean }
@@ -77,7 +83,23 @@ export interface StationAlert {
   stationId?: string; code: string; value: number; threshold: number; severity: "warning" | "danger";
 }
 
-export interface Session { role: Role; subject: string; expiresAt: string }
+export interface Tenant {
+  id: string; name: string; city: string | null; country: string; phone: string | null; timeZone: string; createdAt: string;
+}
+export interface TenantInput { name: string; city?: string; country: string; phone?: string; timeZone: string }
+export interface Session { role: Role; subject: string; expiresAt: string; email?: string | null; name?: string | null; tenant: Tenant }
+
+export interface DeviceStatus { rssi?: number | null; uptimeMs?: number | null; freeHeap?: number | null; firmware?: string | null; fps?: number | null; ip?: string | null }
+export interface Device {
+  id: string; name: string; cameraId: string; role: CameraRole; keyHint: string; createdAt: string; disabled: boolean;
+  online: boolean; lastSeenAt: string | null; lastStatus: DeviceStatus | null; observations: number; keyRotatedAt: string | null;
+}
+export interface DeviceInput { name: string; cameraId: string; role: CameraRole }
+export interface DeviceWithKey { device: Device; deviceKey: string }
+
+export interface Member { tenantId: string; subject: string; email: string | null; name: string | null; role: Role; addedAt: string }
+export interface Invitation { id: string; email: string; role: Role; invitedAt: string }
+export interface Team { members: Member[]; invitations: Invitation[]; configured: { subject: string; role: Role }[]; you: string }
 
 export type ChangeTopic = "arrivals" | "jobs";
 export type ConnectionState = "live" | "reconnecting";

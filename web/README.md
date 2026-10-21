@@ -34,6 +34,12 @@ Staff use it on a tablet or phone at the wash:
 | **Jobs** | Board from Arrived → Queued → Washing → Done, with live timers, assignments and one-tap advance |
 | **Plates** | Plate tracker: every camera sighting and job step for a vehicle, visits and spend |
 | **Bays** | Pressure and soap telemetry per bay |
+| **Administración** (admins) | Carwash details; link ESP32-CAM cameras (key shown once with the gateway command), rotate/disable keys, see online status; invite staff by email and set roles; wash employees |
+
+New carwashes register at `/app/?registro=1` (the landing's *Registrar mi autolavado*), with the owner's Google
+account. Without `VITE_GOOGLE_CLIENT_ID` the form runs the registration in the demo instead. Roles: *Solo lectura*
+(viewer) sees everything but no actions, *Operador* confirms arrivals and moves jobs, *Administrador* also gets
+Administración.
 
 ## Languages
 

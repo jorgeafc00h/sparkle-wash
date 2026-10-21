@@ -30,7 +30,15 @@ OCR, multi-frame voting and idempotent API delivery on top.
 Mounting tips: aim at bumper height, 2–4 m from the stop line, at most ~30° off-axis. Plates should be
 at least ~120 px wide in the 800×600 frame. Enable `/flash?on=1` or add an IR lamp for night shifts.
 
-## 2. Run the vision gateway (`vision-gateway/`)
+## 2. Link the camera in the console
+
+In the staff console, **Administración → Cámaras → Vincular cámara**: pick its role (Entrada, Bahía or
+Salida), give it a name and a camera ID (the same `CAMERA_ID` you flashed). The console shows the
+camera's **device key once**, together with the exact gateway command. The key belongs to that
+carwash and that camera only. If it leaks, use *Cambiar llave* (rotate) or *Desactivar*, and the other
+cameras keep working.
+
+## 3. Run the vision gateway (`vision-gateway/`)
 
 ```bash
 cd edge/vision-gateway
@@ -40,11 +48,13 @@ pip install -r requirements.txt
 
 python -m sparkle_vision.gateway \
   --camera-url http://192.168.1.50/cam-hi.jpg --camera-id entrance-cam \
-  --api http://localhost:5001 --ingest-key "$SPARKLEWASH_INGEST_KEY" --show
+  --api http://localhost:5001 --device-key "$SPARKLEWASH_DEVICE_KEY" --show
 ```
 
-Run one gateway process per camera (e.g. `entrance-cam`, `bay1-cam`, `exit-cam`). Leave out `--api`
-to test detection locally without posting.
+Run one gateway process per camera (e.g. `entrance-cam`, `bay1-cam`, `exit-cam`), each with its own key.
+Every 30 s the gateway forwards the camera's `/status` (signal, uptime, firmware) and its measured
+frame rate, so the console shows the camera as *En línea*. Leave out `--api` to test detection locally.
+The older shared `--ingest-key` still works, but only for the original single-site ("default") carwash.
 
 | Option | Default | Purpose |
 |---|---|---|
@@ -54,14 +64,15 @@ to test detection locally without posting.
 | `--cooldown` | 300 s | The same plate is not re-reported while it sits in view |
 | `--interval` | 0.5 s | Delay between frames (YOLOv3 on a laptop CPU runs at ~2–5 fps) |
 
-## 3. How plates become job tracking
+## 4. How plates become job tracking
 
 * **Unknown plate** → `POST /api/arrivals/observations` creates a pending arrival with the photo.
   Staff confirm the plate and vehicle class in the console, pick a package, and the job opens.
 * **Plate with an open job** → the API links the observation to that job (`trackedJobId` in the
   response). It does not enter the review queue, and it shows up on the job's plate timeline,
   so staff can see the car moving from the entrance to a bay and out.
-* **Exit camera** (list it in the API's `SPARKLEWASH_EXIT_CAMERAS`, e.g. `exit-cam`): the sighting links to
+* **Bay camera**: a known plate is linked to its job; an unknown plate is ignored (never a review item).
+* **Exit camera** (role *Salida* in the console; for the shared ingest key, `SPARKLEWASH_EXIT_CAMERAS`): the sighting links to
   the open job, or to one finished in the last 2 hours. It never creates a review item. If the job is still
   *Lavando*, the API returns `suggestComplete: true` and the board shows "Visto en la salida… ¿Marcar listo?".
   Staff still make the call. The plate timeline shows when the car left.

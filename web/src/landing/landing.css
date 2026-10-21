@@ -271,3 +271,5 @@ code { font-family: var(--mono); font-size: 0.85em; background: var(--kraft); pa
   *, *::before, *::after { animation: none !important; transition: none !important; }
   [data-reveal] { opacity: 1; translate: none; }
 }
+.final-login { font-size: 16px !important; }
+.final-login a { font-weight: 700; color: var(--teal); }

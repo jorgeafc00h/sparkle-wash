@@ -6,6 +6,7 @@ import { useNow, usePoll } from "../lib/hooks";
 import type { ArrivalObservation, Catalog, Employee, Job } from "../lib/types";
 import { className, errorText, packageText, useFormat, useI18n } from "../i18n";
 import { Empty, ErrorBanner, Initials, Plate, statusIcon } from "../components/ui";
+import { usePermissions } from "../lib/session";
 
 const COLUMNS = ["arrived", "queued", "in_progress", "completed"] as const;
 const SLOW_WASH_SECONDS = 45 * 60;
@@ -75,8 +76,10 @@ function JobCard({ job, employees, catalog, exit, onChanged, onTrack }: {
   const now = useNow();
   const [busy, setBusy] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const { canOperate } = usePermissions();
   const next = NEXT_STATUS[job.status];
   const open = job.status !== "completed" && job.status !== "cancelled";
+  const actionable = open && canOperate;
   const seconds = !open ? job.elapsedSeconds
     : job.status === "in_progress" && job.startedAt ? secondsSince(job.startedAt, now) : secondsSince(job.arrivalAt, now);
   const slow = job.status === "in_progress" && seconds > SLOW_WASH_SECONDS;
@@ -122,7 +125,7 @@ function JobCard({ job, employees, catalog, exit, onChanged, onTrack }: {
             ? job.assignments.map((a) => <Initials key={a.employeeId} name={a.employeeName} />)
             : <span className="subtle">{t("board.nobody")}</span>}
         </div>
-        {open && available.length > 0 && !assigning && (
+        {actionable && available.length > 0 && !assigning && (
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAssigning(true)}>
             <UserPlus size={15} aria-hidden />{t("board.assign")}
           </button>
@@ -146,7 +149,7 @@ function JobCard({ job, employees, catalog, exit, onChanged, onTrack }: {
           </button>
         </div>
       )}
-      {open && (
+      {actionable && (
         <div className="job-actions">
           {next && (
             <button type="button" className="btn btn-primary btn-sm" disabled={busy}

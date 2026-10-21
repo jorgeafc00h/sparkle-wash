@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Droplets, FlaskConical, Gauge, History, Kanban, LayoutDashboard, LogOut, Moon, ScanLine, Sun, type LucideIcon } from "lucide-react";
+import { Droplets, FlaskConical, Gauge, History, Kanban, LayoutDashboard, LogOut, Moon, ScanLine, Settings, Sun, type LucideIcon } from "lucide-react";
 import { HttpApi, type SparkleApi } from "./lib/api";
 import { ApiProvider, ToastProvider, useApi, useLive } from "./lib/context";
 import { I18nProvider, useI18n } from "./i18n";
 import type { MessageKey } from "./i18n/es";
 import { LanguageSwitch } from "./components/ui";
-import { DemoApi } from "./lib/demo";
+import { DemoApi, type DemoOptions } from "./lib/demo";
+import { SessionProvider } from "./lib/session";
+import { AdminView, type AdminSection } from "./views/Admin";
 import { useHashRoute, usePoll } from "./lib/hooks";
 import { API_BASE, SignIn } from "./SignIn";
 import { BoardView } from "./views/Board";
@@ -14,23 +16,24 @@ import { PlatesView } from "./views/Plates";
 import { ReviewView } from "./views/Review";
 import { StationsView } from "./views/Stations";
 
-const ROUTES = ["floor", "review", "board", "plates", "bays"] as const;
+const ROUTES = ["floor", "review", "board", "plates", "bays", "admin"] as const;
 type Route = (typeof ROUTES)[number];
-const NAV: { route: Route; label: MessageKey; icon: LucideIcon }[] = [
+const NAV: { route: Route; label: MessageKey; icon: LucideIcon; adminOnly?: true }[] = [
   { route: "floor", label: "nav.floor", icon: LayoutDashboard },
   { route: "review", label: "nav.review", icon: ScanLine },
   { route: "board", label: "nav.board", icon: Kanban },
   { route: "plates", label: "nav.plates", icon: History },
   { route: "bays", label: "nav.bays", icon: Gauge },
+  { route: "admin", label: "nav.admin", icon: Settings, adminOnly: true },
 ];
 const TOKEN_KEY = "sparklewash.session";
 
-function storedApi(): SparkleApi | null {
+function storedApi(onUnauthorized: () => void): SparkleApi | null {
   // Links from the landing page open straight into the demo: /app/?demo=1
   if (new URLSearchParams(window.location.search).has("demo")) return new DemoApi();
   try {
     const token = sessionStorage.getItem(TOKEN_KEY);
-    return token ? new HttpApi(API_BASE, token) : null;
+    return token ? new HttpApi(API_BASE, token, onUnauthorized) : null;
   } catch { return null; }
 }
 
@@ -39,11 +42,27 @@ export function App() {
 }
 
 function Console() {
-  const [api, setApi] = useState<SparkleApi | null>(storedApi);
+  const [expired, setExpired] = useState(false);
+  // A 401 means the session expired or was revoked (role change, removed from the team): back to sign-in.
+  const onUnauthorized = useCallback(() => {
+    try { sessionStorage.removeItem(TOKEN_KEY); } catch { /* private mode */ }
+    setExpired(true);
+    setApi(null);
+  }, []);
+  const [api, setApi] = useState<SparkleApi | null>(() => storedApi(onUnauthorized));
 
   const onLive = useCallback((live: HttpApi) => {
+    // Re-create the client so its 401 handler is this console's.
+    const client = new HttpApi(API_BASE, live.sessionToken, onUnauthorized);
     try { sessionStorage.setItem(TOKEN_KEY, live.sessionToken); } catch { /* private mode */ }
-    setApi(live);
+    setExpired(false);
+    setApi(client);
+  }, [onUnauthorized]);
+  const onDemo = useCallback((options?: DemoOptions) => {
+    setExpired(false);
+    setApi(new DemoApi(options));
+    // A carwash created in the demo starts at its setup checklist.
+    if (options?.seed === false) window.location.hash = "/admin";
   }, []);
   const signOut = useCallback(async () => {
     try { await api?.signOut(); } catch { /* already gone */ }
@@ -57,7 +76,7 @@ function Console() {
     return () => window.clearInterval(timer);
   }, [api]);
 
-  if (!api) return <ToastProvider><SignIn onLive={onLive} onDemo={() => setApi(new DemoApi())} /></ToastProvider>;
+  if (!api) return <ToastProvider><SignIn onLive={onLive} onDemo={onDemo} expired={expired} /></ToastProvider>;
   return (
     <ToastProvider>
       <ApiProvider api={api}>
@@ -86,18 +105,28 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
   const live = useLive();
   const { t } = useI18n();
   const { data: pending } = usePoll(() => api.pendingArrivals(), 15_000, ["arrivals"]);
+  const { data: session } = usePoll(() => api.session(), 300_000);
+  const isAdmin = session?.role === "admin";
+  const nav = NAV.filter((n) => !n.adminOnly || isAdmin);
   const pendingCount = pending?.length ?? 0;
   const track = useCallback((plate: string) => go("plates", plate), [go]);
+  const onSection = useCallback((section: AdminSection) => go("admin", section), [go]);
+
+  // A freshly registered carwash lands on its setup checklist.
+  useEffect(() => {
+    if (session?.role === "admin" && new URLSearchParams(window.location.search).has("registro") && route === "floor") go("admin");
+  }, [session, route, go]);
 
   const view = useMemo(() => {
     switch (route) {
+      case "admin": return isAdmin ? <AdminView section={arg} onSection={onSection} /> : <OverviewView onReview={() => go("review")} onTrack={track} />;
       case "review": return <ReviewView />;
       case "board": return <BoardView onTrack={track} />;
       case "plates": return <PlatesView initialPlate={arg} onSearch={track} />;
       case "bays": return <StationsView />;
       default: return <OverviewView onReview={() => go("review")} onTrack={track} />;
     }
-  }, [route, arg, go, track]);
+  }, [route, arg, go, track, isAdmin, onSection]);
 
   useEffect(() => {
     const label = NAV.find((n) => n.route === route)?.label;
@@ -105,16 +134,17 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
   }, [route, pendingCount, t]);
 
   return (
+    <SessionProvider session={session}>
     <div className="shell">
       <nav className="sidebar" aria-label={t("nav.main")}>
         <div className="brand">
           <span className="brand-mark"><Droplets size={20} aria-hidden /></span>
           <span>
-            <span className="brand-name" style={{ display: "block" }}>{t("app.name")}</span>
-            <span className="brand-sub">{t("app.console")}</span>
+            <span className="brand-name" style={{ display: "block" }}>{session?.tenant.name ?? t("app.name")}</span>
+            <span className="brand-sub">{session ? t(`role.${session.role}`) : t("app.console")}</span>
           </span>
         </div>
-        {NAV.map(({ route: r, label, icon: Icon }) => (
+        {nav.map(({ route: r, label, icon: Icon }) => (
           <a key={r} href={`#/${r}`} className="nav-link" aria-current={route === r ? "page" : undefined}>
             <Icon size={18} aria-hidden />{t(label)}
             {r === "review" && pendingCount > 0 && <span className="nav-badge" aria-label={t("nav.waiting", { count: pendingCount })}>{pendingCount}</span>}
@@ -146,16 +176,18 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
             <button type="button" className="btn btn-sm" onClick={onSignOut}>{t("shell.exitDemo")}</button>
           </div>
         )}
+        {session?.role === "viewer" && <div className="banner" role="status">{t("shell.readOnly")}</div>}
         {view}
       </main>
       <nav className="tabbar" aria-label={t("nav.main")}>
-        {NAV.map(({ route: r, label, icon: Icon }) => (
+        {nav.map(({ route: r, label, icon: Icon }) => (
           <a key={r} href={`#/${r}`} className="tab" aria-current={route === r ? "page" : undefined} style={{ textDecoration: "none" }}>
-            <Icon size={22} aria-hidden />{t(label)}
+            <Icon size={22} aria-hidden />{t(r === "admin" ? "nav.adminShort" : label)}
             {r === "review" && pendingCount > 0 && <span className="nav-badge">{pendingCount}</span>}
           </a>
         ))}
       </nav>
     </div>
+    </SessionProvider>
   );
 }

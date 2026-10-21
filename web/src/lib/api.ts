@@ -1,6 +1,7 @@
 import { idempotencyKey } from "./format";
 import type {
-  ArrivalObservation, Catalog, ChangeTopic, ConnectionState, Employee, Job, JobStatus, JobSummary, PlateTimeline, Session, Station, StationAlert,
+  ArrivalObservation, Catalog, ChangeTopic, ConnectionState, Device, DeviceInput, DeviceWithKey, DismissReason, Role, Team,
+  Tenant, TenantInput, Employee, Job, JobStatus, JobSummary, PlateTimeline, Session, Station, StationAlert,
 } from "./types";
 
 /** Everything the console needs. Implemented by the live HTTP API and by the in-browser demo. */
@@ -22,6 +23,21 @@ export interface SparkleApi {
   stations(): Promise<Station[]>;
   alerts(): Promise<StationAlert[]>;
   signOut(): Promise<void>;
+  dismissArrival(id: string, reason: DismissReason): Promise<ArrivalObservation>;
+  // ---- administration ----
+  tenant(): Promise<Tenant>;
+  updateTenant(input: TenantInput): Promise<Tenant>;
+  devices(): Promise<Device[]>;
+  createDevice(input: DeviceInput): Promise<DeviceWithKey>;
+  rotateDevice(id: string): Promise<DeviceWithKey>;
+  setDeviceDisabled(id: string, disabled: boolean): Promise<Device>;
+  team(): Promise<Team>;
+  invite(email: string, role: Role): Promise<void>;
+  revokeInvitation(id: string): Promise<void>;
+  setMemberRole(subject: string, role: Role): Promise<void>;
+  removeMember(subject: string): Promise<void>;
+  addEmployee(name: string): Promise<Employee>;
+  setEmployeeActive(id: string, active: boolean): Promise<Employee>;
   /** Pushes "arrivals"/"jobs" change notifications; returns an unsubscribe function. */
   subscribe(onChange: (topic: ChangeTopic) => void, onState?: (state: ConnectionState) => void): () => void;
 }
@@ -36,9 +52,10 @@ export class HttpApi implements SparkleApi {
   readonly mode = "live" as const;
   private readonly photoCache = new Map<string, string>();
 
-  constructor(private readonly baseUrl: string, private readonly token: string) {}
+  /** `onUnauthorized` runs when the session expired or was revoked (e.g. after a role change). */
+  constructor(private readonly baseUrl: string, private readonly token: string, private readonly onUnauthorized?: () => void) {}
 
-  static async signIn(baseUrl: string, idToken: string): Promise<HttpApi> {
+  static async signIn(baseUrl: string, idToken: string, onUnauthorized?: () => void): Promise<HttpApi> {
     const response = await fetch(`${baseUrl}/api/auth/google`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -46,7 +63,26 @@ export class HttpApi implements SparkleApi {
     });
     if (!response.ok) throw new ApiError(response.status === 503 ? 503 : 401, "Google sign-in failed");
     const body = (await response.json()) as { sessionToken: string };
-    return new HttpApi(baseUrl, body.sessionToken);
+    return new HttpApi(baseUrl, body.sessionToken, onUnauthorized);
+  }
+
+  static async registrationOpen(baseUrl: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${baseUrl}/api/tenants/registration`);
+      return response.ok && ((await response.json()) as { open: boolean }).open;
+    } catch { return false; }
+  }
+
+  /** Creates a carwash with the Google account behind `idToken` as its admin, and signs in. */
+  static async register(baseUrl: string, idToken: string, input: TenantInput, onUnauthorized?: () => void): Promise<HttpApi> {
+    const response = await fetch(`${baseUrl}/api/tenants/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken, ...input }),
+    });
+    if (!response.ok) throw new ApiError(response.status, "Registration failed");
+    const body = (await response.json()) as { sessionToken: string };
+    return new HttpApi(baseUrl, body.sessionToken, onUnauthorized);
   }
 
   get sessionToken() { return this.token; }
@@ -56,6 +92,7 @@ export class HttpApi implements SparkleApi {
     if (init.body) headers["Content-Type"] = "application/json";
     if (init.key) headers["Idempotency-Key"] = init.key;
     const response = await fetch(`${this.baseUrl}${path}`, { ...init, headers });
+    if (response.status === 401) this.onUnauthorized?.();
     if (!response.ok) {
       let message = response.statusText || `HTTP ${response.status}`;
       try { message = ((await response.json()) as { error?: string }).error ?? message; } catch { /* no JSON body */ }
@@ -113,14 +150,34 @@ export class HttpApi implements SparkleApi {
 
   plateTimeline(plate: string) { return this.request<PlateTimeline>(`/api/plates/${encodeURIComponent(plate)}/timeline`); }
 
-  async stations() {
-    const response = await fetch(`${this.baseUrl}/api/metrics`);
-    return response.ok ? ((await response.json()) as Station[]) : [];
+  // Per-carwash bay data (the public /api/metrics belongs to the default site only).
+  async stations() { return (await this.request<{ stations: Station[] }>("/api/bays")).stations; }
+  async alerts() { return (await this.request<{ alerts: StationAlert[] }>("/api/bays")).alerts; }
+
+  dismissArrival(id: string, reason: DismissReason) {
+    return this.request<ArrivalObservation>(`/api/arrivals/${id}/dismiss`, { method: "POST", body: JSON.stringify({ reason }) });
   }
 
-  async alerts() {
-    const response = await fetch(`${this.baseUrl}/api/metrics/alerts`);
-    return response.ok ? ((await response.json()) as StationAlert[]) : [];
+  tenant() { return this.request<Tenant>("/api/tenant"); }
+  updateTenant(input: TenantInput) { return this.request<Tenant>("/api/tenant", { method: "PUT", body: JSON.stringify(input) }); }
+  devices() { return this.request<Device[]>("/api/devices"); }
+  createDevice(input: DeviceInput) { return this.request<DeviceWithKey>("/api/devices", { method: "POST", body: JSON.stringify(input) }); }
+  rotateDevice(id: string) { return this.request<DeviceWithKey>(`/api/devices/${id}/rotate`, { method: "POST" }); }
+  setDeviceDisabled(id: string, disabled: boolean) {
+    return this.request<Device>(`/api/devices/${id}/status`, { method: "POST", body: JSON.stringify({ disabled }) });
+  }
+  team() { return this.request<Team>("/api/team"); }
+  async invite(email: string, role: Role) {
+    await this.request("/api/team/invitations", { method: "POST", body: JSON.stringify({ email, role }) });
+  }
+  async revokeInvitation(id: string) { await this.request(`/api/team/invitations/${id}`, { method: "DELETE" }); }
+  async setMemberRole(subject: string, role: Role) {
+    await this.request(`/api/team/members/${encodeURIComponent(subject)}/role`, { method: "POST", body: JSON.stringify({ role }) });
+  }
+  async removeMember(subject: string) { await this.request(`/api/team/members/${encodeURIComponent(subject)}`, { method: "DELETE" }); }
+  addEmployee(name: string) { return this.request<Employee>("/api/employees", { method: "POST", body: JSON.stringify({ name }) }); }
+  setEmployeeActive(id: string, active: boolean) {
+    return this.request<Employee>(`/api/employees/${id}/status`, { method: "POST", body: JSON.stringify({ active }) });
   }
 
   async signOut() {
@@ -135,6 +192,7 @@ export class HttpApi implements SparkleApi {
         const response = await fetch(`${this.baseUrl}/api/events`, {
           headers: { Authorization: `Bearer ${this.token}`, Accept: "text/event-stream" }, signal: controller.signal,
         });
+        if (response.status === 401) { this.onUnauthorized?.(); return; }
         if (!response.ok || !response.body) throw new ApiError(response.status, "event stream unavailable");
         onState?.("live");
         attempt = 0;

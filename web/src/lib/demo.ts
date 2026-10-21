@@ -5,12 +5,14 @@ import type { SparkleApi } from "./api";
 import { ApiError } from "./api";
 import { normalizePlate } from "./format";
 import type {
+  CameraRole, Device, DeviceInput, DeviceWithKey, DismissReason, Invitation, Member, Role, Team, Tenant, TenantInput,
   ArrivalObservation, Catalog, ChangeTopic, Employee, Job, JobStatus, JobSummary, PlateTimeline, Station, StationAlert,
 } from "./types";
 
 const catalog = catalogJson as Catalog;
 const CAMERAS = ["entrance-cam", "bay1-cam", "bay2-cam", "exit-cam"];
 const PLATE_POOL = ["P482913", "M771204", "C55821", "AB123CD", "P903377", "N1CO42", "P118450", "TX4410", "P660021", "SV2026"];
+const ROLE_OF: Record<string, CameraRole> = { "entrance-cam": "entry", "bay1-cam": "bay", "exit-cam": "exit" };
 const CAR_COLORS = ["#ef4444", "#f8fafc", "#3b82f6", "#111827", "#9ca3af", "#22c55e", "#f59e0b"];
 
 let counter = 0;
@@ -38,6 +40,15 @@ function misread(plate: string): string {
   return index < 0 ? plate : plate.slice(0, index) + swaps[plate[index]] + plate.slice(index + 1);
 }
 
+export interface DemoOptions {
+  /** Seed a busy morning (default). False starts an empty carwash, as right after registering. */
+  seed?: boolean;
+  tenant?: Partial<TenantInput>;
+}
+
+const randomToken = (length: number) =>
+  Array.from(crypto.getRandomValues(new Uint8Array(length)), (b) => "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 57]).join("");
+
 /**
  * In-browser simulation of the whole flow: cameras report plates, staff confirm, jobs move
  * through the board, and bay cameras keep sighting cars that already have a job.
@@ -48,6 +59,12 @@ export class DemoApi implements SparkleApi {
   private jobList: Job[] = [];
   private photos = new Map<string, string>();
   private listeners = new Set<(topic: ChangeTopic) => void>();
+  /** Started empty, as right after registering: no bay telemetry, and cars only arrive once an entrance camera is linked. */
+  private fresh = false;
+  private devicesList: Device[] = [];
+  private members: Member[] = [];
+  private invitations: Invitation[] = [];
+  private tenantData: Tenant;
   private staff: Employee[] = [
     { id: "e1", name: "Maria Garcia", active: true },
     { id: "e2", name: "Luis Hernandez", active: true },
@@ -55,8 +72,25 @@ export class DemoApi implements SparkleApi {
     { id: "e4", name: "Carlos Rivera", active: true },
   ];
 
-  constructor(seed = true) {
-    if (!seed) return;
+  constructor(options: boolean | DemoOptions = true) {
+    const { seed = true, tenant } = typeof options === "boolean" ? { seed: options, tenant: undefined } : options;
+    this.tenantData = {
+      // A registered (fresh) carwash keeps exactly what was typed; the sample carwash gets sample details.
+      id: "demo", name: tenant?.name ?? "SparkleWash Escalón", city: tenant ? tenant.city ?? null : "San Salvador",
+      country: tenant?.country ?? "SV", phone: tenant ? tenant.phone ?? null : "+503 2222-3333",
+      timeZone: tenant?.timeZone ?? "America/El_Salvador", createdAt: iso(86400 * 30),
+    };
+    this.members = [{ tenantId: "demo", subject: "demo", email: "tu@ejemplo.com", name: "Tú (demo)", role: "admin", addedAt: iso(86400 * 30) }];
+    if (!seed) { this.staff = []; this.fresh = true; return; }
+    this.members.push({ tenantId: "demo", subject: "demo-maria", email: "maria@ejemplo.com", name: "Maria Garcia", role: "operator", addedAt: iso(86400 * 20) });
+    this.invitations = [{ id: "inv-demo", email: "luis@ejemplo.com", role: "viewer", invitedAt: iso(3600 * 5) }];
+    const statuses = [-54, -63, -71];
+    this.devicesList = (["entrance-cam", "bay1-cam", "exit-cam"] as const).map((cameraId, i) => ({
+      id: `dev${i}`, name: ["Cámara de entrada", "Bahía 1", "Cámara de salida"][i], cameraId, role: ROLE_OF[cameraId],
+      keyHint: "…" + randomToken(4), createdAt: iso(86400 * (25 - i)), disabled: false, online: true, lastSeenAt: iso(12 + i * 7),
+      lastStatus: { rssi: statuses[i], uptimeMs: 3_600_000 * (30 - i * 7), freeHeap: 96_000 - i * 4000, firmware: "sparklewash-cam/1.1", fps: 2.4 - i * 0.2, ip: `192.168.1.${50 + i}` },
+      observations: [214, 187, 160][i], keyRotatedAt: null,
+    }));
     const opened = [
       { plate: "P118450", cls: "suv", pkg: "renew", status: "in_progress" as JobStatus, age: 1900, washMinutes: 0, staff: ["e1", "e3"] },
       { plate: "C55821", cls: "car", pkg: "essential", status: "queued" as JobStatus, age: 760, washMinutes: 0, staff: ["e2"] },
@@ -90,10 +124,12 @@ export class DemoApi implements SparkleApi {
       this.observe(camera, job.plate, 0.8 + Math.random() * 0.18);
       return;
     }
+    const waiting = this.arrivals.filter((a) => !a.jobId && !a.dismissedAt && a.cameraRole === "entry");
     const known = new Set([...this.jobList.filter((j) => j.status !== "completed" && j.status !== "cancelled").map((j) => j.plate),
-      ...this.arrivals.filter((a) => !a.confirmedAt && !a.jobId).map((a) => a.plateCandidate)]);
+      ...waiting.map((a) => a.plateCandidate)]);
     const fresh = PLATE_POOL.filter((p) => !known.has(p));
-    if (fresh.length === 0 || this.arrivals.filter((a) => !a.confirmedAt && !a.jobId).length >= 4) return;
+    if (fresh.length === 0 || waiting.length >= 4) return;
+    if ((this.fresh || this.devicesList.length > 0) && !this.devicesList.some((d) => d.role === "entry" && !d.disabled)) return;
     const plate = fresh[Math.floor(Math.random() * fresh.length)];
     const confidence = 0.45 + Math.random() * 0.5;
     this.observe("entrance-cam", confidence < 0.6 ? misread(plate) : plate, confidence);
@@ -107,8 +143,10 @@ export class DemoApi implements SparkleApi {
       id, deviceEventId: `${cameraId}-${normalized}-${Date.now()}`, cameraId, plateCandidate: normalized,
       confidence: Math.round(confidence * 100) / 100, capturedAt: iso(ageSeconds + 1), receivedAt: iso(ageSeconds),
       photoId: id, confirmedPlate: null, vehicleClass: null, confirmedBy: null, confirmedAt: null, jobId: open?.id ?? null,
-      cameraRole: cameraId === "exit-cam" ? "exit" : "entry",
+      cameraRole: ROLE_OF[cameraId] ?? "entry",
     };
+    const device = this.devicesList.find((d) => d.cameraId === cameraId && !d.disabled);
+    if (device) { device.lastSeenAt = iso(); device.online = true; device.observations += 1; }
     this.photos.set(id, demoPhoto(normalized ?? "?", CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)]));
     this.arrivals = [observation, ...this.arrivals].slice(0, 300);
     this.emit(open ? "jobs" : "arrivals");
@@ -166,9 +204,12 @@ export class DemoApi implements SparkleApi {
     return { ...job, elapsedSeconds: span(job.arrivalAt), activeSeconds: job.startedAt ? span(job.startedAt) : null };
   }
 
-  async session() { return { role: "operator" as const, subject: "demo", expiresAt: iso(-8 * 3600) }; }
+  async session() {
+    return { role: "admin" as const, subject: "demo", email: "tu@ejemplo.com", name: "Tú (demo)", expiresAt: iso(-8 * 3600), tenant: { ...this.tenantData } };
+  }
   async catalog() { return catalog; }
-  async pendingArrivals() { return this.arrivals.filter((a) => !a.confirmedAt && !a.jobId && a.cameraRole !== "exit"); }
+  // Same rule as the API: no job yet, not dismissed, and seen by an entrance camera.
+  async pendingArrivals() { return this.arrivals.filter((a) => !a.jobId && !a.dismissedAt && (a.cameraRole ?? "entry") === "entry"); }
   async recentSightings(limit = 30) { return this.arrivals.slice(0, limit); }
   async arrivalPhotoUrl(arrival: ArrivalObservation) { return this.photos.get(arrival.id) ?? null; }
 
@@ -178,6 +219,7 @@ export class DemoApi implements SparkleApi {
     const index = this.arrivals.findIndex((a) => a.id === id);
     if (index < 0) throw new ApiError(404, "Arrival not found");
     const prior = this.arrivals[index];
+    if (prior.dismissedAt) throw new ApiError(409, "Arrival was dismissed");
     if (prior.confirmedAt) {
       if (prior.confirmedPlate === normalized && prior.vehicleClass === vehicleClass) return prior;
       throw new ApiError(409, "Arrival was already confirmed differently");
@@ -192,6 +234,7 @@ export class DemoApi implements SparkleApi {
     const arrival = this.arrivals.find((a) => a.id === arrivalId);
     if (!arrival) throw new ApiError(404, "Arrival not found");
     if (!arrival.confirmedAt) throw new ApiError(409, "Arrival needs staff confirmation");
+    if (arrival.dismissedAt) throw new ApiError(409, "Arrival was dismissed");
     const existing = this.jobList.find((j) => j.arrivalId === arrivalId ||
       (j.plate === arrival.confirmedPlate && j.status !== "completed" && j.status !== "cancelled"));
     if (existing) throw new ApiError(409, "Arrival or plate already has an open job, or idempotency key was reused");
@@ -231,14 +274,129 @@ export class DemoApi implements SparkleApi {
   }
 
   async stations(): Promise<Station[]> {
+    if (this.fresh) return [];
     const wobble = () => (Math.random() - 0.5) * 4;
     return (stationsJson as Station[]).map((s) => ({
       ...s, pressurePsi: Math.round((s.pressurePsi + wobble()) * 10) / 10, timestamp: iso(),
     }));
   }
 
-  async alerts() { return alertsJson as StationAlert[]; }
+  async alerts() { return this.fresh ? [] : (alertsJson as StationAlert[]); }
   async signOut() {}
+
+  // ---------------- administration (mirrors the API's rules) ----------------
+  async dismissArrival(id: string, reason: DismissReason) {
+    const index = this.arrivals.findIndex((a) => a.id === id);
+    if (index < 0) throw new ApiError(404, "Arrival not found");
+    if (this.arrivals[index].jobId) throw new ApiError(409, "Arrival already has a job");
+    this.arrivals[index] = { ...this.arrivals[index], dismissedAt: iso(), dismissReason: reason };
+    this.emit("arrivals");
+    return this.arrivals[index];
+  }
+
+  async tenant() { return { ...this.tenantData }; }
+
+  async updateTenant(input: TenantInput) {
+    const name = input.name.trim();
+    if (name.length < 2 || name.length > 80 || !/^[A-Za-z]{2}$/.test(input.country)) throw new ApiError(400, "Invalid carwash details");
+    this.tenantData = { ...this.tenantData, ...input, name, country: input.country.toUpperCase(), city: input.city?.trim() || null, phone: input.phone?.trim() || null };
+    return { ...this.tenantData };
+  }
+
+  async devices() {
+    const now = Date.now();
+    return this.devicesList.map((d) => ({
+      ...d, online: !d.disabled && !!d.lastSeenAt && now - new Date(d.lastSeenAt).getTime() < 120_000,
+    }));
+  }
+
+  async createDevice(input: DeviceInput): Promise<DeviceWithKey> {
+    const name = input.name.trim();
+    const cameraId = input.cameraId.trim().toLowerCase();
+    if (name.length < 2 || name.length > 60 || !/^[a-z0-9_-]{1,64}$/.test(cameraId) || !["entry", "bay", "exit"].includes(input.role))
+      throw new ApiError(400, "Invalid device name, camera id or role");
+    if (this.devicesList.some((d) => d.cameraId === cameraId && !d.disabled)) throw new ApiError(409, "Another active device already uses this camera id");
+    const id = randomToken(16).toLowerCase();
+    const secret = randomToken(43);
+    const device: Device = {
+      id, name, cameraId, role: input.role, keyHint: "…" + secret.slice(-4), createdAt: iso(), disabled: false, online: false,
+      lastSeenAt: null, lastStatus: null, observations: 0, keyRotatedAt: null,
+    };
+    this.devicesList = [...this.devicesList, device];
+    // A simulated camera comes online a few seconds after it is linked.
+    window.setTimeout(() => {
+      device.lastSeenAt = iso();
+      device.lastStatus = { rssi: -60, uptimeMs: 4000, freeHeap: 98_000, firmware: "sparklewash-cam/1.1", fps: 2.2, ip: "192.168.1.77" };
+    }, 6000);
+    return { device: { ...device }, deviceKey: `swd.demo.${id}.${secret}` };
+  }
+
+  async rotateDevice(id: string): Promise<DeviceWithKey> {
+    const device = this.devicesList.find((d) => d.id === id);
+    if (!device) throw new ApiError(404, "Device not found");
+    const secret = randomToken(43);
+    device.keyHint = "…" + secret.slice(-4);
+    device.keyRotatedAt = iso();
+    return { device: { ...device }, deviceKey: `swd.demo.${id}.${secret}` };
+  }
+
+  async setDeviceDisabled(id: string, disabled: boolean) {
+    const device = this.devicesList.find((d) => d.id === id);
+    if (!device) throw new ApiError(404, "Device not found");
+    if (!disabled && this.devicesList.some((d) => d.id !== id && !d.disabled && d.cameraId === device.cameraId))
+      throw new ApiError(409, "Another active device already uses this camera id");
+    device.disabled = disabled;
+    if (disabled) device.online = false;
+    return { ...device };
+  }
+
+  async team(): Promise<Team> {
+    return { members: this.members.map((m) => ({ ...m })), invitations: this.invitations.map((i) => ({ ...i })), configured: [], you: "demo" };
+  }
+
+  async invite(email: string, role: Role) {
+    const normalized = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) || !["viewer", "operator", "admin"].includes(role)) throw new ApiError(400, "Invalid email or role");
+    if (this.invitations.some((i) => i.email === normalized) || this.members.some((m) => m.email?.toLowerCase() === normalized))
+      throw new ApiError(409, "Already invited or already on the team");
+    this.invitations = [{ id: randomToken(12), email: normalized, role, invitedAt: iso() }, ...this.invitations];
+  }
+
+  async revokeInvitation(id: string) {
+    if (!this.invitations.some((i) => i.id === id)) throw new ApiError(404, "Invitation not found");
+    this.invitations = this.invitations.filter((i) => i.id !== id);
+  }
+
+  async setMemberRole(subject: string, role: Role) {
+    const member = this.members.find((m) => m.subject === subject);
+    if (!member) throw new ApiError(404, "Member not found");
+    if (member.role === "admin" && role !== "admin" && this.members.filter((m) => m.role === "admin").length === 1)
+      throw new ApiError(409, "A carwash needs at least one admin");
+    member.role = role;
+  }
+
+  async removeMember(subject: string) {
+    if (subject === "demo") throw new ApiError(409, "You can't remove yourself");
+    const member = this.members.find((m) => m.subject === subject);
+    if (!member) throw new ApiError(404, "Member not found");
+    this.members = this.members.filter((m) => m !== member);
+  }
+
+  async addEmployee(name: string) {
+    const trimmed = name.trim();
+    if (trimmed.length < 2 || trimmed.length > 100) throw new ApiError(400, "Invalid employee name");
+    if (this.staff.some((e) => e.active && e.name.toLowerCase() === trimmed.toLowerCase())) throw new ApiError(409, "Active employee name already exists");
+    const employee = { id: randomToken(12), name: trimmed, active: true };
+    this.staff = [...this.staff, employee];
+    return employee;
+  }
+
+  async setEmployeeActive(id: string, active: boolean) {
+    const employee = this.staff.find((e) => e.id === id);
+    if (!employee) throw new ApiError(404, "Employee not found");
+    employee.active = active;
+    return { ...employee };
+  }
 
   subscribe(onChange: (topic: ChangeTopic) => void, onState?: (state: "live" | "reconnecting") => void) {
     this.listeners.add(onChange);
