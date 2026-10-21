@@ -10,16 +10,26 @@ public static class Program
     public static WebApplication BuildApp(string[] args, IGoogleIdentityVerifier? identityVerifier = null)
     {
         var builder = WebApplication.CreateBuilder(args);
-        var store = new StationStore(builder.Configuration["SPARKLEWASH_DATA_FILE"] ?? Path.Combine(builder.Environment.ContentRootPath, "data", "stations.json"));
-        var photoStore = new PhotoStore(builder.Configuration["SPARKLEWASH_PHOTO_DIR"] ?? Path.Combine(builder.Environment.ContentRootPath, "data", "photos"),
-            int.TryParse(builder.Configuration["SPARKLEWASH_PHOTO_MAX_COUNT"], out var photoCount) ? photoCount : 1000);
-        var n1coInbox = new N1coWebhookInbox(builder.Configuration["SPARKLEWASH_N1CO_WEBHOOK_FILE"] ?? Path.Combine(builder.Environment.ContentRootPath, "data", "n1co-webhooks.json"));
-        var arrivals = new ArrivalStore(builder.Configuration["SPARKLEWASH_ARRIVALS_FILE"] ?? Path.Combine(builder.Environment.ContentRootPath, "data", "arrivals.json"));
-        var jobs = new JobStore(builder.Configuration["SPARKLEWASH_JOBS_FILE"] ?? Path.Combine(builder.Environment.ContentRootPath, "data", "jobs.json"));
-        var operations = new OperationsStore(builder.Configuration["SPARKLEWASH_OPERATIONS_FILE"] ?? Path.Combine(builder.Environment.ContentRootPath, "data", "operations.json"));
-        var staffAuth = new StaffAuth(builder.Configuration, identityVerifier);
+        var dataRoot = Path.Combine(builder.Environment.ContentRootPath, "data");
+        var store = new StationStore(builder.Configuration["SPARKLEWASH_DATA_FILE"] ?? Path.Combine(dataRoot, "stations.json"));
+        var photoMaxCount = int.TryParse(builder.Configuration["SPARKLEWASH_PHOTO_MAX_COUNT"], out var photoCount) ? photoCount : 1000;
+        var photoStore = new PhotoStore(builder.Configuration["SPARKLEWASH_PHOTO_DIR"] ?? Path.Combine(dataRoot, "photos"), photoMaxCount);
+        var n1coInbox = new N1coWebhookInbox(builder.Configuration["SPARKLEWASH_N1CO_WEBHOOK_FILE"] ?? Path.Combine(dataRoot, "n1co-webhooks.json"));
+        // The pre-registration single-site deployment lives on as the "default" carwash, with its configured files.
+        var tenantsDirectory = builder.Configuration["SPARKLEWASH_TENANTS_DIR"] ?? Path.Combine(dataRoot, "tenants");
+        var defaultContext = new TenantContext(TenantDirectory.DefaultTenantId,
+            new ArrivalStore(builder.Configuration["SPARKLEWASH_ARRIVALS_FILE"] ?? Path.Combine(dataRoot, "arrivals.json")),
+            new JobStore(builder.Configuration["SPARKLEWASH_JOBS_FILE"] ?? Path.Combine(dataRoot, "jobs.json")),
+            new OperationsStore(builder.Configuration["SPARKLEWASH_OPERATIONS_FILE"] ?? Path.Combine(dataRoot, "operations.json")),
+            photoStore,
+            new DeviceStore(builder.Configuration["SPARKLEWASH_DEVICES_FILE"] ?? Path.Combine(dataRoot, "devices.json")));
+        var directory = new TenantDirectory(Path.Combine(tenantsDirectory, "directory.json"),
+            new Tenant(TenantDirectory.DefaultTenantId, builder.Configuration["SPARKLEWASH_SITE_NAME"] ?? "SparkleWash", null, "SV", null,
+                builder.Configuration["SPARKLEWASH_TIMEZONE"] ?? "America/El_Salvador", DateTimeOffset.UnixEpoch, null),
+            int.TryParse(builder.Configuration["SPARKLEWASH_MAX_TENANTS"], out var maxTenants) ? maxTenants : 500);
+        var tenants = new TenantRegistry(tenantsDirectory, defaultContext, photoMaxCount);
+        var staffAuth = new StaffAuth(builder.Configuration, directory, identityVerifier);
         var hub = new StationHub();
-        var changes = new ChangeFeed();
         builder.Services.AddSingleton(store);
         builder.Services.AddSingleton(hub);
         builder.Services.AddSingleton<MqttBridge>();
@@ -29,7 +39,7 @@ public static class Program
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (corsOrigins.Length > 0)
             builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(corsOrigins)
-                .WithHeaders("Authorization", "Content-Type", "Idempotency-Key").WithMethods("GET", "POST", "DELETE")));
+                .WithHeaders("Authorization", "Content-Type", "Idempotency-Key", "X-SparkleWash-Device-Key").WithMethods("GET", "POST", "PUT", "DELETE")));
         var app = builder.Build();
         if (corsOrigins.Length > 0) app.UseCors();
         app.UseWebSockets();
@@ -53,7 +63,10 @@ public static class Program
         });
         app.MapPost("/api/arrivals/observations", async (HttpContext context) =>
         {
-            if (!Authorized(context, ingestionKey)) return Results.Unauthorized();
+            // Linked devices send their own key; the shared ingest key still works for the default carwash.
+            var device = await DeviceContext(context);
+            if (device is null && !Authorized(context, ingestionKey)) return Results.Unauthorized();
+            var t = device?.Tenant ?? tenants.For(TenantDirectory.DefaultTenantId);
             if (context.Request.ContentLength > 400000) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
             using var body = new MemoryStream();
             var chunk = new byte[8192];
@@ -67,6 +80,9 @@ public static class Program
             try { input = JsonSerializer.Deserialize<ArrivalInput>(body.ToArray(), new JsonSerializerOptions(JsonSerializerDefaults.Web)); }
             catch (JsonException) { return Results.BadRequest(new { error = "Invalid observation JSON" }); }
             if (!ArrivalStore.ValidInput(input)) return Results.BadRequest(new { error = "Invalid arrival observation" });
+            // A device key is bound to one camera: it can't post sightings as a different camera.
+            if (device is not null && input!.CameraId != device.Value.Device.CameraId)
+                return Results.Json(new { error = "This device key belongs to another camera" }, statusCode: StatusCodes.Status403Forbidden);
             byte[]? photo = null;
             if (input!.PhotoBase64 is not null)
             {
@@ -75,15 +91,20 @@ public static class Program
                 if (photo.Length > 262144) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
                 if (!PhotoStore.IsJpeg(photo)) return Results.BadRequest(new { error = "Invalid JPEG photo" });
             }
-            var role = exitCameras.Contains(input.CameraId!) ? "exit" : "entry";
-            var result = await arrivals.AddAsync(input, photo, photoStore, role);
+            var role = device?.Device.Role ?? await t.Devices.RoleForCameraAsync(input.CameraId!) ??
+                (exitCameras.Contains(input.CameraId!) ? "exit" : "entry");
+            var result = await t.Arrivals.AddAsync(input, photo, t.Photos, role);
             if (result.Status == ArrivalAddStatus.Conflict) return Results.Conflict(new { error = "Device event ID reused with different evidence" });
+            if (device is not null) await t.Devices.TouchAsync(device.Value.Device.Id, null, result.Status == ArrivalAddStatus.Created);
             var observation = result.Observation;
             JobView? tracked = null;
+            // Bay and exit cameras only ever confirm where a known car is; they never open a review item.
             if (result.Status == ArrivalAddStatus.Created && observation.PlateCandidate is not null &&
-                (tracked = await jobs.FindOpenByPlateAsync(observation.PlateCandidate, role == "exit" ? TimeSpan.FromHours(2) : null)) is not null)
-                observation = await arrivals.LinkJobAsync(observation.Id, tracked.Id) ?? observation;
-            if (result.Status == ArrivalAddStatus.Created) changes.Publish(tracked is null ? "arrivals" : "jobs");
+                (tracked = await t.Jobs.FindOpenByPlateAsync(observation.PlateCandidate, role == "exit" ? TimeSpan.FromHours(2) : null)) is not null)
+                observation = await t.Arrivals.LinkJobAsync(observation.Id, tracked.Id) ?? observation;
+            if (result.Status == ArrivalAddStatus.Created && tracked is null && role == "bay")
+                observation = await t.Arrivals.DismissAsync(observation.Id, "bay-camera") ?? observation;
+            if (result.Status == ArrivalAddStatus.Created) t.Changes.Publish(tracked is null ? "arrivals" : "jobs");
             return Results.Json(new
             {
                 observation, duplicate = result.Status == ArrivalAddStatus.Duplicate, trackedJobId = observation.JobId,
@@ -94,21 +115,26 @@ public static class Program
         });
         app.MapGet("/api/arrivals", async (HttpContext context, int? limit, bool? pending) =>
         {
-            if (staffAuth.Authenticate(context.Request.Headers.Authorization) is null) return Results.Unauthorized();
+            var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
+            if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
             if (limit is < 1 or > 100) return Results.BadRequest(new { error = "limit must be 1 through 100" });
-            var list = await arrivals.ListAsync();
-            return Results.Json((pending == true ? list.Where(x => x.ConfirmedAt is null && x.JobId is null && x.CameraRole != "exit") : list).Take(limit ?? 50));
+            var list = await t.Arrivals.ListAsync();
+            // Pending = no job yet. That includes arrivals confirmed whose job failed to open, so they
+            // can't silently drop out of the queue; staff dismiss false reads explicitly.
+            return Results.Json((pending == true ? list.Where(ArrivalStore.IsPending) : list).Take(limit ?? 50));
         });
         app.MapPost("/api/arrivals/{id}/confirm", async (HttpContext context, string id, ConfirmArrivalInput input) =>
         {
             var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
             if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
             if (session.Role is not ("operator" or "admin")) return Results.StatusCode(StatusCodes.Status403Forbidden);
             var plate = ArrivalStore.NormalizePlate(input.Plate);
             if (plate is null || PackageCatalog.Current.VehicleClasses.All(item => item.Id != input.VehicleClass))
                 return Results.BadRequest(new { error = "Invalid plate or vehicle class" });
-            var result = await arrivals.ConfirmAsync(id, plate, input.VehicleClass!, session.Subject);
-            if (result.Status == ArrivalConfirmStatus.Confirmed) changes.Publish("arrivals");
+            var result = await t.Arrivals.ConfirmAsync(id, plate, input.VehicleClass!, session.Subject);
+            if (result.Status == ArrivalConfirmStatus.Confirmed) t.Changes.Publish("arrivals");
             return result.Status switch
             {
                 ArrivalConfirmStatus.NotFound => Results.NotFound(),
@@ -116,33 +142,53 @@ public static class Program
                 _ => Results.Json(result.Observation)
             };
         });
+        app.MapPost("/api/arrivals/{id}/dismiss", async (HttpContext context, string id, DismissArrivalInput? input) =>
+        {
+            var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
+            if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
+            if (session.Role is not ("operator" or "admin")) return Results.StatusCode(StatusCodes.Status403Forbidden);
+            var reason = input?.Reason ?? "other";
+            if (!ArrivalStore.DismissReasons.Contains(reason)) return Results.BadRequest(new { error = "Invalid dismiss reason" });
+            var arrival = (await t.Arrivals.ListAsync()).FirstOrDefault(x => x.Id == id);
+            if (arrival is null) return Results.NotFound();
+            if (arrival.JobId is not null) return Results.Conflict(new { error = "Arrival already has a job" });
+            var dismissed = await t.Arrivals.DismissAsync(id, reason, session.Subject);
+            t.Changes.Publish("arrivals");
+            return Results.Json(dismissed);
+        });
         app.MapGet("/api/arrivals/{id}/photo", async (HttpContext context, string id) =>
         {
-            if (staffAuth.Authenticate(context.Request.Headers.Authorization) is null) return Results.Unauthorized();
-            var observation = (await arrivals.ListAsync()).FirstOrDefault(item => item.Id == id);
+            var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
+            if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
+            var observation = (await t.Arrivals.ListAsync()).FirstOrDefault(item => item.Id == id);
             if (observation?.PhotoId is null) return Results.NotFound();
-            var bytes = await photoStore.GetAsync(observation.PhotoId);
+            var bytes = await t.Photos.GetAsync(observation.PhotoId);
             return bytes is null ? Results.NotFound() : Results.File(bytes, "image/jpeg");
         });
         app.MapGet("/api/jobs", async (HttpContext context, string? status, string? plate) =>
         {
-            if (staffAuth.Authenticate(context.Request.Headers.Authorization) is null) return Results.Unauthorized();
+            var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
+            if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
             if (status is not null && status is not ("arrived" or "queued" or "in_progress" or "completed" or "cancelled"))
                 return Results.BadRequest(new { error = "Invalid job status" });
             var normalizedPlate = plate is null ? null : ArrivalStore.NormalizePlate(plate);
             if (plate is not null && normalizedPlate is null) return Results.BadRequest(new { error = "Invalid plate" });
-            var result = await jobs.ListAsync();
+            var result = await t.Jobs.ListAsync();
             return Results.Json(result.Where(x => (status is null || x.Status == status) && (normalizedPlate is null || x.Plate == normalizedPlate)));
         });
         // Server-Sent Events. Consoles read it with fetch() so the bearer token stays in the Authorization header.
         app.MapGet("/api/events", async (HttpContext context) =>
         {
-            if (staffAuth.Authenticate(context.Request.Headers.Authorization) is null)
+            if (StaffContext(context) is not { } staff)
             {
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 return;
             }
-            var subscription = changes.Subscribe();
+            var t = staff.Tenant;
+            var subscription = t.Changes.Subscribe();
             if (subscription is null)
             {
                 context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
@@ -176,15 +222,17 @@ public static class Program
                 }
             }
             catch (OperationCanceledException) { }
-            finally { changes.Unsubscribe(subscription.Value.Id); }
+            finally { t.Changes.Unsubscribe(subscription.Value.Id); }
         });
         app.MapGet("/api/plates/{plate}/timeline", async (HttpContext context, string plate) =>
         {
-            if (staffAuth.Authenticate(context.Request.Headers.Authorization) is null) return Results.Unauthorized();
+            var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
+            if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
             var normalized = ArrivalStore.NormalizePlate(plate);
             if (normalized is null) return Results.BadRequest(new { error = "Invalid plate" });
-            var plateJobs = (await jobs.ListAsync()).Where(x => x.Plate == normalized).ToArray();
-            var sightings = (await arrivals.ListAsync())
+            var plateJobs = (await t.Jobs.ListAsync()).Where(x => x.Plate == normalized).ToArray();
+            var sightings = (await t.Arrivals.ListAsync())
                 .Where(x => x.PlateCandidate == normalized || x.ConfirmedPlate == normalized).Take(200).ToArray();
             var latestJob = plateJobs.FirstOrDefault();
             return Results.Json(new
@@ -201,31 +249,37 @@ public static class Program
         });
         app.MapGet("/api/jobs/summary", async (HttpContext context) =>
         {
-            if (staffAuth.Authenticate(context.Request.Headers.Authorization) is null) return Results.Unauthorized();
-            return Results.Json(await jobs.SummaryAsync());
+            var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
+            if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
+            return Results.Json(await t.Jobs.SummaryAsync(TenantDirectory.Zone(await directory.GetAsync(session.TenantId))));
         });
         app.MapGet("/api/jobs/{id}", async (HttpContext context, string id) =>
         {
-            if (staffAuth.Authenticate(context.Request.Headers.Authorization) is null) return Results.Unauthorized();
-            var job = await jobs.GetAsync(id);
+            var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
+            if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
+            var job = await t.Jobs.GetAsync(id);
             return job is null ? Results.NotFound() : Results.Json(job);
         });
         app.MapPost("/api/jobs", async (HttpContext context, OpenJobInput input) =>
         {
             var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
             if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
             if (session.Role is not ("operator" or "admin")) return Results.StatusCode(StatusCodes.Status403Forbidden);
             if (!ValidIdempotencyKey(context.Request.Headers["Idempotency-Key"].ToString()))
                 return Results.BadRequest(new { error = "Idempotency-Key is required" });
-            var arrival = (await arrivals.ListAsync()).FirstOrDefault(x => x.Id == input.ArrivalId);
+            var arrival = (await t.Arrivals.ListAsync()).FirstOrDefault(x => x.Id == input.ArrivalId);
             if (arrival is null) return Results.NotFound();
             if (arrival.ConfirmedAt is null) return Results.Conflict(new { error = "Arrival needs staff confirmation" });
+            if (arrival.DismissedAt is not null) return Results.Conflict(new { error = "Arrival was dismissed" });
             var service = PackageCatalog.Current.Packages.FirstOrDefault(x => x.Id == input.PackageId);
             if (service is null) return Results.BadRequest(new { error = "Unknown detailing package" });
-            var result = await jobs.CreateAsync(arrival, service, context.Request.Headers["Idempotency-Key"].ToString(), session.Subject);
+            var result = await t.Jobs.CreateAsync(arrival, service, context.Request.Headers["Idempotency-Key"].ToString(), session.Subject);
             if (result.Status is JobActionStatus.Created or JobActionStatus.Duplicate && result.Job is not null)
-                await arrivals.LinkJobAsync(arrival.Id, result.Job.Id);
-            if (result.Status == JobActionStatus.Created) { changes.Publish("jobs"); changes.Publish("arrivals"); }
+                await t.Arrivals.LinkJobAsync(arrival.Id, result.Job.Id);
+            if (result.Status == JobActionStatus.Created) { t.Changes.Publish("jobs"); t.Changes.Publish("arrivals"); }
             return result.Status switch
             {
                 JobActionStatus.Conflict => Results.Conflict(new { error = "Arrival or plate already has an open job, or idempotency key was reused" }),
@@ -237,14 +291,15 @@ public static class Program
         {
             var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
             if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
             if (session.Role is not ("operator" or "admin")) return Results.StatusCode(StatusCodes.Status403Forbidden);
             var key = context.Request.Headers["Idempotency-Key"].ToString();
             if (!ValidIdempotencyKey(key) || input.Status is not ("queued" or "in_progress" or "completed" or "cancelled"))
                 return Results.BadRequest(new { error = "Valid status and Idempotency-Key are required" });
-            var result = await jobs.TransitionAsync(id, input.Status, key, session.Subject);
-            if (result.Status == JobActionStatus.Created) changes.Publish("jobs");
+            var result = await t.Jobs.TransitionAsync(id, input.Status, key, session.Subject);
+            if (result.Status == JobActionStatus.Created) t.Changes.Publish("jobs");
             if (result.Status is JobActionStatus.Created or JobActionStatus.Duplicate && input.Status is "cancelled" or "completed")
-                await operations.ReleaseJobAsync(id);
+                await t.Operations.ReleaseJobAsync(id);
             return result.Status switch
             {
                 JobActionStatus.NotFound => Results.NotFound(),
@@ -257,13 +312,14 @@ public static class Program
         {
             var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
             if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
             if (session.Role is not ("operator" or "admin")) return Results.StatusCode(StatusCodes.Status403Forbidden);
             var key = context.Request.Headers["Idempotency-Key"].ToString();
             if (!ValidIdempotencyKey(key)) return Results.BadRequest(new { error = "Idempotency-Key is required" });
-            var employee = (await operations.EmployeesAsync()).FirstOrDefault(x => x.Id == input.EmployeeId && x.Active);
+            var employee = (await t.Operations.EmployeesAsync()).FirstOrDefault(x => x.Id == input.EmployeeId && x.Active);
             if (employee is null) return Results.BadRequest(new { error = "Employee is unknown or inactive" });
-            var result = await jobs.AssignAsync(id, employee, key);
-            if (result.Status == JobActionStatus.Created) changes.Publish("jobs");
+            var result = await t.Jobs.AssignAsync(id, employee, key);
+            if (result.Status == JobActionStatus.Created) t.Changes.Publish("jobs");
             return result.Status switch
             {
                 JobActionStatus.NotFound => Results.NotFound(),
@@ -272,16 +328,17 @@ public static class Program
             };
         });
         app.MapGet("/api/employees", async (HttpContext context) =>
-            staffAuth.Authenticate(context.Request.Headers.Authorization) is null ? Results.Unauthorized() : Results.Json(await operations.EmployeesAsync()));
+            StaffContext(context) is { } staff ? Results.Json(await staff.Tenant.Operations.EmployeesAsync()) : Results.Unauthorized());
         app.MapPost("/api/employees", async (HttpContext context, EmployeeInput input) =>
         {
             var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
             if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
             if (session.Role != "admin") return Results.StatusCode(StatusCodes.Status403Forbidden);
             var name = input.Name?.Trim();
             if (name is null || name.Length is < 2 or > 100 || name.Any(char.IsControl))
                 return Results.BadRequest(new { error = "Invalid employee name" });
-            var employee = await operations.AddEmployeeAsync(name);
+            var employee = await t.Operations.AddEmployeeAsync(name);
             return employee is null ? Results.Conflict(new { error = "Active employee name already exists" }) :
                 Results.Json(employee, statusCode: StatusCodes.Status201Created);
         });
@@ -289,34 +346,37 @@ public static class Program
         {
             var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
             if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
             if (session.Role != "admin") return Results.StatusCode(StatusCodes.Status403Forbidden);
-            var employee = await operations.SetEmployeeActiveAsync(id, input.Active);
+            var employee = await t.Operations.SetEmployeeActiveAsync(id, input.Active);
             return employee is null ? Results.NotFound() : Results.Json(employee);
         });
         app.MapGet("/api/inventory/items", async (HttpContext context) =>
-            staffAuth.Authenticate(context.Request.Headers.Authorization) is null ? Results.Unauthorized() : Results.Json(await operations.ItemsAsync()));
+            StaffContext(context) is { } staff ? Results.Json(await staff.Tenant.Operations.ItemsAsync()) : Results.Unauthorized());
         app.MapPost("/api/inventory/items", async (HttpContext context, InventoryItemInput input) =>
         {
             var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
             if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
             if (session.Role != "admin") return Results.StatusCode(StatusCodes.Status403Forbidden);
             if (input.Sku is null || input.Sku.Length is < 2 or > 64 ||
                 !input.Sku.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_') ||
                 string.IsNullOrWhiteSpace(input.Name) || input.Name.Length > 100 || input.Name.Any(char.IsControl) ||
                 input.Unit is not ("ml" or "l" or "g" or "kg" or "each") || input.ReorderPoint is < 0 or > 1000000)
                 return Results.BadRequest(new { error = "Invalid inventory item" });
-            var item = await operations.AddItemAsync(input);
+            var item = await t.Operations.AddItemAsync(input);
             return item is null ? Results.Conflict(new { error = "SKU already exists" }) :
                 Results.Json(item, statusCode: StatusCodes.Status201Created);
         });
         app.MapGet("/api/inventory/items/{id}/movements", async (HttpContext context, string id) =>
-            staffAuth.Authenticate(context.Request.Headers.Authorization) is null ? Results.Unauthorized() : Results.Json(await operations.MovementsAsync(itemId: id)));
+            StaffContext(context) is { } staff ? Results.Json(await staff.Tenant.Operations.MovementsAsync(itemId: id)) : Results.Unauthorized());
         app.MapGet("/api/jobs/{id}/materials", async (HttpContext context, string id) =>
-            staffAuth.Authenticate(context.Request.Headers.Authorization) is null ? Results.Unauthorized() : Results.Json(await operations.MovementsAsync(jobId: id)));
+            StaffContext(context) is { } staff ? Results.Json(await staff.Tenant.Operations.MovementsAsync(jobId: id)) : Results.Unauthorized());
         app.MapPost("/api/inventory/items/{id}/movements", async (HttpContext context, string id, StockMovementInput input) =>
         {
             var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
             if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
             if (session.Role is not ("operator" or "admin")) return Results.StatusCode(StatusCodes.Status403Forbidden);
             if (input.Type is ("receipt" or "adjustment") && session.Role != "admin")
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
@@ -326,7 +386,7 @@ public static class Program
                 input.Type is not "adjustment" && input.Quantity < 0 ||
                 string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Length > 200)
                 return Results.BadRequest(new { error = "Invalid stock movement" });
-            var replay = await operations.MovementByKeyAsync(key);
+            var replay = await t.Operations.MovementByKeyAsync(key);
             if (replay is not null)
             {
                 var delta = input.Type == "adjustment" ? input.Quantity : input.Type == "receipt" ? input.Quantity : -input.Quantity;
@@ -336,14 +396,14 @@ public static class Program
             }
             if (input.Type == "consume")
             {
-                var job = input.JobId is null ? null : await jobs.GetAsync(input.JobId);
+                var job = input.JobId is null ? null : await t.Jobs.GetAsync(input.JobId);
                 if (job?.Status != "in_progress" || input.EmployeeId is null ||
                     !job.Assignments.Any(x => x.EmployeeId == input.EmployeeId))
                     return Results.Conflict(new { error = "Consumption requires an in-progress job and assigned employee" });
             }
             else if (input.JobId is not null || input.EmployeeId is not null)
                 return Results.BadRequest(new { error = "Only job consumption may include job and employee IDs" });
-            var result = await operations.MoveAsync(id, input, key, session.Subject);
+            var result = await t.Operations.MoveAsync(id, input, key, session.Subject);
             return result.Status switch
             {
                 StockActionStatus.NotFound => Results.NotFound(),
@@ -357,18 +417,19 @@ public static class Program
         {
             var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
             if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
             if (session.Role is not ("operator" or "admin")) return Results.StatusCode(StatusCodes.Status403Forbidden);
             var key = context.Request.Headers["Idempotency-Key"].ToString();
             if (!ValidIdempotencyKey(key) || input.Quantity is <= 0 or > 1000000 || input.JobId is null)
                 return Results.BadRequest(new { error = "Invalid stock reservation" });
-            var replay = await operations.ReservationByKeyAsync(key);
+            var replay = await t.Operations.ReservationByKeyAsync(key);
             if (replay is not null)
                 return replay.ItemId == id && replay.JobId == input.JobId && replay.Quantity == input.Quantity
                     ? Results.Json(replay) : Results.Conflict(new { error = "Idempotency key reused with different reservation" });
-            var job = await jobs.GetAsync(input.JobId);
+            var job = await t.Jobs.GetAsync(input.JobId);
             if (job?.Status is not ("arrived" or "queued" or "in_progress"))
                 return Results.Conflict(new { error = "Reservation requires an open job" });
-            var result = await operations.ReserveAsync(id, input.JobId, input.Quantity, key, session.Subject);
+            var result = await t.Operations.ReserveAsync(id, input.JobId, input.Quantity, key, session.Subject);
             return result.Status switch
             {
                 StockActionStatus.NotFound => Results.NotFound(),
@@ -386,10 +447,11 @@ public static class Program
             {
                 sessionToken = login.Value.Token,
                 role = login.Value.Session.Role,
-                expiresAt = login.Value.Session.ExpiresAt
+                expiresAt = login.Value.Session.ExpiresAt,
+                tenant = await directory.GetAsync(login.Value.Session.TenantId)
             });
         });
-        app.MapGet("/api/auth/session", (HttpContext context) =>
+        app.MapGet("/api/auth/session", async (HttpContext context) =>
         {
             var session = staffAuth.Authenticate(context.Request.Headers.Authorization);
             return session is null
@@ -398,7 +460,10 @@ public static class Program
                 {
                     subject = session.Subject,
                     role = session.Role,
-                    expiresAt = session.ExpiresAt
+                    expiresAt = session.ExpiresAt,
+                    email = session.Email,
+                    name = session.Name,
+                    tenant = await directory.GetAsync(session.TenantId)
                 });
         });
         app.MapDelete("/api/auth/session", (HttpContext context) =>
@@ -406,6 +471,142 @@ public static class Program
             var authorization = context.Request.Headers.Authorization;
             var signedOut = authorization.Count > 0 && staffAuth.SignOut(authorization.ToString());
             return signedOut ? Results.Json(new { ok = true }) : Results.Unauthorized();
+        });
+
+        // ---------- registration: a new carwash signs up with its owner's Google account ----------
+        app.MapGet("/api/tenants/registration", () => Results.Json(new { open = staffAuth.RegistrationOpen }));
+        app.MapPost("/api/tenants/register", async (RegisterTenantInput input) =>
+        {
+            if (!staffAuth.IsConfigured) return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+            var result = await staffAuth.RegisterAsync(input.IdToken,
+                new TenantInput(input.Name, input.City, input.Country, input.Phone, input.TimeZone));
+            return result.Status switch
+            {
+                RegistrationStatus.Closed => Results.Json(new { error = "Registration is closed" }, statusCode: StatusCodes.Status403Forbidden),
+                RegistrationStatus.Invalid => Results.BadRequest(new { error = "Invalid carwash details or Google sign-in" }),
+                RegistrationStatus.AlreadyMember => Results.Conflict(new { error = "This Google account already belongs to a carwash" }),
+                RegistrationStatus.Limit => Results.StatusCode(StatusCodes.Status503ServiceUnavailable),
+                _ => Results.Json(new
+                {
+                    sessionToken = result.Token, role = result.Session!.Role, expiresAt = result.Session.ExpiresAt, tenant = result.Tenant
+                }, statusCode: StatusCodes.Status201Created)
+            };
+        });
+
+        // ---------- admin: carwash profile ----------
+        app.MapGet("/api/tenant", async (HttpContext context) =>
+            StaffContext(context) is { } staff ? Results.Json(await directory.GetAsync(staff.Session.TenantId)) : Results.Unauthorized());
+        app.MapPut("/api/tenant", async (HttpContext context, TenantInput input) =>
+        {
+            if (StaffContext(context) is not { } staff) return Results.Unauthorized();
+            if (staff.Session.Role != "admin") return Results.StatusCode(StatusCodes.Status403Forbidden);
+            var normalized = TenantDirectory.Normalize(input);
+            if (normalized is null) return Results.BadRequest(new { error = "Invalid carwash details" });
+            return Results.Json(await directory.UpdateAsync(staff.Session.TenantId, normalized));
+        });
+
+        // ---------- admin: team (Google accounts with access) and invitations ----------
+        app.MapGet("/api/team", async (HttpContext context) =>
+        {
+            if (StaffContext(context) is not { } staff) return Results.Unauthorized();
+            if (staff.Session.Role != "admin") return Results.StatusCode(StatusCodes.Status403Forbidden);
+            var (members, invitations) = await directory.TeamAsync(staff.Session.TenantId);
+            var configured = staff.Session.TenantId == TenantDirectory.DefaultTenantId
+                ? staffAuth.ConfiguredRoles.Select(pair => new { subject = pair.Key, role = pair.Value }).ToArray() : [];
+            return Results.Json(new { members, invitations, configured, you = staff.Session.Subject });
+        });
+        app.MapPost("/api/team/invitations", async (HttpContext context, InvitationInput input) =>
+        {
+            if (StaffContext(context) is not { } staff) return Results.Unauthorized();
+            if (staff.Session.Role != "admin") return Results.StatusCode(StatusCodes.Status403Forbidden);
+            var email = TenantDirectory.NormalizeEmail(input.Email);
+            if (email is null || input.Role is null || !TenantDirectory.Roles.Contains(input.Role))
+                return Results.BadRequest(new { error = "Invalid email or role" });
+            var invitation = await directory.InviteAsync(staff.Session.TenantId, email, input.Role, staff.Session.Subject);
+            return invitation is null ? Results.Conflict(new { error = "Already invited or already on the team" })
+                : Results.Json(invitation, statusCode: StatusCodes.Status201Created);
+        });
+        app.MapDelete("/api/team/invitations/{id}", async (HttpContext context, string id) =>
+        {
+            if (StaffContext(context) is not { } staff) return Results.Unauthorized();
+            if (staff.Session.Role != "admin") return Results.StatusCode(StatusCodes.Status403Forbidden);
+            return await directory.RevokeInvitationAsync(staff.Session.TenantId, id) ? Results.Json(new { ok = true }) : Results.NotFound();
+        });
+        app.MapPost("/api/team/members/{subject}/role", async (HttpContext context, string subject, RoleInput input) =>
+        {
+            if (StaffContext(context) is not { } staff) return Results.Unauthorized();
+            if (staff.Session.Role != "admin") return Results.StatusCode(StatusCodes.Status403Forbidden);
+            if (input.Role is null || !TenantDirectory.Roles.Contains(input.Role)) return Results.BadRequest(new { error = "Invalid role" });
+            var status = await directory.SetRoleAsync(staff.Session.TenantId, subject, input.Role);
+            if (status == TeamChangeStatus.Done) staffAuth.Revoke(staff.Session.TenantId, subject);
+            return TeamResult(status);
+        });
+        app.MapDelete("/api/team/members/{subject}", async (HttpContext context, string subject) =>
+        {
+            if (StaffContext(context) is not { } staff) return Results.Unauthorized();
+            if (staff.Session.Role != "admin") return Results.StatusCode(StatusCodes.Status403Forbidden);
+            if (subject == staff.Session.Subject) return Results.Conflict(new { error = "You can't remove yourself" });
+            var status = await directory.RemoveAsync(staff.Session.TenantId, subject);
+            if (status == TeamChangeStatus.Done) staffAuth.Revoke(staff.Session.TenantId, subject);
+            return TeamResult(status);
+        });
+
+        // ---------- admin: linked ESP32-CAM devices ----------
+        app.MapGet("/api/devices", async (HttpContext context) =>
+        {
+            if (StaffContext(context) is not { } staff) return Results.Unauthorized();
+            return Results.Json(await staff.Tenant.Devices.ListAsync());
+        });
+        app.MapPost("/api/devices", async (HttpContext context, DeviceInput input) =>
+        {
+            if (StaffContext(context) is not { } staff) return Results.Unauthorized();
+            if (staff.Session.Role != "admin") return Results.StatusCode(StatusCodes.Status403Forbidden);
+            var normalized = DeviceStore.Normalize(input);
+            if (normalized is null) return Results.BadRequest(new { error = "Invalid device name, camera id or role" });
+            var (status, device, key) = await staff.Tenant.Devices.CreateAsync(staff.Session.TenantId, normalized, staff.Session.Subject);
+            return status switch
+            {
+                DeviceCreateStatus.Conflict => Results.Conflict(new { error = "Another active device already uses this camera id" }),
+                DeviceCreateStatus.Limit => Results.Conflict(new { error = "Device limit reached" }),
+                // The key is returned exactly once; only its hash is stored.
+                _ => Results.Json(new { device, deviceKey = key }, statusCode: StatusCodes.Status201Created)
+            };
+        });
+        app.MapPost("/api/devices/{id}/rotate", async (HttpContext context, string id) =>
+        {
+            if (StaffContext(context) is not { } staff) return Results.Unauthorized();
+            if (staff.Session.Role != "admin") return Results.StatusCode(StatusCodes.Status403Forbidden);
+            var rotated = await staff.Tenant.Devices.RotateAsync(staff.Session.TenantId, id);
+            return rotated is null ? Results.NotFound() : Results.Json(new { device = rotated.Value.Device, deviceKey = rotated.Value.Key });
+        });
+        app.MapPost("/api/devices/{id}/status", async (HttpContext context, string id, DeviceStatusInput input) =>
+        {
+            if (StaffContext(context) is not { } staff) return Results.Unauthorized();
+            if (staff.Session.Role != "admin") return Results.StatusCode(StatusCodes.Status403Forbidden);
+            var (device, conflict) = await staff.Tenant.Devices.SetDisabledAsync(id, input.Disabled);
+            if (device is null) return Results.NotFound();
+            return conflict ? Results.Conflict(new { error = "Another active device already uses this camera id" }) : Results.Json(device);
+        });
+        // Gateways call this every ~30 s with the camera's /status, so the admin view can show online/offline.
+        app.MapPost("/api/devices/heartbeat", async (HttpContext context, DeviceHeartbeatInput? input) =>
+        {
+            if (await DeviceContext(context) is not { } device) return Results.Unauthorized();
+            var status = input is null ? null : new DeviceStatus(input.Rssi is >= -127 and <= 0 ? input.Rssi : null,
+                input.UptimeMs is >= 0 ? input.UptimeMs : null, input.FreeHeap is >= 0 ? input.FreeHeap : null,
+                input.Firmware is { Length: <= 40 } firmware && !firmware.Any(char.IsControl) ? firmware : null,
+                input.Fps is >= 0 and <= 120 ? input.Fps : null,
+                input.Ip is { Length: <= 45 } ip && System.Net.IPAddress.TryParse(ip, out _) ? ip : null);
+            var view = await device.Tenant.Devices.TouchAsync(device.Device.Id, status, observation: false);
+            return Results.Json(new { device = view, tenant = (await directory.GetAsync(device.Tenant.Id))?.Name });
+        });
+
+        // ---------- bays (wash-bay controllers) for the signed-in carwash ----------
+        app.MapGet("/api/bays", async (HttpContext context) =>
+        {
+            if (StaffContext(context) is not { } staff) return Results.Unauthorized();
+            // Bay controllers report through the shared ingest key/MQTT, which belong to the default carwash.
+            var stations = staff.Session.TenantId == TenantDirectory.DefaultTenantId ? await store.GetStationsAsync() : [];
+            return Results.Json(new { stations, alerts = StationStore.DeriveAlerts(stations) });
         });
         app.MapPost("/api/payments/n1co/webhook", async (HttpContext context) =>
         {
@@ -430,7 +631,7 @@ public static class Program
         app.MapGet("/openapi.json", () => Results.Json(new
         {
             openapi = "3.1.0",
-            info = new { title = "SparkleWash API", version = "1.1.0" },
+            info = new { title = "SparkleWash API", version = "1.2.0" },
             paths = new Dictionary<string, object>
             {
                 ["/api/arrivals/observations"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Camera observation persisted" }, ["200"] = new { description = "Duplicate retry" } } } },
@@ -441,6 +642,20 @@ public static class Program
                 ["/api/packages/suggestion"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Package suggestion without a charge" } } } },
                 ["/api/jobs"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Staff job list" } } }, post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Confirmed arrival opened as a job" } } } },
                 ["/api/plates/{plate}/timeline"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Jobs and camera sightings for one plate" }, ["400"] = new { description = "Invalid plate" } } } },
+                ["/api/tenants/registration"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Whether new carwashes can register" } } } },
+                ["/api/tenants/register"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Carwash created; owner signed in as admin" }, ["409"] = new { description = "Google account already belongs to a carwash" }, ["403"] = new { description = "Registration closed" } } } },
+                ["/api/tenant"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Signed-in carwash profile" } } }, put = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Profile updated (admin)" } } } },
+                ["/api/team"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Members and pending invitations (admin)" } } } },
+                ["/api/team/invitations"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Invitation by email (admin)" } } } },
+                ["/api/team/invitations/{id}"] = new { delete = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Invitation revoked" } } } },
+                ["/api/team/members/{subject}/role"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Role changed; the member's sessions end" }, ["409"] = new { description = "Last admin" } } } },
+                ["/api/team/members/{subject}"] = new { delete = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Member removed" }, ["409"] = new { description = "Yourself or last admin" } } } },
+                ["/api/devices"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Linked ESP32-CAM devices with online status" } } }, post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Device linked; deviceKey returned once" } } } },
+                ["/api/devices/{id}/rotate"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "New device key; the old one stops working" } } } },
+                ["/api/devices/{id}/status"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Device enabled or disabled" } } } },
+                ["/api/devices/heartbeat"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Device check-in (X-SparkleWash-Device-Key)" } } } },
+                ["/api/arrivals/{id}/dismiss"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "False read, duplicate or staff vehicle removed from review" } } } },
+                ["/api/bays"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Bay telemetry and alerts for the signed-in carwash" } } } },
                 ["/api/events"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Server-Sent Events: change notifications for arrivals and jobs" }, ["401"] = new { description = "No valid staff session" } } } },
                 ["/api/jobs/summary"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Whole-carwash job totals and timing" } } } },
                 ["/api/jobs/{id}"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Job detail" } } } },
@@ -660,6 +875,25 @@ public static class Program
                 latestStationTimestamp = stations.Length > 0 ? stations.Max(x => x.Timestamp) : (DateTimeOffset?)null
             });
         });
+
+        async Task<(Device Device, TenantContext Tenant)?> DeviceContext(HttpContext context)
+        {
+            if (DeviceStore.ParseKey(context.Request.Headers["X-SparkleWash-Device-Key"].ToString()) is not { } key) return null;
+            if (await directory.GetAsync(key.TenantId) is null) return null;
+            var tenant = tenants.For(key.TenantId);
+            return await tenant.Devices.AuthenticateAsync(key.DeviceId, key.Secret) is { } found ? (found, tenant) : null;
+        }
+
+        static IResult TeamResult(TeamChangeStatus status) => status switch
+        {
+            TeamChangeStatus.NotFound => Results.NotFound(),
+            TeamChangeStatus.LastAdmin => Results.Conflict(new { error = "A carwash needs at least one admin" }),
+            TeamChangeStatus.Conflict => Results.Conflict(),
+            _ => Results.Json(new { ok = true })
+        };
+
+        (StaffSession Session, TenantContext Tenant)? StaffContext(HttpContext context) =>
+            staffAuth.Authenticate(context.Request.Headers.Authorization) is { } session ? (session, tenants.For(session.TenantId)) : null;
 
         // Revenue figures: staff sessions, or back-office devices holding the ingestion key.
         bool StaffOrDevice(HttpContext context) =>

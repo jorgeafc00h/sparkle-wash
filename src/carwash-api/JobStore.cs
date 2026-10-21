@@ -13,7 +13,8 @@ public sealed record JobView(string Id, string ArrivalId, string Plate, string V
     DateTimeOffset ArrivalAt, DateTimeOffset? StartedAt, DateTimeOffset? CompletedAt, DateTimeOffset? CancelledAt,
     long ElapsedSeconds, long? ActiveSeconds, List<JobTransition> Transitions, List<JobAssignment> Assignments);
 public sealed record JobSummary(int Total, int Arrived, int Queued, int InProgress, int Completed, int Cancelled,
-    int ArrivalsTodayUtc, int CompletedTodayUtc, long? AverageCompletedSeconds);
+    int ArrivalsTodayUtc, int CompletedTodayUtc, long? AverageCompletedSeconds,
+    int ArrivalsToday = 0, int CompletedToday = 0);
 public sealed record JobTransitionInput(string? Status);
 public sealed record OpenJobInput(string? ArrivalId, string? PackageId);
 public sealed record AssignEmployeeInput(string? EmployeeId);
@@ -63,17 +64,23 @@ public sealed class JobStore
         finally { _gate.Release(); }
     }
 
-    public async Task<JobSummary> SummaryAsync()
+    /// <summary>Totals plus "today" counts. Today is the carwash's local day (an El Salvador shop closing at
+    /// 7 pm must not roll over to tomorrow at 6 pm UTC); the *Utc fields are kept for older clients.</summary>
+    public async Task<JobSummary> SummaryAsync(TimeZoneInfo? zone = null)
     {
+        zone ??= TimeZoneInfo.Utc;
         await _gate.WaitAsync();
         try
         {
-            var today = DateTimeOffset.UtcNow.UtcDateTime.Date;
+            var todayUtc = DateTimeOffset.UtcNow.UtcDateTime.Date;
+            var today = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone).Date;
+            DateTime Local(DateTimeOffset at) => TimeZoneInfo.ConvertTime(at, zone).Date;
             var completed = _jobs.Where(x => x.Status == "completed").ToArray();
             return new JobSummary(_jobs.Count, _jobs.Count(x => x.Status == "arrived"), _jobs.Count(x => x.Status == "queued"),
                 _jobs.Count(x => x.Status == "in_progress"), completed.Length, _jobs.Count(x => x.Status == "cancelled"),
-                _jobs.Count(x => x.ArrivalAt.UtcDateTime.Date == today), completed.Count(x => x.CompletedAt!.Value.UtcDateTime.Date == today),
-                completed.Length == 0 ? null : (long)Math.Round(completed.Average(x => (x.CompletedAt!.Value - x.ArrivalAt).TotalSeconds)));
+                _jobs.Count(x => x.ArrivalAt.UtcDateTime.Date == todayUtc), completed.Count(x => x.CompletedAt!.Value.UtcDateTime.Date == todayUtc),
+                completed.Length == 0 ? null : (long)Math.Round(completed.Average(x => (x.CompletedAt!.Value - x.ArrivalAt).TotalSeconds)),
+                _jobs.Count(x => Local(x.ArrivalAt) == today), completed.Count(x => Local(x.CompletedAt!.Value) == today));
         }
         finally { _gate.Release(); }
     }

@@ -7,10 +7,12 @@ namespace CarwashApi;
 public sealed record ArrivalInput(string? DeviceEventId, string? CameraId, string? PlateCandidate,
     double? Confidence, DateTimeOffset CapturedAt, string? PhotoBase64);
 public sealed record ConfirmArrivalInput(string? Plate, string? VehicleClass);
+public sealed record DismissArrivalInput(string? Reason);
 public sealed record ArrivalObservation(string Id, string DeviceEventId, string CameraId, string? PlateCandidate,
     double? Confidence, DateTimeOffset CapturedAt, DateTimeOffset ReceivedAt, string? PhotoId,
     string EvidenceDigest, string? ConfirmedPlate, string? VehicleClass, string? ConfirmedBy, DateTimeOffset? ConfirmedAt,
-    string? JobId = null, string? CameraRole = null);
+    string? JobId = null, string? CameraRole = null, DateTimeOffset? DismissedAt = null, string? DismissedBy = null,
+    string? DismissReason = null);
 public enum ArrivalAddStatus { Created, Duplicate, Conflict }
 public sealed record ArrivalAddResult(ArrivalAddStatus Status, ArrivalObservation Observation);
 public enum ArrivalConfirmStatus { Confirmed, Duplicate, Conflict, NotFound }
@@ -29,6 +31,10 @@ public sealed class ArrivalStore
         _arrivals = File.Exists(path)
             ? JsonSerializer.Deserialize<List<ArrivalObservation>>(File.ReadAllText(path), JsonOptions) ?? [] : [];
     }
+
+    public static readonly string[] DismissReasons = ["misread", "duplicate", "staff", "not-a-customer", "bay-camera", "other"];
+
+    public static bool IsPending(ArrivalObservation x) => x.JobId is null && x.DismissedAt is null && x.CameraRole is not ("exit" or "bay");
 
     public static string? NormalizePlate(string? candidate)
     {
@@ -86,6 +92,7 @@ public sealed class ArrivalStore
             var index = _arrivals.FindIndex(x => x.Id == id);
             if (index < 0) return new(ArrivalConfirmStatus.NotFound, null);
             var prior = _arrivals[index];
+            if (prior.DismissedAt is not null) return new(ArrivalConfirmStatus.Conflict, prior);
             if (prior.ConfirmedAt is not null)
                 return new(prior.ConfirmedPlate == plate && prior.VehicleClass == vehicleClass
                     ? ArrivalConfirmStatus.Duplicate : ArrivalConfirmStatus.Conflict, prior);
@@ -95,6 +102,22 @@ public sealed class ArrivalStore
             next[index] = confirmed;
             await PersistAsync(next);
             return new(ArrivalConfirmStatus.Confirmed, confirmed);
+        }
+        finally { _gate.Release(); }
+    }
+
+    public async Task<ArrivalObservation?> DismissAsync(string id, string reason, string actor = "system")
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var index = _arrivals.FindIndex(x => x.Id == id);
+            if (index < 0) return null;
+            if (_arrivals[index].DismissedAt is not null || _arrivals[index].JobId is not null) return _arrivals[index];
+            var next = _arrivals.ToList();
+            next[index] = next[index] with { DismissedAt = DateTimeOffset.UtcNow, DismissedBy = actor, DismissReason = reason };
+            await PersistAsync(next);
+            return next[index];
         }
         finally { _gate.Release(); }
     }
