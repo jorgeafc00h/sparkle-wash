@@ -36,3 +36,5 @@ src/carwash-api/data/
 # Vision gateway model weights
 edge/vision-gateway/models/*.weights
 edge/vision-gateway/models/*.onnx
+edge/vision-gateway/models/*.cfg
+edge/vision-gateway/models/coco.names
