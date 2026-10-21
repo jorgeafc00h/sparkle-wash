@@ -85,8 +85,22 @@ jobs:
             -resultBundlePath "$RUNNER_TEMP/results.xcresult" \
             CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/xcodebuild.log" | grep -E "error:|warning: .*SparkleWash|Test Case|Executed|\*\* " || true
           grep -q "\*\* TEST SUCCEEDED \*\*" "$RUNNER_TEMP/xcodebuild.log"
-      - if: failure()
-        run: grep -E "error|failed|XCTAssert" -A3 "$RUNNER_TEMP/xcodebuild.log" | head -200 || true
+      - name: Failed tests
+        if: failure()
+        run: |
+          grep -E "error: |Test Case .* failed|XCTAssert|Fatal error|Assertion failed" "$RUNNER_TEMP/xcodebuild.log" | grep -v "CoreData" | head -120 || true
+          xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/results.xcresult" --compact 2>/dev/null \
+            | python3 -c "
+          import json,sys
+          def walk(n,path=''):
+              name=n.get('name','')
+              if n.get('nodeType')=='Test Case' and n.get('result')=='Failed':
+                  print('FAILED', path+'/'+name)
+                  for c in n.get('children',[]):
+                      if c.get('nodeType')=='Failure Message': print('   ', c.get('name'))
+              for c in n.get('children',[]): walk(c, path+'/'+name)
+          for n in json.load(sys.stdin).get('testNodes',[]): walk(n)
+          " || true
       - if: always()
         uses: actions/upload-artifact@v4
         with:

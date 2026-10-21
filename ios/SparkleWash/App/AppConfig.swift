@@ -21,4 +21,7 @@ struct AppConfig: Equatable {
 
     /// Launch arguments used by the UI tests.
     static var isUITesting: Bool { ProcessInfo.processInfo.arguments.contains("-ui-testing") }
+
+    /// Hosting unit tests: keep the cache in memory so runs don't share an on-disk store.
+    static var isUnitTesting: Bool { ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil }
 }

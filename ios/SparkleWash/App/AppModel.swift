@@ -51,7 +51,7 @@ final class AppModel {
     @ObservationIgnored private var demoTicker: Task<Void, Never>?
     private static let tokenAccount = "staff-session"
 
-    init(config: AppConfig = .load(), localizer: Localizer = Localizer(), inMemory: Bool = AppConfig.isUITesting) {
+    init(config: AppConfig = .load(), localizer: Localizer = Localizer(), inMemory: Bool = AppConfig.isUITesting || AppConfig.isUnitTesting) {
         self.config = config
         self.localizer = localizer
         // Falling back to memory keeps the app usable if the on-disk store can't be opened.
