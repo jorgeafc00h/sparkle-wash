@@ -27,6 +27,8 @@ public class StationIngestionTests
                 using var client = NewClient(app);
                 var telemetry = new { name = "Test bay", status = "washing", pressurePsi = 42, soapLevelDm = 30 };
                 (await client.PostAsJsonAsync("/api/stations/test-1/telemetry", telemetry)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+                (await client.GetAsync("/api/metrics/summary")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+                (await client.GetAsync("/api/washes/history")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
                 client.DefaultRequestHeaders.Add("X-SparkleWash-Ingest-Key", "test-key");
                 (await client.PostAsJsonAsync("/api/stations/test-1/telemetry", new { name = "Test bay", status = "washing", pressurePsi = -1, soapLevelDm = 30 })).StatusCode.Should().Be(HttpStatusCode.BadRequest);
                 (await client.PostAsJsonAsync("/api/stations/test-1/telemetry", telemetry)).StatusCode.Should().Be(HttpStatusCode.Created);
@@ -46,6 +48,7 @@ public class StationIngestionTests
             await using (var restarted = await Start(dataFile))
             {
                 using var client = NewClient(restarted);
+                client.DefaultRequestHeaders.Add("X-SparkleWash-Ingest-Key", "test-key");
                 using var stations = JsonDocument.Parse(await client.GetStringAsync("/api/metrics"));
                 stations.RootElement.GetArrayLength().Should().Be(1);
                 using var history = JsonDocument.Parse(await client.GetStringAsync("/api/washes/history"));

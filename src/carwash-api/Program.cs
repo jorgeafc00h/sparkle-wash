@@ -19,6 +19,7 @@ public static class Program
         var operations = new OperationsStore(builder.Configuration["SPARKLEWASH_OPERATIONS_FILE"] ?? Path.Combine(builder.Environment.ContentRootPath, "data", "operations.json"));
         var staffAuth = new StaffAuth(builder.Configuration, identityVerifier);
         var hub = new StationHub();
+        var changes = new ChangeFeed();
         builder.Services.AddSingleton(store);
         builder.Services.AddSingleton(hub);
         builder.Services.AddSingleton<MqttBridge>();
@@ -35,6 +36,9 @@ public static class Program
         var ingestionKey = builder.Configuration["SPARKLEWASH_INGEST_KEY"];
         var streamKey = builder.Configuration["SPARKLEWASH_STREAM_KEY"];
         var n1coWebhookSecret = builder.Configuration["SPARKLEWASH_N1CO_WEBHOOK_SECRET"];
+        // Cameras listed here watch the lot exit: their sightings close the loop on a job instead of creating arrivals.
+        var exitCameras = (builder.Configuration["SPARKLEWASH_EXIT_CAMERAS"] ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
         var heartbeatSeconds = int.TryParse(builder.Configuration["SPARKLEWASH_STREAM_HEARTBEAT_SECONDS"], out var configuredHeartbeat)
             ? Math.Clamp(configuredHeartbeat, 1, 60) : 15;
 
@@ -71,13 +75,21 @@ public static class Program
                 if (photo.Length > 262144) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
                 if (!PhotoStore.IsJpeg(photo)) return Results.BadRequest(new { error = "Invalid JPEG photo" });
             }
-            var result = await arrivals.AddAsync(input, photo, photoStore);
+            var role = exitCameras.Contains(input.CameraId!) ? "exit" : "entry";
+            var result = await arrivals.AddAsync(input, photo, photoStore, role);
             if (result.Status == ArrivalAddStatus.Conflict) return Results.Conflict(new { error = "Device event ID reused with different evidence" });
             var observation = result.Observation;
+            JobView? tracked = null;
             if (result.Status == ArrivalAddStatus.Created && observation.PlateCandidate is not null &&
-                await jobs.FindOpenByPlateAsync(observation.PlateCandidate) is { } openJob)
-                observation = await arrivals.LinkJobAsync(observation.Id, openJob.Id) ?? observation;
-            return Results.Json(new { observation, duplicate = result.Status == ArrivalAddStatus.Duplicate, trackedJobId = observation.JobId },
+                (tracked = await jobs.FindOpenByPlateAsync(observation.PlateCandidate, role == "exit" ? TimeSpan.FromHours(2) : null)) is not null)
+                observation = await arrivals.LinkJobAsync(observation.Id, tracked.Id) ?? observation;
+            if (result.Status == ArrivalAddStatus.Created) changes.Publish(tracked is null ? "arrivals" : "jobs");
+            return Results.Json(new
+            {
+                observation, duplicate = result.Status == ArrivalAddStatus.Duplicate, trackedJobId = observation.JobId,
+                // Staff still confirm; the console offers "Mark done" when the exit camera sees a car mid-wash.
+                suggestComplete = role == "exit" && tracked?.Status == "in_progress"
+            },
                 statusCode: result.Status == ArrivalAddStatus.Created ? StatusCodes.Status201Created : StatusCodes.Status200OK);
         });
         app.MapGet("/api/arrivals", async (HttpContext context, int? limit, bool? pending) =>
@@ -85,7 +97,7 @@ public static class Program
             if (staffAuth.Authenticate(context.Request.Headers.Authorization) is null) return Results.Unauthorized();
             if (limit is < 1 or > 100) return Results.BadRequest(new { error = "limit must be 1 through 100" });
             var list = await arrivals.ListAsync();
-            return Results.Json((pending == true ? list.Where(x => x.ConfirmedAt is null && x.JobId is null) : list).Take(limit ?? 50));
+            return Results.Json((pending == true ? list.Where(x => x.ConfirmedAt is null && x.JobId is null && x.CameraRole != "exit") : list).Take(limit ?? 50));
         });
         app.MapPost("/api/arrivals/{id}/confirm", async (HttpContext context, string id, ConfirmArrivalInput input) =>
         {
@@ -96,6 +108,7 @@ public static class Program
             if (plate is null || PackageCatalog.Current.VehicleClasses.All(item => item.Id != input.VehicleClass))
                 return Results.BadRequest(new { error = "Invalid plate or vehicle class" });
             var result = await arrivals.ConfirmAsync(id, plate, input.VehicleClass!, session.Subject);
+            if (result.Status == ArrivalConfirmStatus.Confirmed) changes.Publish("arrivals");
             return result.Status switch
             {
                 ArrivalConfirmStatus.NotFound => Results.NotFound(),
@@ -121,6 +134,50 @@ public static class Program
             var result = await jobs.ListAsync();
             return Results.Json(result.Where(x => (status is null || x.Status == status) && (normalizedPlate is null || x.Plate == normalizedPlate)));
         });
+        // Server-Sent Events. Consoles read it with fetch() so the bearer token stays in the Authorization header.
+        app.MapGet("/api/events", async (HttpContext context) =>
+        {
+            if (staffAuth.Authenticate(context.Request.Headers.Authorization) is null)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+            var subscription = changes.Subscribe();
+            if (subscription is null)
+            {
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                return;
+            }
+            try
+            {
+                context.Response.ContentType = "text/event-stream";
+                context.Response.Headers.CacheControl = "no-store";
+                context.Response.Headers["X-Accel-Buffering"] = "no";
+                await context.Response.WriteAsync("retry: 3000\n: connected\n\n", context.RequestAborted);
+                await context.Response.Body.FlushAsync(context.RequestAborted);
+                while (!context.RequestAborted.IsCancellationRequested)
+                {
+                    using var heartbeat = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+                    heartbeat.CancelAfter(TimeSpan.FromSeconds(heartbeatSeconds));
+                    string frame;
+                    try
+                    {
+                        if (!await subscription.Value.Reader.WaitToReadAsync(heartbeat.Token)) break;
+                        var topics = new HashSet<string>();
+                        while (subscription.Value.Reader.TryRead(out var topic)) topics.Add(topic);
+                        frame = string.Concat(topics.Select(topic => $"event: change\ndata: {{\"topic\":\"{topic}\"}}\n\n"));
+                    }
+                    catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested)
+                    {
+                        frame = ": heartbeat\n\n";
+                    }
+                    await context.Response.WriteAsync(frame, context.RequestAborted);
+                    await context.Response.Body.FlushAsync(context.RequestAborted);
+                }
+            }
+            catch (OperationCanceledException) { }
+            finally { changes.Unsubscribe(subscription.Value.Id); }
+        });
         app.MapGet("/api/plates/{plate}/timeline", async (HttpContext context, string plate) =>
         {
             if (staffAuth.Authenticate(context.Request.Headers.Authorization) is null) return Results.Unauthorized();
@@ -129,10 +186,13 @@ public static class Program
             var plateJobs = (await jobs.ListAsync()).Where(x => x.Plate == normalized).ToArray();
             var sightings = (await arrivals.ListAsync())
                 .Where(x => x.PlateCandidate == normalized || x.ConfirmedPlate == normalized).Take(200).ToArray();
+            var latestJob = plateJobs.FirstOrDefault();
             return Results.Json(new
             {
                 plate = normalized,
                 openJob = plateJobs.FirstOrDefault(x => x.Status is not ("completed" or "cancelled")),
+                leftAt = latestJob is null ? null : sightings.Where(x => x.JobId == latestJob.Id && x.CameraRole == "exit")
+                    .Select(x => (DateTimeOffset?)x.CapturedAt).Max(),
                 visits = plateJobs.Length,
                 lastSeenAt = sightings.Length == 0 ? (DateTimeOffset?)null : sightings.Max(x => x.CapturedAt),
                 jobs = plateJobs,
@@ -165,6 +225,7 @@ public static class Program
             var result = await jobs.CreateAsync(arrival, service, context.Request.Headers["Idempotency-Key"].ToString(), session.Subject);
             if (result.Status is JobActionStatus.Created or JobActionStatus.Duplicate && result.Job is not null)
                 await arrivals.LinkJobAsync(arrival.Id, result.Job.Id);
+            if (result.Status == JobActionStatus.Created) { changes.Publish("jobs"); changes.Publish("arrivals"); }
             return result.Status switch
             {
                 JobActionStatus.Conflict => Results.Conflict(new { error = "Arrival or plate already has an open job, or idempotency key was reused" }),
@@ -181,6 +242,7 @@ public static class Program
             if (!ValidIdempotencyKey(key) || input.Status is not ("queued" or "in_progress" or "completed" or "cancelled"))
                 return Results.BadRequest(new { error = "Valid status and Idempotency-Key are required" });
             var result = await jobs.TransitionAsync(id, input.Status, key, session.Subject);
+            if (result.Status == JobActionStatus.Created) changes.Publish("jobs");
             if (result.Status is JobActionStatus.Created or JobActionStatus.Duplicate && input.Status is "cancelled" or "completed")
                 await operations.ReleaseJobAsync(id);
             return result.Status switch
@@ -201,6 +263,7 @@ public static class Program
             var employee = (await operations.EmployeesAsync()).FirstOrDefault(x => x.Id == input.EmployeeId && x.Active);
             if (employee is null) return Results.BadRequest(new { error = "Employee is unknown or inactive" });
             var result = await jobs.AssignAsync(id, employee, key);
+            if (result.Status == JobActionStatus.Created) changes.Publish("jobs");
             return result.Status switch
             {
                 JobActionStatus.NotFound => Results.NotFound(),
@@ -378,6 +441,7 @@ public static class Program
                 ["/api/packages/suggestion"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Package suggestion without a charge" } } } },
                 ["/api/jobs"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Staff job list" } } }, post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Confirmed arrival opened as a job" } } } },
                 ["/api/plates/{plate}/timeline"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Jobs and camera sightings for one plate" }, ["400"] = new { description = "Invalid plate" } } } },
+                ["/api/events"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Server-Sent Events: change notifications for arrivals and jobs" }, ["401"] = new { description = "No valid staff session" } } } },
                 ["/api/jobs/summary"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Whole-carwash job totals and timing" } } } },
                 ["/api/jobs/{id}"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Job detail" } } } },
                 ["/api/jobs/{id}/transition"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Job status changed" } } } },
@@ -397,8 +461,8 @@ public static class Program
                 ["/api/upload"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Demo acknowledgement; no file is stored" }, ["422"] = new { description = "Declared body exceeds 524288 bytes" } } } },
                 ["/api/stations/{stationId}/telemetry"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Persisted station reading" }, ["401"] = new { description = "Invalid ingestion key" } } } },
                 ["/api/stations/{stationId}/washes"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Persisted wash record" }, ["401"] = new { description = "Invalid ingestion key" } } } },
-                ["/api/washes/history"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Recorded washes" } } } },
-                ["/api/metrics/summary"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Recorded fleet summary" } } } }
+                ["/api/washes/history"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Recorded washes" }, ["401"] = new { description = "Staff session or ingestion key required" } } } },
+                ["/api/metrics/summary"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Recorded fleet summary" }, ["401"] = new { description = "Staff session or ingestion key required" } } } }
                 , ["/api/stations/{stationId}/photos"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Stored JPEG photos" }, ["413"] = new { description = "Actual request body exceeds 524288 bytes" } } }, get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Station photo metadata" } } } }
                 , ["/api/photos/{photoId}"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Stored JPEG bytes" }, ["404"] = new { description = "Photo not found" } } } }
                 , ["/ws/app-station-streaming/{stationId}"] = new { get = new { responses = new Dictionary<string, object> { ["101"] = new { description = "Authenticated WebSocket upgrade" }, ["404"] = new { description = "Ordinary HTTP GET" } } } }
@@ -522,8 +586,9 @@ public static class Program
             return Results.Json(await store.AddWashAsync(stationId, input), statusCode: StatusCodes.Status201Created);
         });
 
-        app.MapGet("/api/washes/history", async (int? limit) =>
+        app.MapGet("/api/washes/history", async (HttpContext context, int? limit) =>
         {
+            if (!StaffOrDevice(context)) return Results.Unauthorized();
             if (limit is < 1 or > 100) return Results.BadRequest(new { error = "limit must be 1 through 100" });
             return Results.Json((await store.GetWashesAsync()).Take(limit ?? 20));
         });
@@ -582,6 +647,7 @@ public static class Program
 
         app.MapGet("/api/metrics/summary", async (HttpContext context) =>
         {
+            if (!StaffOrDevice(context)) return Results.Unauthorized();
             var stations = await store.GetStationsAsync();
             var washes = await store.GetWashesAsync();
             MarkSource(context, stations.Length > 0 ? "station-ingest" : "demo");
@@ -594,6 +660,10 @@ public static class Program
                 latestStationTimestamp = stations.Length > 0 ? stations.Max(x => x.Timestamp) : (DateTimeOffset?)null
             });
         });
+
+        // Revenue figures: staff sessions, or back-office devices holding the ingestion key.
+        bool StaffOrDevice(HttpContext context) =>
+            staffAuth.Authenticate(context.Request.Headers.Authorization) is not null || Authorized(context, ingestionKey);
 
         app.MapPost("/api/upload", async (HttpContext context) =>
         {

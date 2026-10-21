@@ -127,3 +127,101 @@ public class CorsTests
         (await Preflight("https://evil.example")).Should().BeNull();
     }
 }
+
+public class ExitCameraAndEventsTests
+{
+    private sealed class VerifiedStaff : IGoogleIdentityVerifier
+    {
+        public Task<string?> VerifySubjectAsync(string idToken, string clientId) =>
+            Task.FromResult<string?>(idToken == "operator-token" ? "888" : null);
+    }
+
+    [Fact]
+    public async Task ExitSightingSuggestsCompletionAndPushesChangeEvents()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "sparklewash-exit-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            await using var app = CarwashApi.Program.BuildApp(["--urls", "http://127.0.0.1:0", "--SPARKLEWASH_INGEST_KEY", "edge-key",
+                "--SPARKLEWASH_ARRIVALS_FILE", Path.Combine(directory, "arrivals.json"),
+                "--SPARKLEWASH_JOBS_FILE", Path.Combine(directory, "jobs.json"),
+                "--SPARKLEWASH_OPERATIONS_FILE", Path.Combine(directory, "operations.json"),
+                "--SPARKLEWASH_DATA_FILE", Path.Combine(directory, "stations.json"),
+                "--SPARKLEWASH_PHOTO_DIR", Path.Combine(directory, "photos"),
+                "--SPARKLEWASH_GOOGLE_CLIENT_ID", "exit-client", "--SPARKLEWASH_STAFF_ROLES", "888=operator",
+                "--SPARKLEWASH_EXIT_CAMERAS", "exit-cam"], new VerifiedStaff());
+            await app.StartAsync();
+            var baseUri = new Uri(app.Urls.First());
+            using var device = new HttpClient { BaseAddress = baseUri };
+            device.DefaultRequestHeaders.Add("X-SparkleWash-Ingest-Key", "edge-key");
+            using var staff = new HttpClient { BaseAddress = baseUri };
+            using (var login = JsonDocument.Parse(await (await staff.PostAsJsonAsync("/api/auth/google", new { idToken = "operator-token" })).Content.ReadAsStringAsync()))
+                staff.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.RootElement.GetProperty("sessionToken").GetString());
+
+            (await new HttpClient { BaseAddress = baseUri }.GetAsync("/api/events")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+            using var events = await staff.SendAsync(new HttpRequestMessage(HttpMethod.Get, "/api/events"), HttpCompletionOption.ResponseHeadersRead);
+            events.Content.Headers.ContentType!.MediaType.Should().Be("text/event-stream");
+            using var reader = new StreamReader(await events.Content.ReadAsStreamAsync());
+
+            // An exit sighting of an unknown car is not a new arrival.
+            var unknown = await Observe(device, "exit-0", "exit-cam", "QQQ111");
+            unknown.GetProperty("suggestComplete").GetBoolean().Should().BeFalse();
+            unknown.GetProperty("observation").GetProperty("cameraRole").GetString().Should().Be("exit");
+            using (var pending = JsonDocument.Parse(await staff.GetStringAsync("/api/arrivals?pending=true")))
+                pending.RootElement.GetArrayLength().Should().Be(0);
+
+            var arrivalId = (await Observe(device, "entry-1", "entrance-cam", "P123456")).GetProperty("observation").GetProperty("id").GetString()!;
+            (await NextTopic(reader)).Should().Be("arrivals");
+            (await staff.PostAsJsonAsync($"/api/arrivals/{arrivalId}/confirm", new { plate = "P123456", vehicleClass = "car" })).EnsureSuccessStatusCode();
+            var jobId = await Id(await Send(staff, "/api/jobs", new { arrivalId, packageId = "quick" }, "exit-open-1"));
+            foreach (var (status, key) in new[] { ("queued", "exit-queue-1"), ("in_progress", "exit-start-1") })
+                (await Send(staff, $"/api/jobs/{jobId}/transition", new { status }, key)).EnsureSuccessStatusCode();
+
+            var leaving = await Observe(device, "exit-1", "exit-cam", "P123456");
+            leaving.GetProperty("trackedJobId").GetString().Should().Be(jobId);
+            leaving.GetProperty("suggestComplete").GetBoolean().Should().BeTrue();
+            (await Send(staff, $"/api/jobs/{jobId}/transition", new { status = "completed" }, "exit-done-1")).EnsureSuccessStatusCode();
+
+            // Still linked after completion: the car is seen again on its way out.
+            var after = await Observe(device, "exit-2", "exit-cam", "P123456");
+            after.GetProperty("trackedJobId").GetString().Should().Be(jobId);
+            after.GetProperty("suggestComplete").GetBoolean().Should().BeFalse();
+            using var timeline = JsonDocument.Parse(await staff.GetStringAsync("/api/plates/P123456/timeline"));
+            timeline.RootElement.GetProperty("leftAt").ValueKind.Should().Be(JsonValueKind.String);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    private static async Task<string?> NextTopic(StreamReader reader)
+    {
+        using var timeout = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (await reader.ReadLineAsync(timeout.Token) is { } line)
+            if (line.StartsWith("data: ")) return JsonDocument.Parse(line[6..]).RootElement.GetProperty("topic").GetString();
+        return null;
+    }
+
+    private static async Task<JsonElement> Observe(HttpClient device, string eventId, string cameraId, string plate)
+    {
+        var response = await device.PostAsJsonAsync("/api/arrivals/observations", new
+        {
+            deviceEventId = eventId, cameraId, plateCandidate = plate, confidence = 0.9, capturedAt = DateTimeOffset.UtcNow
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone();
+    }
+
+    private static Task<HttpResponseMessage> Send(HttpClient client, string path, object body, string key)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
+        request.Headers.Add("Idempotency-Key", key);
+        return client.SendAsync(request);
+    }
+
+    private static async Task<string> Id(HttpResponseMessage response)
+    {
+        response.EnsureSuccessStatusCode();
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        return json.RootElement.GetProperty("id").GetString()!;
+    }
+}

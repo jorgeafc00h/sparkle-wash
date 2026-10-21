@@ -10,7 +10,7 @@ public sealed record ConfirmArrivalInput(string? Plate, string? VehicleClass);
 public sealed record ArrivalObservation(string Id, string DeviceEventId, string CameraId, string? PlateCandidate,
     double? Confidence, DateTimeOffset CapturedAt, DateTimeOffset ReceivedAt, string? PhotoId,
     string EvidenceDigest, string? ConfirmedPlate, string? VehicleClass, string? ConfirmedBy, DateTimeOffset? ConfirmedAt,
-    string? JobId = null);
+    string? JobId = null, string? CameraRole = null);
 public enum ArrivalAddStatus { Created, Duplicate, Conflict }
 public sealed record ArrivalAddResult(ArrivalAddStatus Status, ArrivalObservation Observation);
 public enum ArrivalConfirmStatus { Confirmed, Duplicate, Conflict, NotFound }
@@ -56,7 +56,7 @@ public sealed class ArrivalStore
         finally { _gate.Release(); }
     }
 
-    public async Task<ArrivalAddResult> AddAsync(ArrivalInput input, byte[]? photo, PhotoStore photos)
+    public async Task<ArrivalAddResult> AddAsync(ArrivalInput input, byte[]? photo, PhotoStore photos, string cameraRole = "entry")
     {
         var plate = NormalizePlate(input.PlateCandidate);
         var digestInput = $"{input.CameraId}|{input.DeviceEventId}|{plate}|{input.Confidence}|{input.CapturedAt.ToUnixTimeMilliseconds()}|" +
@@ -70,7 +70,7 @@ public sealed class ArrivalStore
             string? photoId = null;
             if (photo is not null) photoId = (await photos.SaveAsync(input.CameraId!, [photo]))[0].Id;
             var observation = new ArrivalObservation(Guid.NewGuid().ToString("N"), input.DeviceEventId!, input.CameraId!, plate,
-                input.Confidence, input.CapturedAt, DateTimeOffset.UtcNow, photoId, digest, null, null, null, null);
+                input.Confidence, input.CapturedAt, DateTimeOffset.UtcNow, photoId, digest, null, null, null, null, null, cameraRole);
             var next = _arrivals.Append(observation).TakeLast(10000).ToList();
             await PersistAsync(next);
             return new(ArrivalAddStatus.Created, observation);

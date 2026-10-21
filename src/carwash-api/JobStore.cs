@@ -47,13 +47,18 @@ public sealed class JobStore
         finally { _gate.Release(); }
     }
 
-    public async Task<JobView?> FindOpenByPlateAsync(string plate)
+    /// <summary>The plate's open job; with <paramref name="closedWithin"/>, also a job that finished that recently
+    /// (an exit camera sees the car after staff already marked it done).</summary>
+    public async Task<JobView?> FindOpenByPlateAsync(string plate, TimeSpan? closedWithin = null)
     {
         await _gate.WaitAsync();
         try
         {
-            var job = _jobs.LastOrDefault(x => x.Plate == plate && x.Status is not ("completed" or "cancelled"));
-            return job is null ? null : View(job, DateTimeOffset.UtcNow);
+            var now = DateTimeOffset.UtcNow;
+            var job = _jobs.LastOrDefault(x => x.Plate == plate && x.Status is not ("completed" or "cancelled")) ??
+                (closedWithin is null ? null : _jobs.LastOrDefault(x => x.Plate == plate && x.Status == "completed" &&
+                    now - x.CompletedAt!.Value <= closedWithin.Value));
+            return job is null ? null : View(job, now);
         }
         finally { _gate.Release(); }
     }
