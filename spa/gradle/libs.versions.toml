@@ -1,0 +1,9 @@
+[libraries]
+kotlin-std-jvm = { module = "org.jetbrains.kotlin:kotlin-stdlib", version = "1.9.23" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version = "1.8.1" }
+core-ktx = { module = "androidx.core:core-ktx", version = "1.12.0" }
+lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version = "2.7.0" }
+
+[plugins]
+kotlin-gradlePlugin = { id = "org.jetbrains.kotlin", version = "1.9.23" }
+compose-application-plugin = { id = "org.jetbrains.compose", version = "1.6.10" }

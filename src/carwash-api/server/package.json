@@ -1,0 +1,14 @@
+{
+  "name": "@sparklewash/server",
+  "version": "2.1.0",
+  "description": "SparkleWash Carwash IoT API Server — Node.js HTTP server exposing metrics, jobs, and station telemetry endpoints",
+  "main": "http.cjs",
+  "scripts": {
+    "start": "node http.cjs",
+    "dev": "node --watch http.cjs",
+    "test": "echo 'No tests yet' && exit 0"
+  },
+  "keywords": ["carwash", "iot", "esp32", "mqtt", "webhook"],
+  "author": "SparkleWash Team",
+  "license": "UNLICENSE"
+}

@@ -4,7 +4,9 @@ description: A .NET 8 Minimal API for IoT carwash station monitoring with live t
 author: Graphify-Labs (via Fission-AI OpenSpec)
 url: https://github.com/Graphify-Labs/graphify
 
-# --- API Endpoints as UI Components ---
+# ============================================================
+# API ENDPOINTS AS UI COMPONENTS
+# ============================================================
 
 name: Health Check UI
 description: Displays system health status with color-coded indicators for liveness and readiness probes.

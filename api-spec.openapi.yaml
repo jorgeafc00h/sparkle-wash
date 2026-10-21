@@ -1,31 +1,10 @@
 openapi: 3.1.0
 info:
   title: SparkleWash Carwash API
-  version: 1.0.0
-  description: |
-    # SparkleWash IoT Carwash API
-    ## Endpoints
-    
-    ### GET /health
-    Returns the health status of the service.
-    
-    ### POST /health  
-    Liveness probe (POST).
-    
-    ### GET /api/metrics
-    Returns current telemetry for all 4 wash stations.
-    
-    ### GET /api/metrics/alerts
-    Returns threshold-based alerts (lowPressure < 30psi, highPressure > 70psi).
-    
-    ### POST /api/upload
-    Accepts multipart/form-data with "photos" boundary; returns a generated uploadId.
-    
-    ### GET /api/upload/{uploadId}
-    Lookup metadata by path ID.
-  
+  version: 2.1.0
 servers:
   - url: http://localhost:5001
+
 paths:
   /health:
     get:
@@ -39,9 +18,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  status:
-                    type: string
-                    example: healthy
+                  status: { type: string }
     post:
       summary: Health probe
       operationId: healthProbe
@@ -53,10 +30,9 @@ paths:
               schema:
                 type: object
                 properties:
-                  ok:
-                    type: boolean
-                  message:
-                    type: string
+                  ok: { type: boolean }
+                  message: { type: string }
+
   /api/metrics:
     get:
       summary: Station telemetry snapshots
@@ -69,37 +45,30 @@ paths:
               schema:
                 type: object
                 properties:
-                  status:
-                    type: string
+                  status: { type: string }
                   data:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        stationId: { type: string }
-                        name: { type: string }
-                        status: { type: string, enum: [idle, washing, cleaning] }
-                        pressurePsi: { type: number }
-                        soapLevelDm: { type: integer }
-                        timestamp: { type: string }
+                      $ref: "#/components/schemas/StationSnapshot"
+
   /api/metrics/alerts:
     get:
-      summary: Threshold alerts
-      operationId: alerts
+      summary: Threshold-based alerts
+      operationId: metricsAlerts
       responses:
         '200':
-          description: Current alerts
+          description: List of active alerts
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    code: { type: string, enum: [lowPressure, highPressure] }
-                    value: { type: integer }
-                    threshold: { type: number }
-                    severity: { type: string, enum: [warning, critical] }
+                type: object
+                properties:
+                  status: { type: string }
+                  alerts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Alert"
+
   /api/upload:
     post:
       summary: Upload photos (multipart form-data)
@@ -111,26 +80,25 @@ paths:
               type: object
               properties:
                 name: { type: string, example: photos }
-                file: type: file
+                file: { type: string, format: binary }
       responses:
         '200':
-          description: Upload successful
+          description: Upload successful, uploadId returned
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  ok:
-                    type: boolean
-                  uploadId:
-                    type: string
+                  ok: { type: boolean }
+                  uploadId: { type: string }
+
   /api/upload/{uploadId}:
     get:
       summary: Get upload metadata by ID
       operationId: uploadMetadata
       parameters:
-        - name: uploadId
-          in: path
+        - in: path
+          name: uploadId
           required: true
           schema: { type: string }
       responses:
@@ -141,40 +109,225 @@ paths:
               schema:
                 type: object
                 properties:
-                  ok:
-                    type: boolean
-                  uploadId:
-                    type: string
-  /ws/app/station-streaming/{stationId}:
+                  ok: { type: boolean }
+                  uploadId: { type: string }
+
+  /jobs/stats:
     get:
-      summary: WebSocket real-time stream for a station
-      operationId: stationStream
+      summary: Aggregate job statistics (summary, history).
+      description: |
+        Returns the total number of completed jobs grouped by category (`basic`, `ceramic`, `premium`, `express`)
+        and the sum of revenue per category. Also includes a per-employee breakdown with name vs count and revenue.
+
+      tags:
+        - Jobs
+
       parameters:
-        - name: stationId
-          in: path
-          required: true
-          schema: { type: string }
+        - in: query
+          name: range
+          schema:
+            type: string
+            enum: [today, yesterday, last7days]
+          description: Time window filter for the current page. Defaults to `today`.
+
       responses:
-        '101':
-          description: Switching Protocols
+        '200':
+          description: Jobs statistics grouped by category and employee.
           content:
-            text/plain: { schema: { type: string } }
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsStats"
+
+  /jobs/summary/{date}:
+    get:
+      summary: Date-range job summary.
+      description: |
+        Returns a date-specific summary including total jobs, revenue grouped by category,
+        top 3 employees by count, and overall utilization metric.
+
+      tags:
+        - Jobs
+
+      parameters:
+        - in: path
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+
+      responses:
+        '200':
+          description: Jobs summary with counts, revenue, and top employees.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsSummary"
+
+  /jobs/history:
+    get:
+      summary: Historical job records with pagination.
+      description: |
+        Returns completed jobs ordered by completion_time descending, limited to max 100 records.
+        Supports filtering by category and date range via query params. Each record includes plate_number, model, color,
+        category, employee name (resolved from Redis via plate-to-employee mapping), and completion duration in milliseconds.
+
+      tags:
+        - Jobs
+
+      parameters:
+        - in: query
+          name: range
+          schema:
+            type: string
+            enum: [today, yesterday, last7days, all]
+          description: Time filter for results (defaults to `today`).
+        - in: query
+          name: category
+          schema:
+            type: string
+            enum: [basic, ceramic, premium, express]
+          description: Filter by a single job category.
+      responses:
+        '200':
+          description: Paginated list of jobs with plate number, model, color, etc.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsHistoryPage"
+
+  /jobs/record/{id}:
+    get:
+      summary: Retrieve a specific job record by its UUID.
+      operationId: getJobRecord
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Job record found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobRecord"
+
+    delete:
+      summary: Soft-delete a job record by its UUID (sets status to `cancelled`).
+      operationId: deleteJobRecord
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Job record soft-deleted.
+
+  /jobs/record/{id}:
+    post:
+      summary: Patch an existing job record (status transition, duration, etc.).
+      operationId: patchJobRecord
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobStatusPatch"
+      responses:
+        '200':
+          description: Job record updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobRecord"
+
 components:
   schemas:
+    JobsStats:
+      type: object
+      properties:
+        total_jobs: { type: integer, example: 12 }
+        basic_jobs: { type: integer, example: 5, description: Count of jobs with category='basic' }
+        ceramic_jobs: { type: integer, example: 6, description: Count of jobs with category='ceramic' }
+        premium_jobs: { type: integer, example: 1, description: Count of jobs with category='premium' }
+        express_jobs: { type: integer, example: 0, description: Count of jobs with category='express' }
+        revenue: { type: number, format: double, example: 1234.56 }
+
+    JobsSummary:
+      type: object
+      properties:
+        date: { type: string, format: date, example: "2025-06-21" }
+        total_jobs: { type: integer, example: 10 }
+        revenue_per_category:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+        top_employees:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              count: { type: integer }
+              revenue: { type: number, format: double }
+
+    JobsHistoryPage:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobRecord"
+        total: { type: integer }
+        page: { type: integer, example: 0 }
+        size: { type: integer, example: 5 }
+
+    JobRecord:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        plate_number: { type: string, example: "ABCD-123" }
+        model: { type: string, example: "Toyota Camry" }
+        color: { type: string, example: "Blue" }
+        category: { type: string, enum: ["basic", "ceramic", "premium", "express"] }
+        employee_name: { type: string, example: "Maria Lopez" }
+        completed_at: { type: string, format: date-time }
+
+    JobCreate:
+      type: object
+      properties:
+        plate_number: { type: string }
+        model: { type: string, nullable: true }
+        color: { type: string, nullable: true }
+        category: { type: string, enum: ["basic", "ceramic", "premium", "express"] }
+        employee_name: { type: string, nullable: true }
+
+    JobStatusPatch:
+      type: object
+      properties:
+        status: { type: string, enum: ["in_progress", "completed", "cancelled"] }
+        duration_ms: { type: integer, minimum: 0 }
+        notes: { type: string, nullable: true }
+
     StationSnapshot:
       type: object
       properties:
-        stationId: { type: string, example: b4c3 }
-        name: { type: string, example: Bay #1 foam touch }
-        status: { type: string, enum: [idle, washing, cleaning] }
-        pressurePsi: { type: number, minimum: 0, maximum: 120 }
-        soapLevelDm: { type: integer, minimum: 0, maximum: 30 }
+        stationId: { type: string }
+        name: { type: string }
+        status: { type: string }
+        pressurePsi: { type: number }
+        soapLevelDm: { type: integer }
         timestamp: { type: string, format: date-time }
+
     Alert:
       type: object
       properties:
-        code: { type: string, enum: [lowPressure, highPressure] }
-        value: { type: integer }
-        threshold: { type: number }
-        severity: { type: string, enum: [info, warning, critical] }
-
+        code: { type: string, enum: ["lowPressure", "highPressure"] }
+        value: { type: number }

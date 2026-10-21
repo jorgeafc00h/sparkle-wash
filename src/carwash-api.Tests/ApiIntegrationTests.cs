@@ -1,171 +1,141 @@
-using Microsoft.AspNetCore.Mvc.Testing;
+using System;
+using System.Net;
 using System.Net.Http;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
-using Xunit;
+using System.Linq;
+using System.Collections.Generic;
 using FluentAssertions;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Xunit;
 
 namespace CarwashApi.Tests;
 
-/// <summary>
-/// Integration tests for the API endpoints using HttpClientHandler.
-/// Tests end-to-end HTTP request/response behavior including JSON parsing.
-/// </summary>
-public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection("CarwashApiServer")]
+public class ServerTests : IClassFixture<ServerFixture>
 {
-    private readonly WebApplicationFactory<Program> _factory;
     private readonly HttpClient _client;
 
-    public ApiIntegrationTests()
-    {
-        _factory = new WebApplicationFactory<Program>();
-        _client = _factory.CreateClient();
-        _client.BaseAddress = new Uri("http://localhost:2080");
-    }
+    public ServerTests(ServerFixture fixture) => _client = fixture.Client;
 
     [Fact]
-    public async Task HealthGet_ShouldReturnHealthyStatus()
+    public async Task Health_Returns200AndHealthyBody()
     {
         var response = await _client.GetAsync("/health");
-        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
-
-        var json = await response.Content.ReadAsStringAsync();
-        var obj = JsonSerializer.Deserialize<object>(json);
-
-        ((dynamic)obj).status.Should().Be("healthy");
-        ((dynamic)obj).uptimeMs.Should().BeGreaterThan(0);
-    }
-
-    [Fact]
-    public async Task HealthPost_ShouldReturnOk()
-    {
-        var response = await _client.PostAsync("/health", null);
-        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await response.Content.ReadAsStringAsync();
-        body.Should().Contain("ok");
+        body.Should().Contain("healthy", "health endpoint should report status healthy");
     }
 
     [Fact]
-    public async Task MetricsEndpoint_ShouldReturnAllStations()
+    public async Task Health_Post_Returns200()
     {
-        var response = await _client.GetAsync("/api/metrics?format=json");
-        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
-
-        var json = await response.Content.ReadAsStringAsync();
-        var payload = JsonSerializer.Deserialize<dynamic>(json);
-
-        payload.ok.Should().BeTrue("Metrics endpoint should succeed");
-        payload.data.Should().BeNullOrEmpty()
-            || payload.data.Count == 4
-            || throw new AssertionException("Expected 4 stations");
-
-        // Check that response contains expected fields
-        if (payload.data != null)
-        {
-            var first = JsonSerializer.Deserialize<dynamic[]>(json)?.FirstOrDefault();
-            first?.stationId.Should().NotBeNullOrEmpty();
-            first?.pressurePsi.Should().BeGreaterOrEqualTo(20);
-        }
+        var response = await _client.PostAsync("/health", new StringContent("{}", Encoding.UTF8, "application/json"));
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
-    public async Task AlertsEndpoint_ShouldReturnEmptyWhenNoAlerts()
+    public async Task Metrics_ReturnsAllFourStations()
     {
-        // Set all stations to healthy state
-        var response = await _client.GetAsync("/api/metrics/alerts?format=json");
-        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
-
-        var json = await response.Content.ReadAsStringAsync();
-        var payload = JsonSerializer.Deserialize<dynamic>(json);
-
-        if (payload?.alerts != null)
-        {
-            payload.alerts!.Count.Should().BeGreaterOrEqualTo(0);
-        }
+        var response = await _client.GetAsync("/api/metrics");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("b4c3", "station b4c3 (Bay #1) should be present");
+        body.Should().Contain("7d5c", "station 7d5c (Bay #2) should be present");
+        body.Should().Contain("a1f2", "station a1f2 (Bay #3) should be present");
+        body.Should().Contain("e8f1", "station e8f1 (Bay #4) should be present");
     }
 
     [Fact]
-    public async Task UploadEndpoint_ShouldAcceptPhotoUpload()
+    public async Task Metrics_HasFlatStationContractAndDemoMarker()
     {
-        using var payload = new MultipartFormDataContent();
+        var response = await _client.GetAsync("/api/metrics");
+        using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        json.RootElement.ValueKind.Should().Be(System.Text.Json.JsonValueKind.Array);
+        json.RootElement[0].ValueKind.Should().Be(System.Text.Json.JsonValueKind.Object);
+        json.RootElement[0].GetProperty("stationId").GetString().Should().Be("b4c3");
+        json.RootElement[0].GetProperty("pressurePsi").GetDouble().Should().Be(52);
+        response.Headers.GetValues("X-SparkleWash-Data-Source").Single().Should().Be("demo");
+    }
 
-        // Create a dummy multipart body with photos field
-        var photoData = "--WebKitFormBoundary" + Guid.NewGuid().ToString("N").Substring(0, 39);
-        var photoField = new StringContent(photoData);
+    [Theory]
+    [InlineData("/healthz")]
+    [InlineData("/openapi.json")]
+    public async Task DocumentedInfrastructureRoutesExist(string path)
+    {
+        (await _client.GetAsync(path)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
 
-        payload.Add(photoField, "photos");
-
-        var response = await _client.PostAsync("/api/upload", payload);
-        // The endpoint validates multipart format; we expect a valid response (not 4xx)
-        response.StatusCode.Should().NotBe(System.Net.HttpStatusCode.BadRequest);
+    [Theory]
+    [InlineData("/ws/app-station-streaming/b4c3")]
+    [InlineData("/api/not-implemented")]
+    public async Task UnsupportedRoutesNeverReturnSpaSuccess(string path)
+    {
+        (await _client.GetAsync(path)).StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
-    public async Task UploadEndpoint_ShouldRejectMalformedRequest()
+    public async Task Alerts_ReturnsExpectedThresholdAlerts()
     {
-        var response = await _client.PostAsync("/api/upload", null);
-        // Should return 409 Conflict for invalid request body
-        // or we handle it gracefully
-        if (response.IsSuccessStatusCode)
-        {
-            var body = await response.Content.ReadAsStringAsync();
-            // Accept any valid response from the server
-        }
+        var response = await _client.GetAsync("/api/metrics/alerts");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("lowPressure", "expected lowPressure alert rule");
+        body.Should().Contain("highPressure", "expected highPressure alert rule");
     }
 
     [Fact]
-    public async Task WebSocketUpgrade_ShouldRejectInvalidStationId()
+    public async Task Upload_WithMultipartPhotos_ReturnsOkAndUploadId()
     {
-        // Try to connect to a non-existent station
-        using var webSocket = new System.Net.WebSockets.WebSocketClient();
-        try
-        {
-            await webSocket.ConnectAsync(new Uri("ws://localhost:2080/ws/app/station-streaming/nonexistent"), CancellationToken.None);
-        }
-        catch (Exception ex) when (ex is WebSocketException || ex is TaskCanceledException)
-        {
-            // Expected for an invalid station ID
-            return;
-        }
-
-        // If we got here, the server should have returned 404
-        // The actual implementation sends via WebSocket upgrade path,
-        // so we verify by checking that invalid stations are handled.
+        using var content = new MultipartFormDataContent("photos-upload-1234");
+        content.Add(new StringContent("{\"stationId\":\"b4c3\"}"), "metadata", "meta.json");
+        var response = await _client.PostAsync("/api/upload", content);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("ok", "successful upload should respond with ok");
+        body.Should().Contain("uploadId", "successful upload should respond with an uploadId");
     }
 
     [Fact]
-    public async Task MetricsResponseContainsStatusField()
+    public async Task Upload_WithoutContentLength_Returns400()
     {
-        var response = await _client.GetAsync("/api/metrics?format=json");
-        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        // Empty body with no content-length exercises the 400 branch.
+        var body = await _client.PostAsync("/api/upload", default);
+        body.StatusCode.Should().Be(HttpStatusCode.BadRequest, "upload without content-length should be rejected");
+    }
+}
 
-        var json = await response.Content.ReadAsStringAsync();
-        var obj = JsonSerializer.Deserialize<dynamic>(json);
+[CollectionDefinition("CarwashApiServer")]
+public class ServerCollection : ICollectionFixture<ServerFixture>
+{
+}
 
-        if (obj?.data != null)
-        {
-            // At least one station should have a status field
-            var firstStation = obj.data!.FirstOrDefault();
-            firstStation.status.Should().BeIn(new[] { "idle", "washing", "cleaning", "error" });
-        }
+public class ServerFixture : IAsyncLifetime, IDisposable
+{
+    private WebApplication _app = null!;
+    private string _boundUrl = "";
+    public HttpClient Client { get; private set; } = null!;
+
+    public async Task InitializeAsync()
+    {
+        var app = CarwashApi.Program.BuildApp(new[] { "--urls", "http://127.0.0.1:0" });
+
+        _app = app;
+        await app.StartAsync();
+        _boundUrl = app.Urls.First(); // http://127.0.0.1:<port>
+        Client = new HttpClient { BaseAddress = new Uri(_boundUrl) };
+
     }
 
-    [Fact]
-    public async Task ApiResponseContainsTimestamp()
+    public async Task DisposeAsync()
     {
-        var response = await _client.GetAsync("/api/metrics?format=json");
-        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
-
-        var json = await response.Content.ReadAsStringAsync();
-        obj => var obj = JsonSerializer.Deserialize<dynamic>(json));
-        if (obj?.data != null)
-        {
-            var firstStation = obj.data!.FirstOrDefault();
-            // Timestamp should be a valid ISO 8601 string
-            System.Text.RegularExpressions.Regex.IsMatch(
-                firstStation.timestamp ?? "", "^\\d{4}-\\d{2}-\\d{2}T[\\d:]{8}Z$")
-                .Should().BeTrue("Timestamp should be ISO 8601 format");
-        }
+        if (_app is not null) { await _app.StopAsync(); await _app.DisposeAsync(); }
+        (Client as IDisposable)?.Dispose();
     }
+
+    public void Dispose() => (Client as IDisposable)?.Dispose();
 }

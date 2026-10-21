@@ -1,0 +1,4 @@
+#!/bin/bash
+exec /usr/bin/env java -Dfile.encoding=UTF-8 \
+  -Djava.awt.headless=true -Djava.io.tmpdir=/tmp \
+  @/app/gradle/wrapper/gradle-wrapper.jar "$@" 2>&1

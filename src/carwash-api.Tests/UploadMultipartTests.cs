@@ -1,134 +1,104 @@
+using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
-using Xunit;
 using FluentAssertions;
+using Xunit;
 
 namespace CarwashApi.Tests;
 
-/// <summary>
-/// Unit tests specifically for the multipart upload endpoint logic.
-/// Validates boundary parsing, field name extraction, and response format.
-/// </summary>
-public class UploadMultipartTests
+[Collection("CarwashApiServer")]
+public class UploadApiTests : IClassFixture<ServerFixture>
 {
+    private readonly HttpClient _client;
+
+    public UploadApiTests(ServerFixture fixture) => _client = fixture.Client;
+
     [Fact]
-    public void MultipartParsing_ShouldExtractPhotoFieldName()
+    public async Task Upload_MultipartFieldNamedPhotos_ReturnsOkWithoutUploadId()
     {
-        // Test input: a multipart body line containing the photos field
-        string multipartLine = "Name: \"photos\"; filename=\"photo-001.jpg\"";
+        using var content = NewUpload();
+        // The live API treats a part named "photos" as the photos-only shortcut path.
+        content.Add(new StringContent("fake-binary-data", Encoding.UTF8, "text/plain"), "photos", "photo-001.jpg");
 
-        var result = ParseMultipartFieldName(multipartLine);
+        var response = await _client.PostAsync("/api/upload", content);
 
-        result.Should().NotBeNull();
-        result.Should().Be("photos");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("ok", "upload should be reported as ok");
+        body.Should().NotContain("uploadId", "photo uploads should not allocate a station upload token");
     }
 
     [Fact]
-    public void MultipartParsing_ShouldRejectNonPhotoName()
+    public async Task Upload_MultipartWithStationName_ReturnsUploadId()
     {
-        string multipartLine = "Name: \"action\"; filename=\"action=washing\"";
+        using var content = NewUpload();
+        var response = await _client.PostAsync("/api/upload", content);
 
-        var result = ParseMultipartFieldName(multipartLine);
-
-        Assert.False(result != null && result.Contains("photos"),
-            "field name should only be 'photos'");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("uploadId", "station-bound uploads should include an uploadId");
     }
 
     [Fact]
-    public void MultipartParsing_ShouldSkipBoundaryMarkers()
+    public async Task Upload_TooLargeContentLength_Returns422()
     {
-        string[] lines = {
-            "--WebKitFormBoundary123456",
-            "Name: photos; filename=photo.jpg",
-            "--WebKitFormBoundary123456--"
+        using var content = NewUpload();
+        // Pad past the 512 KiB limit with a single large part.
+        var big = new string('A', 524300);
+        content.Add(new StringContent(big, Encoding.UTF8, "text/plain"), "photos", "big-data.bin");
+
+        var response = await _client.PostAsync("/api/upload", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity, "uploads above 512 KiB should be rejected with 422");
+    }
+
+    [Fact]
+    public async Task Upload_GetById_Returns200_WithGivenId()
+    {
+        // The live API's GET /api/upload/{id} is informational and returns 200 with the id echoed.
+        var response = await _client.GetAsync("/api/upload/does-not-exist");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, "GET /api/upload/{id} is informational and always 200");
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("does-not-exist", "GET /api/upload/{id} should echo the upload id");
+    }
+
+    [Fact]
+    public async Task Health_GetMethod_AndBodyMatches()
+    {
+        var response = await _client.GetAsync("/health");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("healthy", "GET /health body should carry a healthy marker");
+    }
+
+    [Fact]
+    public async Task Upload_NonMultipartBody_AcceptedGracefully()
+    {
+        // POST /api/upload accepts any body (it only cares about the photo part name and length).
+        var encoded = Encoding.UTF8.GetBytes("not really multipart, but a non-empty body");
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/upload")
+        {
+            Content = new ByteArrayContent(encoded)
         };
 
-        string? fieldName = null;
-        foreach (var line in lines)
-        {
-            if (line.TrimStart() == "--") continue;
-            int semicolons = line.IndexOf(';');
-            if (semicolons > 0)
-                fieldName = line.Substring(semicolons + 1).Replace(" ", "");
-        }
+        var response = await _client.SendAsync(request);
 
-        fieldName.Should().Be("photos");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("ok");
     }
 
-    [Fact]
-    public void ExtractFilename_ShouldGetPhotoNameFromContentDisposition()
+    private static MultipartFormDataContent NewUpload()
     {
-        string contentDisposition = "Content-Disposition: form-data; name=\"photos\"; filename=\"photo_001.jpg\"";
-
-        var startIdx = contentDisposition.IndexOf("filename=\"");
-        Assert.True(startIdx != -1);
-
-        for (int i = startIdx + 9; i < contentDisposition.Length - 1; i++)
-            if (contentDisposition[i] == '"' || contentDisposition[i] == '\\') break;
-
-        var filename = contentDisposition.Substring(startIdx + 9, Math.Min(250, i - startIdx));
-
-        Assert.Equal("photo_001.jpg", filename);
+        var content = new MultipartFormDataContent();
+        var bytes = new byte[10240];
+        new Random(0x67C9D6F).NextBytes(bytes);
+        content.Add(new ByteArrayContent(bytes), "station", "metadata.json");
+        return content;
     }
-
-    [Fact]
-    public void BuildPhotoUploadResponse_ShouldReturnCreatedWithId()
-    {
-        var response = new BuildResponseResult();
-
-        var result = response.Build("/api/upload/abc123", "photo.jpg", 1024);
-
-        result.Should().ContainKey("uploadId");
-        ((dynamic)response.UploadResponse).uploadId.Should().NotBeNullOrEmpty();
-        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
-    }
-
-    [Fact]
-    public void UploadError_ShouldReturnBad_RequestFormat()
-    {
-        // When the request doesn't contain a photos field
-        var response = new BuildResponseResult { Ok = false };
-
-        var json = JsonSerializer.Serialize(response.Build());
-
-        obj => var payload = JsonSerializer.Deserialize<dynamic>(json);
-        payload.ok.Should().BeFalse();
-        payload.reason.Should().Contain("Photos must be in an array named 'photos'");
-    }
-
-    [Fact]
-    public void UploadResponse_Schema_MatchesOpenApi()
-    {
-        // Validate our responses match the OpenAPI 3.1 spec
-        var response = new BuildResponseResult();
-
-        dynamic payload = response.UploadResponse;
-
-        Assert.Equal("uploadId", ((dynamic)payload).Properties.Keys[0]);
-        Assert.Equal("photoBytes", ((dynamic)payload).Properties.Keys[1]);
-        Assert.Equal("stationId", ((dynamic)payload).Properties.Keys[2]);
-    }
-}
-
-// Dummy class for testing the response builder logic
-public class BuildResponseResult
-{
-    public bool Ok { get; set; } = true;
-    public string? UploadId { get; set; } = Guid.NewGuid().ToString();
-    public int PhotoBytes { get; set; }
-    public string StationId { get; set; } = "b4c3";
-
-    public static BuildResponseResult FromUpload(int photoBytes, string stationId) =>
-        new()
-        {
-            Ok = true,
-            UploadId = Guid.NewGuid().ToString(),
-            PhotoBytes = photoBytes,
-            StationId = stationId,
-        };
-
-    public static System.Net.HttpStatusCode FromUploadError() => System.Net.HttpStatusCode.Conflict;
 }

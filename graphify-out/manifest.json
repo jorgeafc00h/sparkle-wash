@@ -1,0 +1,254 @@
+{
+  "ai-spec-ui/fixtures/setup.js": {
+    "mtime": 1792106674.697803,
+    "seen": 1792118081.683852,
+    "ast_hash": "04d296d3dcddf614a868eaadaf887610",
+    "semantic_hash": "04d296d3dcddf614a868eaadaf887610"
+  },
+  "ai-spec-ui/package.json": {
+    "mtime": 1792107315.1142578,
+    "seen": 1792118081.6838531,
+    "ast_hash": "fb5457efab954c6d5789ad0fe63d8e1d",
+    "semantic_hash": "fb5457efab954c6d5789ad0fe63d8e1d"
+  },
+  "ai-spec-ui/run-and-verify.sh": {
+    "mtime": 1792106678.3462296,
+    "seen": 1792118081.683854,
+    "ast_hash": "5c6d1334b0708d0bd8718174d90d87b1",
+    "semantic_hash": "5c6d1334b0708d0bd8718174d90d87b1"
+  },
+  "ai-spec-ui/src/alerts.tsx": {
+    "mtime": 1792117236.1803505,
+    "seen": 1792118081.683854,
+    "ast_hash": "3218bd57fcd1ea3e5bc18df7221b2ddb",
+    "semantic_hash": "3218bd57fcd1ea3e5bc18df7221b2ddb"
+  },
+  "ai-spec-ui/src/health.tsx": {
+    "mtime": 1792106484.1593585,
+    "seen": 1792118081.683855,
+    "ast_hash": "68f8342ea02b6ef981cd15b12ace75aa",
+    "semantic_hash": "68f8342ea02b6ef981cd15b12ace75aa"
+  },
+  "ai-spec-ui/src/integration/tests.spec.ts": {
+    "mtime": 1792106670.1772134,
+    "seen": 1792118081.683855,
+    "ast_hash": "da40ea83a6e2fba09171c74adbdfac3c",
+    "semantic_hash": "da40ea83a6e2fba09171c74adbdfac3c"
+  },
+  "ai-spec-ui/src/integration/tests.ts": {
+    "mtime": 1792106570.0868273,
+    "seen": 1792118081.683855,
+    "ast_hash": "aef90a833d384823f9c13adc1617d568",
+    "semantic_hash": "aef90a833d384823f9c13adc1617d568"
+  },
+  "ai-spec-ui/src/main.tsx": {
+    "mtime": 1792117236.180831,
+    "seen": 1792118081.6838558,
+    "ast_hash": "9c19557296e846d96425077edd264fcb",
+    "semantic_hash": "9c19557296e846d96425077edd264fcb"
+  },
+  "ai-spec-ui/src/metrics.tsx": {
+    "mtime": 1792106494.8769648,
+    "seen": 1792118081.6838558,
+    "ast_hash": "d9158482f674cb3b27ba2c50c9f184f5",
+    "semantic_hash": "d9158482f674cb3b27ba2c50c9f184f5"
+  },
+  "ai-spec-ui/src/streaming-component.tsx": {
+    "mtime": 1792106479.5396638,
+    "seen": 1792118081.6838558,
+    "ast_hash": "dfe692e7793512787134395418531f57",
+    "semantic_hash": "dfe692e7793512787134395418531f57"
+  },
+  "ai-spec-ui/src/types.ts": {
+    "mtime": 1792106471.2317488,
+    "seen": 1792118081.683857,
+    "ast_hash": "269369f27605f3a51f0d7260dfa91c21",
+    "semantic_hash": "269369f27605f3a51f0d7260dfa91c21"
+  },
+  "ai-spec-ui/src/unit_tests/index.test.tsx": {
+    "mtime": 1792107373.1597939,
+    "seen": 1792118081.683857,
+    "ast_hash": "22453e763bd7f4979149d2ed91fdaf77",
+    "semantic_hash": "22453e763bd7f4979149d2ed91fdaf77"
+  },
+  "ai-spec-ui/src/upload.tsx": {
+    "mtime": 1792106515.5036063,
+    "seen": 1792118081.683857,
+    "ast_hash": "481c6343466111618b9038155bd7cca5",
+    "semantic_hash": "481c6343466111618b9038155bd7cca5"
+  },
+  "ai-spec-ui/tsconfig.json": {
+    "mtime": 1792106572.4277585,
+    "seen": 1792118081.683857,
+    "ast_hash": "51133088a67882b98a175dc224bc5c29",
+    "semantic_hash": "51133088a67882b98a175dc224bc5c29"
+  },
+  "ai-spec-ui/vitest.config.ts": {
+    "mtime": 1792107311.5999665,
+    "seen": 1792118081.683858,
+    "ast_hash": "d5736c6b801d57b01f83bd0ab4706e90",
+    "semantic_hash": "d5736c6b801d57b01f83bd0ab4706e90"
+  },
+  "carwash.sln": {
+    "mtime": 1792105824.2458014,
+    "seen": 1792118081.683858,
+    "ast_hash": "f40b1213bbddfa0fdd1ec6937f8c731d",
+    "semantic_hash": "f40b1213bbddfa0fdd1ec6937f8c731d"
+  },
+  "global.json": {
+    "mtime": 1792103868.0134845,
+    "seen": 1792118081.683858,
+    "ast_hash": "6b51bb7e6b25527195075fcbf6213924",
+    "semantic_hash": "6b51bb7e6b25527195075fcbf6213924"
+  },
+  "src/carwash-api.Tests/ApiIntegrationTests.cs": {
+    "mtime": 1792120288.6464174,
+    "seen": 1792120585.591485,
+    "ast_hash": "870f5527f0175b81781714c1d07c2538",
+    "semantic_hash": "870f5527f0175b81781714c1d07c2538"
+  },
+  "src/carwash-api.Tests/CarwashApi.Tests.csproj": {
+    "mtime": 1792120155.5895958,
+    "seen": 1792120585.591487,
+    "ast_hash": "43117c14d9396e4c10e52871b4a036c0",
+    "semantic_hash": "43117c14d9396e4c10e52871b4a036c0"
+  },
+  "src/carwash-api.Tests/CarwashApi.Tests/CarwashApi.Tests.csproj": {
+    "mtime": 1792107680.4291751,
+    "seen": 1792118081.6838589,
+    "ast_hash": "2f6cddfd8a93015837970ec10a7f59e7",
+    "semantic_hash": "2f6cddfd8a93015837970ec10a7f59e7"
+  },
+  "src/carwash-api.Tests/UploadMultipartTests.cs": {
+    "mtime": 1792120319.7159731,
+    "seen": 1792120585.591558,
+    "ast_hash": "22f335d6697d638d198ef4d72ac9a55b",
+    "semantic_hash": "22f335d6697d638d198ef4d72ac9a55b"
+  },
+  "src/carwash-api/Program.cs": {
+    "mtime": 1792107680.4313657,
+    "seen": 1792118081.683861,
+    "ast_hash": "f7f3c5291f7ac60701808c80aebb5fc0",
+    "semantic_hash": "f7f3c5291f7ac60701808c80aebb5fc0"
+  },
+  "src/carwash-api/WebApi.csproj": {
+    "mtime": 1792107680.4314694,
+    "seen": 1792118081.683861,
+    "ast_hash": "41ed6a1815f4c72b59a21c30da0011a8",
+    "semantic_hash": "41ed6a1815f4c72b59a21c30da0011a8"
+  },
+  "src/carwash-api/bin/Debug/net8.0/WebApi.deps.json": {
+    "mtime": 1792108709.6032972,
+    "seen": 1792118081.683862,
+    "ast_hash": "6ec2595fc085a49a6501c462af2808a0",
+    "semantic_hash": "6ec2595fc085a49a6501c462af2808a0"
+  },
+  "src/carwash-api/bin/Debug/net8.0/WebApi.runtimeconfig.json": {
+    "mtime": 1792108709.6265876,
+    "seen": 1792118081.683862,
+    "ast_hash": "f7b359651f88cf5a7fa4233fe97b18c0",
+    "semantic_hash": "f7b359651f88cf5a7fa4233fe97b18c0"
+  },
+  "src/carwash-api/bin/Debug/net8.0/WebApi.staticwebassets.endpoints.json": {
+    "mtime": 1792107680.4503028,
+    "seen": 1792118081.683863,
+    "ast_hash": "f44ca44dd881261586b84442f2201257",
+    "semantic_hash": "f44ca44dd881261586b84442f2201257"
+  },
+  "src/carwash-api/obj/Debug/net8.0/.NETCoreApp,Version=v8.0.AssemblyAttributes.cs": {
+    "mtime": 1792107680.4461317,
+    "seen": 1792118081.683863,
+    "ast_hash": "b35d66657a259714f6d50974a720b5fa",
+    "semantic_hash": "b35d66657a259714f6d50974a720b5fa"
+  },
+  "src/carwash-api/obj/Debug/net8.0/WebApi.AssemblyInfo.cs": {
+    "mtime": 1792117457.4641578,
+    "seen": 1792118081.683863,
+    "ast_hash": "c7bcb40bc3b9efb31f3c9e3cff07f4c1",
+    "semantic_hash": "c7bcb40bc3b9efb31f3c9e3cff07f4c1"
+  },
+  "src/carwash-api/obj/Debug/net8.0/WebApi.GlobalUsings.g.cs": {
+    "mtime": 1792107680.446487,
+    "seen": 1792118081.683863,
+    "ast_hash": "3ca3ba71f186b61cb901145d168ce1fd",
+    "semantic_hash": "3ca3ba71f186b61cb901145d168ce1fd"
+  },
+  "src/carwash-api/obj/Debug/net8.0/WebApi.MvcApplicationPartsAssemblyInfo.cs": {
+    "mtime": 1792108708.212705,
+    "seen": 1792118081.683864,
+    "ast_hash": "bbddc63dfa9d9faa474fcaa2e2be30af",
+    "semantic_hash": "bbddc63dfa9d9faa474fcaa2e2be30af"
+  },
+  "src/carwash-api/obj/Debug/net8.0/rjsmcshtml.dswa.cache.json": {
+    "mtime": 1792117458.6146462,
+    "seen": 1792118081.683864,
+    "ast_hash": "f31ffd8199ad2d2ac3ab8cb823cf9799",
+    "semantic_hash": "f31ffd8199ad2d2ac3ab8cb823cf9799"
+  },
+  "src/carwash-api/obj/Debug/net8.0/rjsmrazor.dswa.cache.json": {
+    "mtime": 1792117458.6140077,
+    "seen": 1792118081.683864,
+    "ast_hash": "d275855bdf4158d4201f6fa557e173b0",
+    "semantic_hash": "d275855bdf4158d4201f6fa557e173b0"
+  },
+  "src/carwash-api/obj/Debug/net8.0/staticwebassets.build.endpoints.json": {
+    "mtime": 1792107680.4503028,
+    "seen": 1792118081.683864,
+    "ast_hash": "f44ca44dd881261586b84442f2201257",
+    "semantic_hash": "f44ca44dd881261586b84442f2201257"
+  },
+  "src/carwash-api/obj/Debug/net8.0/staticwebassets.build.json": {
+    "mtime": 1792107680.4503748,
+    "seen": 1792118081.683865,
+    "ast_hash": "b86af51610a16cc5bcd27cd98a32edef",
+    "semantic_hash": "b86af51610a16cc5bcd27cd98a32edef"
+  },
+  "src/carwash-api/obj/WebApi.csproj.nuget.dgspec.json": {
+    "mtime": 1792107680.450574,
+    "seen": 1792118081.683865,
+    "ast_hash": "6b7359aea5b686893d12b3e16390d695",
+    "semantic_hash": "6b7359aea5b686893d12b3e16390d695"
+  },
+  "src/carwash-api/obj/project.assets.json": {
+    "mtime": 1792107680.4509547,
+    "seen": 1792118081.683865,
+    "ast_hash": "908bd5c0600339e8c9131a4e6d400f7c",
+    "semantic_hash": "908bd5c0600339e8c9131a4e6d400f7c"
+  },
+  "static/wwwroot/assets/index-CiyYnXhJ.js": {
+    "mtime": 1792097760.0978336,
+    "seen": 1792118081.683865,
+    "ast_hash": "a3cc07119812a3d2d7a689a06ad4ed4f",
+    "semantic_hash": "a3cc07119812a3d2d7a689a06ad4ed4f"
+  },
+  "static/wwwroot/assets/index-Drx04HoD.js": {
+    "mtime": 1792103729.0151784,
+    "seen": 1792118081.683866,
+    "ast_hash": "84206076f694e6721cf19fce921aadda",
+    "semantic_hash": "84206076f694e6721cf19fce921aadda"
+  },
+  "static/wwwroot/manifest.json": {
+    "mtime": 1792103728.970244,
+    "seen": 1792118081.683866,
+    "ast_hash": "1880470302fd8a227d614467746a2768",
+    "semantic_hash": "1880470302fd8a227d614467746a2768"
+  },
+  "static/wwwroot/service-worker.ts": {
+    "mtime": 1792103728.9706435,
+    "seen": 1792118081.683866,
+    "ast_hash": "c453a7cbe786f282f133a6754b749692",
+    "semantic_hash": "c453a7cbe786f282f133a6754b749692"
+  },
+  "static/wwwroot/sw.js": {
+    "mtime": 1792103728.9708707,
+    "seen": 1792118081.683867,
+    "ast_hash": "084645cb35bb3d1f37be0163a905b932",
+    "semantic_hash": "084645cb35bb3d1f37be0163a905b932"
+  },
+  "ApiIntegrationTests.cs": {
+    "mtime": 1792119803.3718226,
+    "seen": 1792120585.5902379,
+    "ast_hash": "ee8e3a040eeb4554d394a9b774059adc",
+    "semantic_hash": "ee8e3a040eeb4554d394a9b774059adc"
+  }
+}

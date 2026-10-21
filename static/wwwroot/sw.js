@@ -1,54 +1,30 @@
-// ════════════════════════════════════════════════════════════════
-// Service Worker: Cache-first for static assets, network-first for APIs.
-// Degradation falls back to polling when the WS connection fails.
-// ════════════════════════════════════════════════════════════════
-
-const CACHE_NAME = "sparklewash-pwa-v1";
-const FILES_TO_PRECACHE = [ "/", "/index.html", "/offline.html" ];
-
-self.addEventListener("install", (event: InstallEvent) => {
-  event.waitUntil(
-    Promise.all([
-      caches.open(CACHE_NAME).then((c) => c.addAll(FILES_TO_PRECACHE))
-    ])
-  );
+// Cache the app shell and visited same-origin assets. API freshness belongs to
+// useDashboard; do not disguise cached telemetry as a successful network poll.
+const CACHE_NAME = 'sparklewash-shell-v2';
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(['/', '/index.html', '/offline.html'])));
 });
-
-self.addEventListener("activate", (event: ActivateEvent) => {
-  event.waitUntil(
-    caches.keys().then((names) =>
-      Promise.all(names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name)))
-    )
-  );
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(names => Promise.all(names
+    .filter(name => name.startsWith('sparklewash-') && name !== CACHE_NAME)
+    .map(name => caches.delete(name)))).then(() => self.clients.claim()));
 });
-
-self.addEventListener("fetch", (event) => {
+self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-
-  if (url.pathname.endsWith(".html")) {
-    return event.respondWith(caches.open(CACHE_NAME).then((c) => c.match(url.href)?.then(t ? event.respondWith(t) : fetch(url.href))));
-  }
-
-  return event.respondWith(
-    fetch(url.href).then((response) => {
-      if (response.status === 429) throw new Error("Rate-limited");
-      const responseClone = response.clone();
-      caches.open(CACHE_NAME).then((c) => {
-        c.delete(url.href); c.put(url.href, responseClone.clone()).catch((e: Error) => console.error(e));
-      });
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin ||
+      url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws/') ||
+      url.pathname === '/healthz' || url.pathname === '/openapi.json') return;
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    try {
+      const response = await fetch(event.request);
+      if (response.ok) await cache.put(event.request, response.clone());
       return response;
-    }).catch(() => fetch(CACHE_NAME))
-  );
-});
-
-// ─── Network-first: WebSocket reconnection degradation ───────────────────
-self.addEventListener("fetch", (event: FetchEvent) => {
-  if (event.request.url.endsWith("/ws/")) {
-    event.respondWith(
-      caches.open(CACHE_NAME).then(async (c) => {
-        const stored = await c.match(event.request);
-        return fetch(event.request);
-      })
-    );
-  }
+    } catch {
+      const saved = await cache.match(event.request);
+      if (saved) return saved;
+      if (event.request.mode === 'navigate') return (await cache.match('/index.html')) || (await cache.match('/offline.html'));
+      return Response.error();
+    }
+  })());
 });
