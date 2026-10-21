@@ -133,7 +133,12 @@ struct SyncBanner: View {
                 if !engine.isOnline || engine.pendingCount > 0 {
                     HStack {
                         Image(systemName: engine.isOnline ? "arrow.triangle.2.circlepath" : "wifi.slash")
-                        Text(engine.isOnline ? t("ios.pendingSync", ["count": engine.pendingCount]) : t("ios.offlineBanner", ["count": engine.pendingCount]))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(engine.isOnline ? t("ios.pendingSync", ["count": engine.pendingCount]) : t("ios.offlineBanner", ["count": engine.pendingCount]))
+                            if !engine.isOnline, let last = engine.lastSync {
+                                Text(t("ios.offlineData", ["ago": t.ago(last)])).font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
                         Spacer()
                         Button(t("ios.syncNow")) { Task { await engine.sync() } }.buttonStyle(.bordered).controlSize(.small)
                     }
@@ -165,5 +170,21 @@ struct DetailPlaceholder: View {
     let text: String
     var body: some View {
         ContentUnavailableView(text, systemImage: symbol)
+    }
+}
+
+/// For screens read live from the server (not cached): shown when they can't load.
+struct NeedsConnectionView: View {
+    @Environment(Localizer.self) private var t
+    let retry: () async -> Void
+
+    var body: some View {
+        ContentUnavailableView {
+            Label(t("ios.noConnection"), systemImage: "wifi.slash")
+        } description: {
+            Text(t("ios.needsConnection"))
+        } actions: {
+            Button(t("ios.retry")) { Task { await retry() } }.buttonStyle(.bordered)
+        }
     }
 }

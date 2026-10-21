@@ -152,6 +152,7 @@ struct CarwashProfileView: View {
     @State private var errors: Set<TenantInput.Field> = []
     @State private var message: String?
     @State private var saving = false
+    @State private var failed = false
 
     var body: some View {
         Form {
@@ -162,15 +163,23 @@ struct CarwashProfileView: View {
                         .disabled(saving).accessibilityIdentifier("save-carwash")
                     if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
                 }
+            } else if failed {
+                NeedsConnectionView { await load() }
             } else {
                 ProgressView()
             }
         }
         .navigationTitle(t("admin.tab.carwash"))
-        .task {
-            guard input == nil, let tenant = try? await model.engine?.api.tenant() else { return }
+        .task { await load() }
+    }
+
+    private func load() async {
+        guard input == nil else { return }
+        do {
+            guard let tenant = try await model.engine?.api.tenant() else { return }
             input = TenantInput(name: tenant.name, city: tenant.city, country: tenant.country, phone: tenant.phone, timeZone: tenant.timeZone)
-        }
+            failed = false
+        } catch { failed = true }
     }
 
     private func save() async {
@@ -234,19 +243,24 @@ struct LinkCameraSheet: View {
             .onAppear {
                 let free = CameraRole.allCases.first { role in !existing.contains { $0.role == role && !$0.disabled } } ?? .bay
                 role = free
-                cameraId = DeviceInput.suggestedCameraId(for: free)
+                cameraId = DeviceInput.suggestedCameraId(for: free, existing: existing.map(\.cameraId))
             }
-            .onChange(of: role) { _, newRole in if !touchedId { cameraId = DeviceInput.suggestedCameraId(for: newRole) } }
+            .onChange(of: role) { _, newRole in if !touchedId { cameraId = DeviceInput.suggestedCameraId(for: newRole, existing: existing.map(\.cameraId)) } }
         }
     }
 
     private func create() async {
         let input = DeviceInput(name: name.trimmingCharacters(in: .whitespaces), cameraId: cameraId.trimmingCharacters(in: .whitespaces).lowercased(), role: role)
         guard input.isValid else { error = t("link.invalid"); return }
+        let taken = t("link.idTaken", ["cameraId": input.cameraId,
+                                       "suggestion": DeviceInput.suggestedCameraId(for: role, existing: existing.map(\.cameraId))])
+        guard !existing.contains(where: { $0.cameraId == input.cameraId }) else { error = taken; return }
         guard let api = model.engine?.api else { return }
         busy = true
         defer { busy = false }
-        do { onCreated(try await api.createDevice(input)) } catch { self.error = t.error(error) }
+        do { onCreated(try await api.createDevice(input)) } catch {
+            if case .conflict? = error as? APIError { self.error = taken } else { self.error = t.error(error) }
+        }
     }
 }
 
@@ -257,10 +271,13 @@ struct KeySheet: View {
     @Environment(AppModel.self) private var model
     @Environment(Localizer.self) private var t
     @State private var copied = false
+    @State private var copiedCommand = false
+    @State private var provisioning = false
 
     private var command: String {
         let api = model.config.server?.baseURL.absoluteString ?? "https://TU-API"
-        return "python -m sparkle_vision.gateway --camera-url http://IP-DE-LA-CAMARA/cam-hi.jpg --camera-id \(issued.device.cameraId) --api \(api) --device-key \(issued.deviceKey)"
+        let host = LocalCamera.mdnsHost(cameraId: issued.device.cameraId)
+        return "python -m sparkle_vision.gateway --camera-url http://\(host)/cam-hi.jpg --camera-id \(issued.device.cameraId) --api \(api) --device-key \(issued.deviceKey)"
     }
 
     var body: some View {
@@ -282,8 +299,18 @@ struct KeySheet: View {
                 }
                 SwiftUI.Section {
                     Text(command).font(.caption.monospaced()).textSelection(.enabled)
-                    Button(t("link.copy")) { UIPasteboard.general.string = command }
-                } header: { Text(t("link.command")) } footer: { Text(t("link.steps", ["cameraId": issued.device.cameraId])) }
+                    Button(copiedCommand ? t("link.copied") : t("link.copy")) { UIPasteboard.general.string = command; copiedCommand = true }
+                } header: { Text(t("link.command")) } footer: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(t("link.steps", ["cameraId": issued.device.cameraId]))
+                        Text(t("link.mdnsNote"))
+                        Text(t("link.stepsLegacy", ["cameraId": issued.device.cameraId]))
+                    }
+                }
+                SwiftUI.Section(t("ios.key.next")) {
+                    Button { provisioning = true } label: { Label(t("ios.ble.title"), systemImage: "antenna.radiowaves.left.and.right") }
+                        .accessibilityIdentifier("key-ble-button")
+                }
             }
             .navigationTitle(t("link.keyTitle", ["name": issued.device.name]))
             .toolbar {
@@ -291,6 +318,7 @@ struct KeySheet: View {
             }
         }
         .interactiveDismissDisabled()
+        .sheet(isPresented: $provisioning) { BLEProvisionView(cameraId: issued.device.cameraId) }
     }
 }
 
@@ -302,6 +330,7 @@ struct CameraDetailView: View {
     @State private var confirmRotate = false
     @State private var error: String?
     @State private var provisioning = false
+    @State private var confirmDisable = false
 
     var body: some View {
         let _ = model.engine?.revision
@@ -340,8 +369,13 @@ struct CameraDetailView: View {
             }
             LocalCameraSection(cameraId: device.cameraId, knownIP: device.lastStatus?.ip)
             SwiftUI.Section {
-                Button { provisioning = true } label: { Label(t("ios.ble.title"), systemImage: "antenna.radiowaves.left.and.right") }
-                    .accessibilityIdentifier("ble-setup-button")
+                if LocalCamera.supportsBluetoothSetup(device.lastStatus?.firmware) {
+                    Button { provisioning = true } label: { Label(t("ios.ble.title"), systemImage: "antenna.radiowaves.left.and.right") }
+                        .accessibilityIdentifier("ble-setup-button")
+                } else {
+                    Label(t("device.updateBadge"), systemImage: "arrow.down.circle").foregroundStyle(.orange)
+                    Text(t("ios.ble.requires12")).font(.footnote).foregroundStyle(.secondary)
+                }
             }
             SwiftUI.Section {
                 Button { confirmRotate = true } label: { Label(t("device.rotate"), systemImage: "key") }
@@ -349,10 +383,17 @@ struct CameraDetailView: View {
                     .confirmationDialog(t("device.rotateConfirm", ["name": device.name]), isPresented: $confirmRotate, titleVisibility: .visible) {
                         Button(t("device.rotate"), role: .destructive) { Task { await rotate(device) } }
                     }
-                Button(role: device.disabled ? nil : .destructive) { Task { await toggle(device) } } label: {
+                Button(role: device.disabled ? nil : .destructive) {
+                    if device.disabled { Task { await toggle(device) } } else { confirmDisable = true }
+                } label: {
                     Label(device.disabled ? t("device.enable") : t("device.disable"), systemImage: "power")
                 }
                 .accessibilityIdentifier("toggle-device-button")
+                .disabled(model.engine?.isOnline == false)
+                .confirmationDialog(t("device.disableConfirm", ["name": device.name]), isPresented: $confirmDisable, titleVisibility: .visible) {
+                    Button(t("device.disable"), role: .destructive) { Task { await toggle(device) } }
+                }
+                if model.engine?.isOnline == false { Text(t("ios.onlineOnly")).font(.footnote).foregroundStyle(.secondary) }
                 if let error { Text(error).foregroundStyle(.red) }
             }
         }
@@ -391,6 +432,7 @@ struct TeamView: View {
     @State private var role: Role = .operator
     @State private var message: String?
     @State private var removing: Member?
+    @State private var failed = false
 
     var body: some View {
         Form {
@@ -417,6 +459,10 @@ struct TeamView: View {
                             Menu(t.role(member.role)) {
                                 ForEach(Role.allCases, id: \.self) { option in
                                     Button(t.role(option)) { Task { await setRole(member, option) } }
+                                }
+                                if member.subject != team.you {
+                                    Divider()
+                                    Button(t("team.remove"), role: .destructive) { removing = member }
                                 }
                             }
                             .accessibilityIdentifier("role-\(member.subject)")
@@ -447,6 +493,8 @@ struct TeamView: View {
                         ForEach(team.configured, id: \.subject) { item in LabeledContent(item.subject, value: t.role(item.role)) }
                     } header: { Text(t("team.configured")) } footer: { Text(t("team.configuredHelp")) }
                 }
+            } else if failed {
+                NeedsConnectionView { await load() }
             } else {
                 ProgressView()
             }
@@ -458,7 +506,9 @@ struct TeamView: View {
         }
     }
 
-    private func load() async { team = try? await model.engine?.api.team() }
+    private func load() async {
+        do { team = try await model.engine?.api.team(); failed = false } catch { failed = team == nil }
+    }
 
     private func run(_ action: () async throws -> Void, success: String) async {
         do { try await action(); message = success } catch { message = t.error(error) }

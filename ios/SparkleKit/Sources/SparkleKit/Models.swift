@@ -327,6 +327,15 @@ public struct DeviceInput: Codable, Hashable, Sendable {
         switch role { case .entry: "entrance-cam"; case .bay: "bay1-cam"; case .exit: "exit-cam" }
     }
 
+    /// A camera id for the role that isn't taken yet: entrance-cam, entrance2-cam… / bay1-cam, bay2-cam… (same as the web console).
+    public static func suggestedCameraId(for role: CameraRole, existing: [String]) -> String {
+        let taken = Set(existing)
+        let base = suggestedCameraId(for: role)
+        guard taken.contains(base) else { return base }
+        let stem = switch role { case .entry: "entrance"; case .bay: "bay"; case .exit: "exit" }
+        return (2..<100).lazy.map { "\(stem)\($0)-cam" }.first { !taken.contains($0) } ?? "\(stem)-\(Int(Date().timeIntervalSince1970))-cam"
+    }
+
     /// Name 2–60 characters; camera id of lowercase letters, digits, '-' or '_' (what the firmware and gateway use).
     public var isValid: Bool {
         let trimmed = name.trimmingCharacters(in: .whitespaces)

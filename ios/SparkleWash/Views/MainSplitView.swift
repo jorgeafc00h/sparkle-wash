@@ -45,6 +45,9 @@ struct MainSplitView: View {
                 if let session = model.session {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(t.role(session.role)).font(.caption.weight(.semibold))
+                        if let last = model.engine?.lastSync {
+                            Text(t("ios.syncedAgo", ["ago": t.ago(last)])).font(.caption2).foregroundStyle(.secondary)
+                        }
                         if model.isDemo { Pill(text: t("shell.demoData"), symbol: "flask", tint: .purple) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -101,6 +104,12 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(Localizer.self) private var t
     @Environment(\.dismiss) private var dismiss
+    @State private var confirmSignOut = false
+
+    private func signOut() {
+        dismiss()
+        Task { await model.signOut() }
+    }
 
     var body: some View {
         @Bindable var localizer = t
@@ -110,7 +119,7 @@ struct SettingsView: View {
                     SwiftUI.Section(t("ios.account")) {
                         LabeledContent(t("register.name"), value: session.tenant.name)
                         LabeledContent(t("link.role"), value: t.role(session.role))
-                        if let email = session.email { LabeledContent("Email", value: email) }
+                        if let email = session.email { LabeledContent(t("team.email"), value: email) }
                     }
                 }
                 SwiftUI.Section(t("shell.language")) {
@@ -129,10 +138,12 @@ struct SettingsView: View {
                 }
                 SwiftUI.Section {
                     Button(model.isDemo ? t("shell.exitDemo") : t("shell.signOut"), role: .destructive) {
-                        dismiss()
-                        Task { await model.signOut() }
+                        if (model.engine?.pendingCount ?? 0) > 0 { confirmSignOut = true } else { signOut() }
                     }
                     .accessibilityIdentifier("sign-out-button")
+                    .confirmationDialog(t("ios.signOutPending", ["count": model.engine?.pendingCount ?? 0]), isPresented: $confirmSignOut, titleVisibility: .visible) {
+                        Button(model.isDemo ? t("shell.exitDemo") : t("shell.signOut"), role: .destructive) { signOut() }
+                    }
                 }
             }
             .navigationTitle(t("ios.settings"))

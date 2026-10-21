@@ -108,9 +108,11 @@ struct BayListView: View {
     @Environment(AppModel.self) private var model
     @Environment(Localizer.self) private var t
     @State private var bays: Bays?
+    @State private var failed = false
 
     var body: some View {
         List(selection: $selection) {
+            if failed && bays == nil { NeedsConnectionView { await load() } }
             if let bays, bays.stations.isEmpty { ContentUnavailableView(t("bays.none"), systemImage: "gauge.with.dots.needle.0percent") }
             ForEach(bays?.stations ?? []) { station in
                 HStack {
@@ -129,7 +131,9 @@ struct BayListView: View {
         .refreshable { await load() }
     }
 
-    private func load() async { bays = try? await model.engine?.api.bays() }
+    private func load() async {
+        do { bays = try await model.engine?.api.bays(); failed = false } catch { failed = true }
+    }
 }
 
 struct BayDetailView: View {
@@ -137,9 +141,11 @@ struct BayDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(Localizer.self) private var t
     @State private var station: Station?
+    @State private var failed = false
 
     var body: some View {
         List {
+            if failed && station == nil { NeedsConnectionView { await load() } }
             if let station {
                 SwiftUI.Section {
                     Gauge(value: min(station.pressurePsi, 100), in: 0...100) { Text(t("bays.pressure")) } currentValueLabel: { Text("\(station.pressurePsi.formatted()) psi") }
@@ -154,6 +160,11 @@ struct BayDetailView: View {
             }
         }
         .navigationTitle(station?.name ?? stationId)
-        .task(id: stationId) { station = try? await model.engine?.api.bays().stations.first { $0.stationId == stationId } }
+        .task(id: stationId) { await load() }
+    }
+
+    private func load() async {
+        do { station = try await model.engine?.api.bays().stations.first { $0.stationId == stationId }; failed = false }
+        catch { failed = true }
     }
 }

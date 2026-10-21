@@ -5,6 +5,24 @@ import Foundation
 public enum LocalCamera {
     public static let bonjourType = "_sparklewash._tcp"
 
+    /// The host name firmware 1.2 announces over mDNS.
+    public static func mdnsHost(cameraId: String) -> String {
+        "sparklecam-\(cameraId.replacingOccurrences(of: "_", with: "-")).local"
+    }
+
+    /// "sparklewash-cam/1.1" → (1, 1). Nil for unknown firmware.
+    public static func firmwareVersion(_ firmware: String?) -> (major: Int, minor: Int)? {
+        guard let firmware, let range = firmware.range(of: "sparklewash-cam/") else { return nil }
+        let parts = firmware[range.upperBound...].split(separator: ".").prefix(2).compactMap { Int($0.prefix { $0.isNumber }) }
+        return parts.count == 2 ? (parts[0], parts[1]) : nil
+    }
+
+    /// Bluetooth setup and Bonjour arrived in firmware 1.2.
+    public static func supportsBluetoothSetup(_ firmware: String?) -> Bool {
+        guard let version = firmwareVersion(firmware) else { return true } // never reported: assume current firmware
+        return version.major > 1 || (version.major == 1 && version.minor >= 2)
+    }
+
     public enum Resolution: String, CaseIterable, Sendable { case low = "cam-lo", medium = "cam-mid", high = "cam-hi" }
 
     public struct Status: Codable, Hashable, Sendable {

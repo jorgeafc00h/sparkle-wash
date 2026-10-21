@@ -52,4 +52,18 @@ final class CameraTests: XCTestCase {
         XCTAssertEqual(BLEProvisioning.Status(Data("failed:wrong-password".utf8)), .failed(reason: "wrong-password"))
         XCTAssertEqual(BLEProvisioning.Status(Data("???".utf8)), .unknown("???"))
     }
+
+    func testFirmwareVersionsAndHostNames() {
+        XCTAssertFalse(LocalCamera.supportsBluetoothSetup("sparklewash-cam/1.1"))
+        XCTAssertTrue(LocalCamera.supportsBluetoothSetup("sparklewash-cam/1.2"))
+        XCTAssertTrue(LocalCamera.supportsBluetoothSetup("sparklewash-cam/2.0"))
+        XCTAssertTrue(LocalCamera.supportsBluetoothSetup(nil))
+        XCTAssertEqual(LocalCamera.mdnsHost(cameraId: "bay_2-cam"), "sparklecam-bay-2-cam.local")
+    }
+
+    func testSuggestedCameraIdSkipsTakenOnes() {
+        XCTAssertEqual(DeviceInput.suggestedCameraId(for: .bay, existing: []), "bay1-cam")
+        XCTAssertEqual(DeviceInput.suggestedCameraId(for: .bay, existing: ["bay1-cam", "bay2-cam"]), "bay3-cam")
+        XCTAssertEqual(DeviceInput.suggestedCameraId(for: .entry, existing: ["entrance-cam"]), "entrance2-cam")
+    }
 }

@@ -28,8 +28,8 @@
     "en": "Simulate offline"
   },
   "ios.offlineDemoHelp": {
-    "es": "Los cambios se guardan en el iPad y se sincronizan al volver la conexión.",
-    "en": "Changes are kept on the iPad and sync when the connection returns."
+    "es": "Los cambios se guardan en este dispositivo y se sincronizan al volver la conexión.",
+    "en": "Changes are kept on this device and sync when the connection returns."
   },
   "ios.offlineBanner": {
     "es": "Sin conexión · {count, plural, one {1 cambio espera} other {{count} cambios esperan}} para sincronizar",
@@ -218,5 +218,37 @@
   "ios.job.provisional": {
     "es": "Abierto sin conexión: se podrá avanzar cuando se sincronice.",
     "en": "Opened offline: it can be advanced once it syncs."
+  },
+  "ios.offlineData": {
+    "es": "Sin conexión · datos de hace {ago}",
+    "en": "Offline · data from {ago}"
+  },
+  "ios.signOutPending": {
+    "es": "{count, plural, one {Tienes 1 cambio sin sincronizar} other {Tienes {count} cambios sin sincronizar}}. Si cierras sesión ahora se perderán. ¿Cerrar sesión de todos modos?",
+    "en": "{count, plural, one {You have 1 unsynced change} other {You have {count} unsynced changes}}. Signing out now will lose them. Sign out anyway?"
+  },
+  "ios.needsConnection": {
+    "es": "Necesita conexión: esta información no se guarda en el dispositivo.",
+    "en": "Needs a connection: this information isn't stored on the device."
+  },
+  "ios.onlineOnly": {
+    "es": "Disponible al volver la conexión.",
+    "en": "Available when the connection returns."
+  },
+  "ios.ble.requires12": {
+    "es": "Requiere firmware 1.2: grábalo por USB una vez y después se configura por Bluetooth.",
+    "en": "Requires firmware 1.2: flash it over USB once, then set it up over Bluetooth."
+  },
+  "ios.ble.notFound": {
+    "es": "No encontramos cámaras. Desconéctala y vuelve a encenderla con BOOT presionado; el flash parpadea lento en modo configuración.",
+    "en": "No cameras found. Unplug it and power it on again holding BOOT; the flash blinks slowly in setup mode."
+  },
+  "ios.key.next": {
+    "es": "Siguiente: configura el Wi-Fi de la cámara",
+    "en": "Next: set up the camera's Wi-Fi"
+  },
+  "ios.noConnection": {
+    "es": "Sin conexión",
+    "en": "No connection"
   }
 }
