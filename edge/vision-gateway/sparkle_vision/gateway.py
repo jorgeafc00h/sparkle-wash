@@ -1,7 +1,7 @@
 """Main loop: ESP32-CAM -> YOLO vehicles -> plate region -> OCR -> tracker -> SparkleWash API.
 
     python -m sparkle_vision.gateway --camera-url http://192.168.1.50/cam-hi.jpg \
-        --camera-id entrance-cam --api http://localhost:5001 --ingest-key $SPARKLEWASH_INGEST_KEY --show
+        --camera-id entrance-cam --api http://localhost:5001 --device-key $SPARKLEWASH_DEVICE_KEY --show
 """
 
 from __future__ import annotations
@@ -14,14 +14,15 @@ from pathlib import Path
 
 import numpy as np
 
-from .api import SparkleWashClient, build_observation
-from .camera import decode_jpeg, encode_evidence, fetch_jpeg
+from .api import SparkleWashClient, build_observation, heartbeat_payload
+from .camera import decode_jpeg, encode_evidence, fetch_jpeg, fetch_status
 from .detection import VEHICLE_CLASSES, Detection, YoloDetector, find_plate_regions, load_labels
 from .ocr import PlateReader, default_reader
 from .plates import PlateEvent, PlateRead, PlateTracker, edit_distance
 
 log = logging.getLogger("sparkle_vision")
 MODELS = Path(__file__).resolve().parent.parent / "models"
+HEARTBEAT_SECONDS = 30
 
 
 class Pipeline:
@@ -73,8 +74,10 @@ def run(args: argparse.Namespace) -> None:
                     "running vehicle detection only")
     pipeline = Pipeline(vehicles, reader, plates)
     tracker = PlateTracker(args.min_reads, args.window, args.cooldown)
-    client = SparkleWashClient(args.api, args.ingest_key) if args.api else None
+    client = SparkleWashClient(args.api, args.ingest_key or None, device_key=args.device_key or None) if args.api else None
     evidence: dict[str, np.ndarray] = {}
+    frames_since_beat = 0
+    last_beat = 0.0
 
     while True:
         started = time.time()
@@ -86,6 +89,13 @@ def run(args: argparse.Namespace) -> None:
             continue
         if frame is None:
             continue
+        frames_since_beat += 1
+        if client is not None and started - last_beat >= HEARTBEAT_SECONDS:
+            fps = frames_since_beat / (started - last_beat) if last_beat else None
+            code = client.heartbeat(heartbeat_payload(fetch_status(args.camera_url), fps, args.camera_url))
+            if code == 401:
+                log.error("API rejected the device key: it was rotated or the camera was disabled in Administración")
+            frames_since_beat, last_beat = 0, started
         detections, reads, crops = pipeline.process(frame, started)
         for text, crop in crops.items():
             evidence.setdefault(text, crop)
@@ -120,6 +130,10 @@ def publish(event: PlateEvent, crop: np.ndarray | None, client: SparkleWashClien
         log.info("  -> sighting linked to open job %s", result.tracked_job_id)
     elif result.status in (200, 201):
         log.info("  -> new arrival %s waiting for staff confirmation", result.observation_id)
+    elif result.status == 403:
+        log.error("  -> this device key belongs to another camera: --camera-id must match the camera linked in Administración")
+    elif result.status == 401:
+        log.error("  -> API rejected the key (rotated, disabled or mistyped)")
     else:
         log.error("  -> API rejected observation (HTTP %s)", result.status)
 
@@ -129,7 +143,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--camera-url", default=os.environ.get("ESP32_CAM_URL", "http://192.168.1.50/cam-hi.jpg"))
     p.add_argument("--camera-id", default=os.environ.get("SPARKLEWASH_CAMERA_ID", "entrance-cam"))
     p.add_argument("--api", default=os.environ.get("SPARKLEWASH_API_URL"))
-    p.add_argument("--ingest-key", default=os.environ.get("SPARKLEWASH_INGEST_KEY", ""))
+    p.add_argument("--device-key", default=os.environ.get("SPARKLEWASH_DEVICE_KEY", ""),
+                   help="per-camera key from Administración > Cámaras (recommended)")
+    p.add_argument("--ingest-key", default=os.environ.get("SPARKLEWASH_INGEST_KEY", ""),
+                   help="legacy shared key of the default carwash")
     p.add_argument("--cfg", default=str(MODELS / "yolov3.cfg"))
     p.add_argument("--weights", default=str(MODELS / "yolov3.weights"))
     p.add_argument("--labels", default=str(MODELS / "coco.names"))
@@ -144,8 +161,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--cooldown", type=float, default=300.0)
     p.add_argument("--show", action="store_true", help="display annotated frames (press q to quit)")
     args = p.parse_args(argv)
-    if args.api and not args.ingest_key:
-        p.error("--ingest-key (or SPARKLEWASH_INGEST_KEY) is required when --api is set")
+    if args.api and not (args.device_key or args.ingest_key):
+        p.error("--device-key (or SPARKLEWASH_DEVICE_KEY) is required when --api is set")
     return args
 
 

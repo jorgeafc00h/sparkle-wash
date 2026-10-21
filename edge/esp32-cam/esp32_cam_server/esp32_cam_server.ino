@@ -16,6 +16,7 @@ static const char* WIFI_SSID = "YOUR_WIFI";
 static const char* WIFI_PASS = "YOUR_PASSWORD";
 static const char* CAMERA_ID = "entrance-cam";   // must match --camera-id on the gateway
 static const int FLASH_LED_PIN = 4;
+static const char* FIRMWARE = "sparklewash-cam/1.1";
 // -------------------
 
 static auto loRes = esp32cam::Resolution::find(320, 240);
@@ -51,7 +52,7 @@ static void handleJpg(esp32cam::Resolution res) {
 static void handleStatus() {
   String body = String("{\"cameraId\":\"") + CAMERA_ID + "\",\"rssi\":" + WiFi.RSSI() +
                 ",\"uptimeMs\":" + millis() + ",\"freeHeap\":" + ESP.getFreeHeap() +
-                ",\"flash\":" + (flashOn ? "true" : "false") + "}";
+                ",\"flash\":" + (flashOn ? "true" : "false") + ",\"firmware\":\"" + FIRMWARE + "\"}";
   server.send(200, "application/json", body);
 }
 

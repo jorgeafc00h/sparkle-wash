@@ -76,3 +76,58 @@ def test_pipeline_scales_ocr_confidence_by_vehicle_confidence():
     assert evidence["P123456"].shape[:2] == (66, 110)
     assert closest_evidence(evidence, "P12345G") is evidence["P123456"]
     assert closest_evidence(evidence, "ZZZ") is None
+
+
+def _serve(status_code: int, body: dict):
+    seen: dict = {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            seen["path"] = self.path
+            seen["headers"] = {k.lower(): v for k, v in self.headers.items()}
+            seen["body"] = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            raw = json.dumps(body).encode()
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, seen
+
+
+def test_device_key_is_preferred_and_heartbeats_report_camera_status():
+    import pytest
+
+    from sparkle_vision.api import heartbeat_payload
+
+    with pytest.raises(ValueError):
+        SparkleWashClient("http://x")
+    server, seen = _serve(200, {"device": {"online": True}})
+    try:
+        client = SparkleWashClient(f"http://127.0.0.1:{server.server_port}", "legacy", retries=0, device_key="swd.t1.ab12.secret")
+        payload = heartbeat_payload({"rssi": -58, "uptimeMs": 5000, "freeHeap": 90000, "firmware": "sparklewash-cam/1.1", "flash": False},
+                                    2.456, "http://192.168.1.50/cam-hi.jpg")
+        assert client.heartbeat(payload) == 200
+    finally:
+        server.shutdown()
+    assert seen["path"] == "/api/devices/heartbeat"
+    assert seen["headers"]["x-sparklewash-device-key"] == "swd.t1.ab12.secret"
+    assert "x-sparklewash-ingest-key" not in seen["headers"]
+    assert seen["body"] == {"ip": "192.168.1.50", "rssi": -58, "uptimeMs": 5000, "freeHeap": 90000,
+                            "firmware": "sparklewash-cam/1.1", "fps": 2.46}
+
+
+def test_rejected_device_key_is_reported_not_retried():
+    server, _ = _serve(403, {"error": "This device key belongs to another camera"})
+    try:
+        client = SparkleWashClient(f"http://127.0.0.1:{server.server_port}", device_key="swd.t1.ab12.secret", retries=3)
+        assert client.post_observation(build_observation("exit-cam", EVENT, None)).status == 403
+    finally:
+        server.shutdown()
+    assert SparkleWashClient("http://127.0.0.1:9", "legacy").heartbeat({}) == 0  # legacy keys have no heartbeat

@@ -12,6 +12,19 @@ def fetch_jpeg(url: str, timeout: float = 5.0) -> bytes:
         return response.read()
 
 
+def fetch_status(camera_url: str, timeout: float = 3.0) -> dict | None:
+    """Reads the camera's /status JSON (rssi, uptime, heap, firmware). None when unreachable."""
+    import json
+    from urllib.parse import urlparse, urlunparse
+
+    parts = urlparse(camera_url)
+    try:
+        with urllib.request.urlopen(urlunparse(parts._replace(path="/status", query="")), timeout=timeout) as response:
+            return json.loads(response.read())
+    except (OSError, ValueError):
+        return None
+
+
 def decode_jpeg(data: bytes) -> np.ndarray | None:
     import cv2
 
