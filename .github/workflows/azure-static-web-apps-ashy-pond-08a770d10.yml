@@ -15,10 +15,30 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
           lfs: false
+      # Build here (pinned Node, tests first) instead of Oryx, so a broken build never deploys.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Test and build the site
+        working-directory: web
+        run: |
+          npm ci
+          npm test
+          npm run build
+          # Everything the landing page and console load must be in the upload.
+          for f in index.html app/index.html staticwebapp.config.json favicon.svg \
+                   landing/video/como-funciona.mp4 landing/video/como-funciona.es.vtt landing/video/poster.jpg \
+                   landing/art/car.svg landing/art/esp32-cam.svg \
+                   landing/screens/en-vivo.jpg landing/screens/revision.jpg landing/screens/revision-movil.jpg \
+                   landing/screens/tablero.jpg landing/screens/tablero-movil.jpg landing/screens/placas.jpg landing/screens/bahias.jpg; do
+            test -s "build/$f" || { echo "missing build/$f"; exit 1; }
+          done
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -28,10 +48,21 @@ jobs:
           action: "upload"
           ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
           # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
-          app_location: "./web" # App source code path (staff console)
+          app_location: "./web/build" # Built in the previous step (landing at /, staff console at /app/)
           api_location: "" # Api source code path - optional
-          output_location: "build" # Built app content directory - optional
+          skip_app_build: true
           ###### End of Repository/Build Configurations ######
+      - name: Smoke-check the deployed site
+        if: steps.builddeploy.outputs.static_web_app_url != ''
+        env:
+          SITE: ${{ steps.builddeploy.outputs.static_web_app_url }}
+        run: |
+          for path in / /app/ /landing/video/como-funciona.mp4 /landing/video/como-funciona.es.vtt /landing/screens/en-vivo.jpg /landing/art/esp32-cam.svg /favicon.svg; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$SITE$path")
+            echo "$code $path"
+            [ "$code" = "200" ] || exit 1
+          done
+          curl -sI "$SITE/landing/video/como-funciona.es.vtt" | grep -i "content-type: text/vtt"
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
