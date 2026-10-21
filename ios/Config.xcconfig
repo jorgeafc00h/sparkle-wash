@@ -1,0 +1,11 @@
+// Server and Google sign-in for the app. Leave empty to use only the demo.
+// Put your real values in Local.xcconfig (git-ignored), e.g.:
+//   SPARKLEWASH_API_URL = https:/$()/sparklewash-api.example.com
+//   GOOGLE_IOS_CLIENT_ID = 1234-abc.apps.googleusercontent.com
+//   GOOGLE_REDIRECT_SCHEME = com.googleusercontent.apps.1234-abc
+// ("/$()/" keeps xcconfig from reading "//" as a comment.)
+SPARKLEWASH_API_URL =
+GOOGLE_IOS_CLIENT_ID =
+GOOGLE_REDIRECT_SCHEME = com.sparklewash.oauth
+
+#include? "Local.xcconfig"

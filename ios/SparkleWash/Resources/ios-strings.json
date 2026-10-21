@@ -1,0 +1,222 @@
+{
+  "ios.signin.google": {
+    "es": "Iniciar sesión con Google",
+    "en": "Sign in with Google"
+  },
+  "ios.signin.notConfigured": {
+    "es": "Para conectar con tu servidor, configura SPARKLEWASH_API_URL y GOOGLE_IOS_CLIENT_ID (ver ios/README.md).",
+    "en": "To connect to your server, set SPARKLEWASH_API_URL and GOOGLE_IOS_CLIENT_ID (see ios/README.md)."
+  },
+  "ios.signin.cancelled": {
+    "es": "Inicio de sesión cancelado.",
+    "en": "Sign-in cancelled."
+  },
+  "ios.register.google": {
+    "es": "Continuar con Google",
+    "en": "Continue with Google"
+  },
+  "ios.settings": {
+    "es": "Ajustes",
+    "en": "Settings"
+  },
+  "ios.account": {
+    "es": "Cuenta",
+    "en": "Account"
+  },
+  "ios.offlineDemo": {
+    "es": "Simular sin conexión",
+    "en": "Simulate offline"
+  },
+  "ios.offlineDemoHelp": {
+    "es": "Los cambios se guardan en el iPad y se sincronizan al volver la conexión.",
+    "en": "Changes are kept on the iPad and sync when the connection returns."
+  },
+  "ios.offlineBanner": {
+    "es": "Sin conexión · {count, plural, one {1 cambio espera} other {{count} cambios esperan}} para sincronizar",
+    "en": "Offline · {count, plural, one {1 change is} other {{count} changes are}} waiting to sync"
+  },
+  "ios.pendingSync": {
+    "es": "{count, plural, one {1 cambio por sincronizar} other {{count} cambios por sincronizar}}",
+    "en": "{count, plural, one {1 change to sync} other {{count} changes to sync}}"
+  },
+  "ios.syncNow": {
+    "es": "Sincronizar ahora",
+    "en": "Sync now"
+  },
+  "ios.syncedAgo": {
+    "es": "Sincronizado {ago}",
+    "en": "Synced {ago}"
+  },
+  "ios.rejected": {
+    "es": "El servidor rechazó un cambio hecho sin conexión: {reason}",
+    "en": "The server rejected a change made offline: {reason}"
+  },
+  "ios.select.arrival": {
+    "es": "Elige una llegada de la lista",
+    "en": "Choose an arrival from the list"
+  },
+  "ios.select.job": {
+    "es": "Elige un trabajo",
+    "en": "Choose a job"
+  },
+  "ios.select.plate": {
+    "es": "Busca o elige una placa",
+    "en": "Search or choose a plate"
+  },
+  "ios.select.station": {
+    "es": "Elige una bahía",
+    "en": "Choose a bay"
+  },
+  "ios.select.admin": {
+    "es": "Elige una sección",
+    "en": "Choose a section"
+  },
+  "ios.select.camera": {
+    "es": "Elige una cámara",
+    "en": "Choose a camera"
+  },
+  "ios.job.services": {
+    "es": "Servicios",
+    "en": "Services"
+  },
+  "ios.job.history": {
+    "es": "Historial",
+    "en": "History"
+  },
+  "ios.job.assigned": {
+    "es": "Asignados",
+    "en": "Assigned"
+  },
+  "ios.job.price": {
+    "es": "Precio",
+    "en": "Price"
+  },
+  "ios.job.vehicle": {
+    "es": "Vehículo",
+    "en": "Vehicle"
+  },
+  "ios.local.title": {
+    "es": "Conexión local",
+    "en": "Local connection"
+  },
+  "ios.local.searching": {
+    "es": "Buscando la cámara en esta red Wi-Fi…",
+    "en": "Looking for the camera on this Wi-Fi…"
+  },
+  "ios.local.notFound": {
+    "es": "No aparece en esta red. ¿Estás en el Wi-Fi del autolavado?",
+    "en": "Not on this network. Are you on the carwash Wi-Fi?"
+  },
+  "ios.local.found": {
+    "es": "En la red: {host}",
+    "en": "On the network: {host}"
+  },
+  "ios.local.preview": {
+    "es": "Vista en vivo",
+    "en": "Live view"
+  },
+  "ios.local.flash": {
+    "es": "Flash",
+    "en": "Flash"
+  },
+  "ios.local.firmware": {
+    "es": "Firmware",
+    "en": "Firmware"
+  },
+  "ios.ble.title": {
+    "es": "Configurar Wi-Fi por Bluetooth",
+    "en": "Set up Wi-Fi over Bluetooth"
+  },
+  "ios.ble.help": {
+    "es": "Enciende la cámara con el botón BOOT presionado (o sin Wi-Fi guardado) para que entre en modo configuración.",
+    "en": "Power the camera on holding BOOT (or with no Wi-Fi saved) so it enters setup mode."
+  },
+  "ios.ble.scanning": {
+    "es": "Buscando cámaras en modo configuración…",
+    "en": "Looking for cameras in setup mode…"
+  },
+  "ios.ble.unavailable": {
+    "es": "Bluetooth no está disponible en este dispositivo.",
+    "en": "Bluetooth isn't available on this device."
+  },
+  "ios.ble.off": {
+    "es": "Activa el Bluetooth para configurar la cámara.",
+    "en": "Turn on Bluetooth to set up the camera."
+  },
+  "ios.ble.unauthorized": {
+    "es": "Permite el acceso a Bluetooth en Ajustes.",
+    "en": "Allow Bluetooth access in Settings."
+  },
+  "ios.ble.ssid": {
+    "es": "Red Wi-Fi (SSID)",
+    "en": "Wi-Fi network (SSID)"
+  },
+  "ios.ble.password": {
+    "es": "Contraseña del Wi-Fi",
+    "en": "Wi-Fi password"
+  },
+  "ios.ble.send": {
+    "es": "Enviar a la cámara",
+    "en": "Send to camera"
+  },
+  "ios.ble.connecting": {
+    "es": "La cámara se está conectando…",
+    "en": "The camera is connecting…"
+  },
+  "ios.ble.connected": {
+    "es": "¡Conectada! IP {ip}",
+    "en": "Connected! IP {ip}"
+  },
+  "ios.ble.failed": {
+    "es": "No se pudo conectar: {reason}",
+    "en": "Couldn't connect: {reason}"
+  },
+  "ios.ble.invalid.ssid": {
+    "es": "El nombre de la red debe tener de 1 a 32 caracteres.",
+    "en": "The network name must be 1 to 32 characters."
+  },
+  "ios.ble.invalid.password": {
+    "es": "La contraseña debe tener de 8 a 63 caracteres (o vacía si la red es abierta).",
+    "en": "The password must be 8 to 63 characters (or empty for an open network)."
+  },
+  "ios.ble.invalid.cameraId": {
+    "es": "El ID de cámara solo admite letras, números, - y _.",
+    "en": "The camera ID only allows letters, digits, - and _."
+  },
+  "ios.key.share": {
+    "es": "Compartir",
+    "en": "Share"
+  },
+  "ios.signedInAs": {
+    "es": "Sesión de {name}",
+    "en": "Signed in as {name}"
+  },
+  "ios.retry": {
+    "es": "Reintentar",
+    "en": "Retry"
+  },
+  "ios.ble.found": {
+    "es": "Cámaras en modo configuración",
+    "en": "Cameras in setup mode"
+  },
+  "ios.ble.done": {
+    "es": "Listo",
+    "en": "Done"
+  },
+  "ios.ble.connectingDevice": {
+    "es": "Conectando por Bluetooth…",
+    "en": "Connecting over Bluetooth…"
+  },
+  "ios.ble.lost": {
+    "es": "Se perdió la conexión Bluetooth con la cámara.",
+    "en": "The Bluetooth connection to the camera was lost."
+  },
+  "ios.ble.mismatch": {
+    "es": "Esta cámara ya tiene el ID {id}; se reemplazará.",
+    "en": "This camera already has ID {id}; it will be replaced."
+  },
+  "ios.job.provisional": {
+    "es": "Abierto sin conexión: se podrá avanzar cuando se sincronice.",
+    "en": "Opened offline: it can be advanced once it syncs."
+  }
+}

@@ -22,10 +22,16 @@ OCR, multi-frame voting and idempotent API delivery on top.
 ## 1. Flash the camera (`esp32-cam/`)
 
 1. Arduino IDE → Boards Manager → install **esp32** by Espressif.
-2. Library Manager → install **esp32cam** by yoursunny.
-3. Open `esp32-cam/esp32_cam_server/esp32_cam_server.ino`, set `WIFI_SSID`, `WIFI_PASS`, `CAMERA_ID`.
-4. Board **AI Thinker ESP32-CAM**, partition scheme **Huge APP**; flash with GPIO0 to GND, then reset.
-5. The serial monitor prints the IP. Check `http://<ip>/cam-hi.jpg` and `http://<ip>/status`.
+2. Library Manager → install **esp32cam** by yoursunny and **NimBLE-Arduino** 1.4.x by h2zero.
+3. Board **AI Thinker ESP32-CAM**, partition scheme **Huge APP**; flash
+   `esp32-cam/esp32_cam_server/esp32_cam_server.ino` with GPIO0 to GND, then reset. No editing needed.
+4. Set up Wi-Fi from the **iOS app**: *Administración → (camera) → Configurar Wi-Fi por Bluetooth*.
+   A camera with no Wi-Fi saved, one that can't reach its saved network, or one powered on with BOOT
+   held enters setup mode: the flash LED blinks and it advertises `SparkleCam-XXXX` over Bluetooth LE.
+   The app sends the SSID, password and camera ID; the camera stores them in flash, reports its IP and
+   restarts. (No iPhone? Set `DEFAULT_WIFI_SSID`, `DEFAULT_WIFI_PASS`, `DEFAULT_CAMERA_ID` in the sketch.)
+5. On the network the camera announces itself over Bonjour (`_sparklewash._tcp`, TXT `id`, `fw`), so the
+   iOS app finds it for a live view and flash control. Check `http://<ip>/cam-hi.jpg` and `/status` too.
 
 Mounting tips: aim at bumper height, 2–4 m from the stop line, at most ~30° off-axis. Plates should be
 at least ~120 px wide in the 800×600 frame. Enable `/flash?on=1` or add an IR lamp for night shifts.
