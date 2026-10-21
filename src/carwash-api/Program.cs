@@ -23,7 +23,14 @@ public static class Program
         builder.Services.AddSingleton(hub);
         builder.Services.AddSingleton<MqttBridge>();
         builder.Services.AddHostedService(provider => provider.GetRequiredService<MqttBridge>());
+        // The staff console is hosted separately (Static Web Apps), so its origin must be allowed explicitly.
+        var corsOrigins = (builder.Configuration["SPARKLEWASH_CORS_ORIGINS"] ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (corsOrigins.Length > 0)
+            builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(corsOrigins)
+                .WithHeaders("Authorization", "Content-Type", "Idempotency-Key").WithMethods("GET", "POST", "DELETE")));
         var app = builder.Build();
+        if (corsOrigins.Length > 0) app.UseCors();
         app.UseWebSockets();
         var ingestionKey = builder.Configuration["SPARKLEWASH_INGEST_KEY"];
         var streamKey = builder.Configuration["SPARKLEWASH_STREAM_KEY"];

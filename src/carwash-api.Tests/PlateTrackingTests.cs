@@ -104,3 +104,26 @@ public class PlateTrackingTests
         return app;
     }
 }
+
+public class CorsTests
+{
+    [Fact]
+    public async Task OnlyConfiguredConsoleOriginIsAllowed()
+    {
+        await using var app = CarwashApi.Program.BuildApp(["--urls", "http://127.0.0.1:0",
+            "--SPARKLEWASH_CORS_ORIGINS", "https://console.example"]);
+        await app.StartAsync();
+        using var client = new HttpClient { BaseAddress = new Uri(app.Urls.First()) };
+        async Task<string?> Preflight(string origin)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Options, "/api/jobs");
+            request.Headers.Add("Origin", origin);
+            request.Headers.Add("Access-Control-Request-Method", "POST");
+            request.Headers.Add("Access-Control-Request-Headers", "authorization,idempotency-key");
+            var response = await client.SendAsync(request);
+            return response.Headers.TryGetValues("Access-Control-Allow-Origin", out var values) ? values.Single() : null;
+        }
+        (await Preflight("https://console.example")).Should().Be("https://console.example");
+        (await Preflight("https://evil.example")).Should().BeNull();
+    }
+}
