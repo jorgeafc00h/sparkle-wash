@@ -1,0 +1,6 @@
+Local.xcconfig
+SparkleWash.xcodeproj/
+SparkleWash/Info.plist
+.build/
+DerivedData/
+*.xcresult

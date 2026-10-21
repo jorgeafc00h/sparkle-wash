@@ -1,0 +1,72 @@
+{
+  "currency": "USD",
+  "locale": "es",
+  "vehicleClasses": [
+    { "id": "car", "name": "Carro", "translations": { "en": { "name": "Car" } } },
+    { "id": "suv", "name": "Camioneta / SUV", "translations": { "en": { "name": "SUV" } } },
+    { "id": "xl", "name": "XL", "translations": { "en": { "name": "XL" } } },
+    { "id": "pickup", "name": "XXL / Pickup", "translations": { "en": { "name": "XXL / Pickup" } } }
+  ],
+  "packages": [
+    {
+      "id": "quick",
+      "name": "Quick Spa",
+      "subtitle": "Limpieza básica",
+      "tagline": "Limpio, siempre listo",
+      "items": ["Lavado exterior", "Llantas y neumáticos", "Ventanas", "Aspirado"],
+      "prices": { "car": 10, "suv": 12, "xl": 14, "pickup": 16 },
+      "translations": {
+        "en": {
+          "subtitle": "Basic clean",
+          "tagline": "Clean, always ready",
+          "items": ["Exterior wash", "Rims and tires", "Windows", "Vacuum"]
+        }
+      }
+    },
+    {
+      "id": "essential",
+      "name": "Essential Spa",
+      "subtitle": "Limpieza + acabado",
+      "tagline": "Un paso más allá",
+      "items": ["Todo lo de Quick", "Espuma activa", "Bordes de puertas", "Pasteado a mano", "Limpieza de tablero y consolas", "Aromatizante"],
+      "prices": { "car": 15, "suv": 18, "xl": 21, "pickup": 24 },
+      "translations": {
+        "en": {
+          "subtitle": "Clean + finish",
+          "tagline": "One step further",
+          "items": ["Everything in Quick", "Snow foam", "Door jambs", "Hand polish", "Dashboard and console cleaning", "Air freshener"]
+        }
+      }
+    },
+    {
+      "id": "renew",
+      "name": "Renew Spa",
+      "subtitle": "Limpieza + renovación",
+      "tagline": "Renueva tu experiencia",
+      "items": ["Todo lo de Essential", "Pasteado a máquina", "Prelavado sin contacto", "Tolvas", "Lavado de motor", "Aire en rendijas", "Hidratación interior"],
+      "prices": { "car": 25, "suv": 30, "xl": 35, "pickup": 40 },
+      "translations": {
+        "en": {
+          "subtitle": "Clean + renewal",
+          "tagline": "Renew your experience",
+          "items": ["Everything in Essential", "Machine polish", "Touchless pre-wash", "Wheel wells", "Engine wash", "Air-blown vents and gaps", "Interior conditioning"]
+        }
+      }
+    },
+    {
+      "id": "supreme",
+      "name": "Supreme Spa",
+      "subtitle": "Cuidado + acabado premium",
+      "tagline": "El máximo cuidado",
+      "items": ["Todo lo de Renew", "Cera líquida", "Detallado de rines", "Limpieza de puntas de escape"],
+      "prices": { "car": 35, "suv": 40, "xl": 45, "pickup": 50 },
+      "translations": {
+        "en": {
+          "subtitle": "Premium care + finish",
+          "tagline": "The ultimate care",
+          "items": ["Everything in Renew", "Liquid wax", "Rim detailing", "Exhaust tip cleaning"]
+        }
+      }
+    }
+  ]
+}

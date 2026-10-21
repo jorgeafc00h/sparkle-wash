@@ -1,10 +1,18 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CarwashApi;
 
-public sealed record VehicleClass(string Id, string Name);
-public sealed record ServicePackage(string Id, string Name, string Subtitle, string[] Items, Dictionary<string, decimal> Prices);
-public sealed record CatalogResponse(string Currency, VehicleClass[] VehicleClasses, ServicePackage[] Packages);
+// Catalog text is in the business's language (Locale, Spanish); Translations holds other languages by code.
+public sealed record CatalogTranslation(
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Name,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Subtitle,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Tagline,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string[]? Items);
+public sealed record VehicleClass(string Id, string Name, Dictionary<string, CatalogTranslation> Translations);
+public sealed record ServicePackage(string Id, string Name, string Subtitle, string Tagline, string[] Items,
+    Dictionary<string, decimal> Prices, Dictionary<string, CatalogTranslation> Translations);
+public sealed record CatalogResponse(string Currency, string Locale, VehicleClass[] VehicleClasses, ServicePackage[] Packages);
 public sealed record PackageSuggestion(string VehicleClass, string PackageId, decimal PriceUsd, string Reason);
 
 public static class PackageCatalog

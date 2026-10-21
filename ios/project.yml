@@ -1,0 +1,92 @@
+name: SparkleWash
+options:
+  bundleIdPrefix: com.sparklewash
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: es
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+packages:
+  SparkleKit:
+    path: SparkleKit
+targets:
+  SparkleWash:
+    type: application
+    platform: iOS
+    configFiles:
+      Debug: Config.xcconfig
+      Release: Config.xcconfig
+    sources:
+      - path: SparkleWash
+        excludes:
+          - "Resources/ios-strings.json"
+    dependencies:
+      - package: SparkleKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sparklewash.app
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Automatic
+        SUPPORTS_MACCATALYST: NO
+    info:
+      path: SparkleWash/Info.plist
+      properties:
+        CFBundleDisplayName: SparkleWash
+        CFBundleDevelopmentRegion: es
+        CFBundleLocalizations: [es, en]
+        UILaunchScreen:
+          UIColorName: AccentColor
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        SPARKLEWASH_API_URL: $(SPARKLEWASH_API_URL)
+        GOOGLE_IOS_CLIENT_ID: $(GOOGLE_IOS_CLIENT_ID)
+        CFBundleURLTypes:
+          - CFBundleURLName: google-sign-in
+            CFBundleURLSchemes: [$(GOOGLE_REDIRECT_SCHEME)]
+        NSLocalNetworkUsageDescription: SparkleWash se conecta a las cámaras ESP32 de tu autolavado en la red Wi-Fi local para verlas en vivo y revisarlas.
+        NSBonjourServices: [_sparklewash._tcp, _http._tcp]
+        NSBluetoothAlwaysUsageDescription: SparkleWash usa Bluetooth para enviar el Wi-Fi a una cámara nueva en modo configuración.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+  SparkleWashTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [SparkleWashTests]
+    dependencies:
+      - target: SparkleWash # SparkleKit comes from the host app (a second copy would split APIError's type)
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.sparklewash.app.tests
+  SparkleWashUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [SparkleWashUITests]
+    dependencies:
+      - target: SparkleWash
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.sparklewash.app.uitests
+        TEST_TARGET_NAME: SparkleWash
+schemes:
+  SparkleWash:
+    build:
+      targets:
+        SparkleWash: all
+        SparkleWashTests: [test]
+        SparkleWashUITests: [test]
+    test:
+      gatherCoverageData: true
+      targets:
+        - SparkleWashTests
+        - SparkleWashUITests

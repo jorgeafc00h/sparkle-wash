@@ -1,0 +1,5 @@
+numpy>=1.26
+opencv-python>=4.8
+# Plate OCR (pick one): EasyOCR is more accurate; Tesseract is lighter.
+easyocr>=1.7
+# pytesseract>=0.3.10   # also needs the tesseract binary (apt install tesseract-ocr)

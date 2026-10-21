@@ -24,3 +24,17 @@ npm-debug.log*
 # Environment
 .env
 .env.local
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Runtime data written by the API
+src/carwash-api/data/
+
+# Vision gateway model weights
+edge/vision-gateway/models/*.weights
+edge/vision-gateway/models/*.onnx
+edge/vision-gateway/models/*.cfg
+edge/vision-gateway/models/coco.names

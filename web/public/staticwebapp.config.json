@@ -1,0 +1,11 @@
+{
+  "routes": [
+    { "route": "/app", "redirect": "/app/", "statusCode": 301 }
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/app/*", "/assets/*", "/landing/*", "/*.{svg,png,jpg,webp,mp4,webm,vtt,json,ico}"]
+  },
+  "mimeTypes": { ".vtt": "text/vtt" },
+  "globalHeaders": { "X-Content-Type-Options": "nosniff", "Referrer-Policy": "strict-origin-when-cross-origin" }
+}

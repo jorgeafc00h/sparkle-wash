@@ -29,7 +29,7 @@ public class MqttStreamingTests
         var dataFile = Path.Combine(Path.GetTempPath(), "sparklewash-mqtt-" + Guid.NewGuid().ToString("N"), "stations.json");
         var brokerFactory = new MqttServerFactory();
         using var broker = brokerFactory.CreateMqttServer(brokerFactory.CreateServerOptionsBuilder()
-            .WithDefaultEndpoint().WithDefaultEndpointPort(port).WithDefaultEndpointBoundIPAddress(IPAddress.Loopback).Build());
+            .WithDefaultEndpoint().WithDefaultEndpointPort(port).WithDefaultEndpointBoundIPAddress(IPAddress.Loopback).WithDefaultEndpointBoundIPV6Address(IPAddress.None).Build());
         var authenticated = 0;
         broker.ValidatingConnectionAsync += request =>
         {

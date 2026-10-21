@@ -1,0 +1,25 @@
+WEBVTT
+
+00:00.500 --> 00:06.000
+Así funciona SparkleWash en un minuto.
+
+00:06.500 --> 00:14.000
+Una ESP32-CAM en la entrada toma una foto cada medio segundo.
+
+00:14.500 --> 00:23.000
+YOLO encuentra el carro, el OCR lee la placa y tres fotos votan el resultado.
+
+00:23.500 --> 00:32.000
+Tu equipo confirma la placa, el vehículo y el paquete con un toque.
+
+00:32.500 --> 00:41.000
+Cada carro avanza en el tablero, con tiempos en vivo y su equipo asignado.
+
+00:41.500 --> 00:50.000
+La cámara de salida avisa cuando el carro se va, y cada placa guarda su historial.
+
+00:50.500 --> 00:57.000
+Quick, Essential, Renew y Supreme Spa: el precio sale solo según el vehículo.
+
+00:57.500 --> 01:04.000
+SparkleWash: cámaras, placas y trabajos en un solo lugar.
