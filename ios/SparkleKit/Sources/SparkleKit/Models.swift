@@ -3,7 +3,7 @@ import Foundation
 // Mirrors the SparkleWash API's JSON (ASP.NET Core, camelCase). Optional fields are the ones the API
 // may omit or send as null; decoding is lenient where older servers lack a field.
 
-public enum Role: String, Codable, CaseIterable, Sendable { case viewer, operator, admin }
+public enum Role: String, Codable, CaseIterable, Sendable { case viewer, `operator`, admin }
 public enum JobStatus: String, Codable, CaseIterable, Sendable { case arrived, queued, inProgress = "in_progress", completed, cancelled }
 public enum CameraRole: String, Codable, CaseIterable, Sendable { case entry, bay, exit }
 public enum DismissReason: String, Codable, CaseIterable, Sendable { case misread, duplicate, staff, notACustomer = "not-a-customer", other }

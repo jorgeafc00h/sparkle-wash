@@ -21,7 +21,7 @@ OCR, multi-frame voting and idempotent API delivery on top.
 
 ## 1. Flash the camera (`esp32-cam/`)
 
-1. Arduino IDE → Boards Manager → install **esp32** by Espressif.
+1. Arduino IDE → Boards Manager → install **esp32** by Espressif (3.x).
 2. Library Manager → install **esp32cam** by yoursunny and **NimBLE-Arduino** 1.4.x by h2zero.
 3. Board **AI Thinker ESP32-CAM**, partition scheme **Huge APP**; flash
    `esp32-cam/esp32_cam_server/esp32_cam_server.ino` with GPIO0 to GND, then reset. No editing needed.

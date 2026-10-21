@@ -12,7 +12,7 @@
 //   - Settings kept in flash (Preferences), so the sketch no longer needs editing.
 //   - Bonjour/mDNS service _sparklewash._tcp with TXT id=<camera id>, fw=<firmware>.
 //
-// Libraries (Arduino Library Manager): "esp32cam" by yoursunny, "NimBLE-Arduino" 1.4.x by h2zero.
+// Core: esp32 by Espressif 3.x. Libraries (Arduino Library Manager): "esp32cam" by yoursunny, "NimBLE-Arduino" 1.4.x by h2zero.
 // Board:   AI Thinker ESP32-CAM, Partition scheme "Huge APP".
 
 #include <ESPmDNS.h>
