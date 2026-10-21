@@ -3,19 +3,10 @@ import {
   ArrowRight, Bluetooth, Building2, Camera, Check, ChevronDown, Cpu, Gauge, History, Kanban, LayoutDashboard, Lightbulb,
   LogIn, MonitorSmartphone, PlayCircle, ScanLine, ShieldCheck, Tablet, Wifi, WifiOff,
 } from "lucide-react";
-import catalogJson from "../../../contracts/v1/service-packages.json";
-import type { Catalog } from "../lib/types";
 
-const catalog = catalogJson as Catalog;
 const DEMO_URL = "/app/?demo=1";
 const APP_URL = "/app/";
 const REGISTER_URL = "/app/?registro=1";
-const PACKAGE_COLORS: Record<string, { bg: string; fg: string; soft: string }> = {
-  quick: { bg: "#dfe2e7", fg: "#13213a", soft: "#f1f2f4" },
-  essential: { bg: "#5b7ea6", fg: "#ffffff", soft: "#e4ecf5" },
-  renew: { bg: "#7fa98a", fg: "#ffffff", soft: "#e6f0e8" },
-  supreme: { bg: "#1b1f27", fg: "#ffffff", soft: "#e3e3e5" },
-};
 
 /** Fades sections up as they scroll into view (skipped when the visitor prefers reduced motion). */
 function useReveal() {
@@ -51,7 +42,6 @@ export function Landing() {
         <CameraSection />
         <Screens />
         <AppSection />
-        <Packages />
         <Faq />
         <FinalCta />
       </main>
@@ -75,7 +65,7 @@ function Nav() {
   const [open, setOpen] = useState(false);
   const links = [
     ["#como-funciona", "Cómo funciona"], ["#camara", "La cámara"], ["#pantallas", "Pantallas"], ["#app", "App"],
-    ["#paquetes", "Paquetes"], ["#preguntas", "Preguntas"],
+    ["#preguntas", "Preguntas"],
   ];
   return (
     <header className="nav">
@@ -421,54 +411,6 @@ function Screens() {
             <p className="note"><MonitorSmartphone size={16} aria-hidden />También en el celular, y como app para iPhone y iPad.</p>
           </div>
         </div>
-      </div>
-    </section>
-  );
-}
-
-function Packages() {
-  const money = (n: number) => `$${n}`;
-  return (
-    <section id="paquetes" className="section packages">
-      <div className="wrap">
-        <div className="section-head" data-reveal>
-          <p className="eyebrow">Paquetes de servicio</p>
-          <h2>Más que un lavado</h2>
-          <p>Tus paquetes y precios ya vienen cargados. Al confirmar el vehículo, el precio correcto se aplica solo. Precios de ejemplo en USD: cada autolavado ajusta los suyos.</p>
-        </div>
-        <div className="price-table" data-reveal>
-          <div className="price-head" />
-          {catalog.packages.map((p, i) => {
-            const c = PACKAGE_COLORS[p.id];
-            return (
-              <article key={p.id} className="pack-card paper" style={{ ["--tilt" as string]: `${[-1.4, .8, -.6, 1.2][i]}deg` }}>
-                <header style={{ background: c.bg, color: c.fg }}>
-                  <h3>{p.name.replace(" Spa", "")} <span>Spa</span></h3>
-                  <p>{p.subtitle}</p>
-                </header>
-                <ul>{p.items.map((item) => <li key={item}>{item}</li>)}</ul>
-                <dl className="pack-prices">
-                  {catalog.vehicleClasses.map((v) => (
-                    <div key={v.id}><dt>{v.name}</dt><dd>{money(p.prices[v.id])}</dd></div>
-                  ))}
-                </dl>
-                <p className="tagline">{p.tagline}</p>
-              </article>
-            );
-          })}
-          {catalog.vehicleClasses.map((v) => (
-            <div key={v.id} className="price-row">
-              <span className="vehicle paper">{v.name}</span>
-              {catalog.packages.map((p) => (
-                <span key={p.id} className="price paper" style={{ background: PACKAGE_COLORS[p.id].soft }}
-                  aria-label={`${p.name}, ${v.name}: ${money(p.prices[v.id])}`}>
-                  {money(p.prices[v.id])}
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
-        <p className="tag-line">Cuida lo que te lleva más lejos</p>
       </div>
     </section>
   );

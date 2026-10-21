@@ -16,11 +16,10 @@ describe("Landing", () => {
     for (const link of screen.getAllByRole("link", { name: /Registrar mi autolavado/ })) expect(link).toHaveAttribute("href", "/app/?registro=1");
   });
 
-  it("shows the real catalog prices", () => {
+  it("doesn't publish a price list", () => {
     render(<Landing />);
-    expect(screen.getByLabelText("Supreme Spa, XXL / Pickup: $50")).toBeInTheDocument();
-    expect(screen.getByLabelText("Quick Spa, Carro: $10")).toBeInTheDocument();
-    expect(screen.getAllByText("Cera líquida").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Paquetes de servicio")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Paquetes" })).not.toBeInTheDocument();
   });
 
   it("switches real console screens with tabs and arrow keys", async () => {
