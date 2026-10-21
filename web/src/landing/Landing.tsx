@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  ArrowRight, Camera, Check, ChevronDown, Cpu, Gauge, History, Kanban, LayoutDashboard, Lightbulb, LogIn, LogOut,
-  MonitorSmartphone, PlayCircle, ScanLine, ShieldCheck, Wifi,
+  ArrowRight, Bluetooth, Building2, Camera, Check, ChevronDown, Cpu, Gauge, History, Kanban, LayoutDashboard, Lightbulb,
+  LogIn, MonitorSmartphone, PlayCircle, ScanLine, ShieldCheck, Tablet, Wifi, WifiOff,
 } from "lucide-react";
 import catalogJson from "../../../contracts/v1/service-packages.json";
 import type { Catalog } from "../lib/types";
@@ -50,6 +50,7 @@ export function Landing() {
         <HowItWorks />
         <CameraSection />
         <Screens />
+        <AppSection />
         <Packages />
         <Faq />
         <FinalCta />
@@ -73,7 +74,7 @@ function Logo() {
 function Nav() {
   const [open, setOpen] = useState(false);
   const links = [
-    ["#como-funciona", "Cómo funciona"], ["#camara", "La cámara"], ["#pantallas", "Pantallas"],
+    ["#como-funciona", "Cómo funciona"], ["#camara", "La cámara"], ["#pantallas", "Pantallas"], ["#app", "App"],
     ["#paquetes", "Paquetes"], ["#preguntas", "Preguntas"],
   ];
   return (
@@ -115,9 +116,9 @@ function Hero() {
             <a className="btn btn-paper btn-lg" href="#video">Ver el video</a>
           </div>
           <ul className="trust">
+            <li><Check size={16} aria-hidden />Consola web, sin instalar nada</li>
+            <li><Check size={16} aria-hidden />App para iPhone y iPad</li>
             <li><Check size={16} aria-hidden />En español</li>
-            <li><Check size={16} aria-hidden />Tablet y celular</li>
-            <li><Check size={16} aria-hidden />Sin instalar nada</li>
           </ul>
         </div>
         <div className="hero-art" aria-hidden>
@@ -217,6 +218,40 @@ function HowItWorks() {
   );
 }
 
+const APP_FEATURES = [
+  { icon: Tablet, color: "#bfe3f5", title: "Pantalla dividida",
+    body: "En el iPad ves las secciones, la lista y el detalle a la vez. En el iPhone, la misma consola en una mano." },
+  { icon: WifiOff, color: "#f6d6a8", title: "Sigue sin internet",
+    body: "Confirma llegadas y mueve trabajos sin señal: los cambios se guardan en el dispositivo y se sincronizan al volver la conexión." },
+  { icon: Bluetooth, color: "#cfe8d5", title: "Cámaras por Bluetooth",
+    body: "Configura el Wi-Fi de cada ESP32-CAM desde la app, sin cables ni editar código." },
+  { icon: Camera, color: "#f3c4b8", title: "En vivo en tu red",
+    body: "La app encuentra las cámaras en el Wi-Fi del autolavado: mira la imagen y enciende el flash para ajustar el ángulo." },
+];
+
+function AppSection() {
+  return (
+    <section id="app" className="section">
+      <div className="wrap">
+        <div className="section-head" data-reveal>
+          <p className="eyebrow">App para iPhone y iPad</p>
+          <h2>La misma consola, en el bolsillo de tu equipo</h2>
+          <p>Entra con la misma cuenta de Google y verás los mismos datos que en la consola web, en español.</p>
+        </div>
+        <ul className="steps">
+          {APP_FEATURES.map(({ icon: Icon, color, title, body }, i) => (
+            <li key={title} className="step-card paper" data-reveal style={{ ["--tilt" as string]: `${i % 2 ? -1 : 1}deg`, transitionDelay: `${i * 80}ms` }}>
+              <span className="step-icon paper" style={{ background: color }}><Icon size={26} aria-hidden /></span>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 function CameraSection() {
   return (
     <section id="camara" className="section camera">
@@ -277,17 +312,17 @@ function CameraSection() {
             <li className="paper">
               <span>1</span>
               <h4>Carga el firmware</h4>
-              <p>Arduino IDE, placa <em>AI Thinker ESP32-CAM</em>, librería <code>esp32cam</code>. Abre <code>esp32_cam_server.ino</code> y súbelo con GPIO0 a tierra.</p>
+              <p>Arduino IDE, placa <em>AI Thinker ESP32-CAM</em>, librerías <code>esp32cam</code> y <code>NimBLE-Arduino</code> 1.4.x, particiones «Huge APP». Sube <code>esp32_cam_server.ino</code> con GPIO0 a tierra; no hay que editar el código.</p>
             </li>
             <li className="paper">
               <span>2</span>
-              <h4>Configura Wi-Fi y nombre</h4>
-              <p>Escribe tu red y un nombre por cámara: <code>entrance-cam</code>, <code>bay1-cam</code> o <code>exit-cam</code>. El monitor serie muestra su IP.</p>
+              <h4>Conéctala por Bluetooth</h4>
+              <p>Enciéndela con BOOT presionado. En la app SparkleWash del iPhone o iPad elige la cámara y escribe tu Wi-Fi: queda guardado y aparece sola en la red (<code>sparklecam-entrance-cam.local</code>).</p>
             </li>
             <li className="paper">
               <span>3</span>
               <h4>Monta y prueba</h4>
-              <p>Abre <code>http://IP/cam-hi.jpg</code> desde el celular: si ves la placa clara, apunta el gateway a esa dirección y listo.</p>
+              <p>Desde la app ves la imagen en vivo y enciendes el flash para comprobar que la placa se lea bien. Luego apunta el gateway a la cámara y listo.</p>
             </li>
           </ol>
         </div>
@@ -383,7 +418,7 @@ function Screens() {
             <figure className="frame phone paper screen-phone" aria-hidden>
               <img src="/landing/screens/tablero-movil.jpg" alt="" width="780" height="1520" loading="lazy" />
             </figure>
-            <p className="note"><MonitorSmartphone size={16} aria-hidden />También en el celular, con la barra de navegación abajo.</p>
+            <p className="note"><MonitorSmartphone size={16} aria-hidden />También en el celular, y como app para iPhone y iPad.</p>
           </div>
         </div>
       </div>
@@ -399,7 +434,7 @@ function Packages() {
         <div className="section-head" data-reveal>
           <p className="eyebrow">Paquetes de servicio</p>
           <h2>Más que un lavado</h2>
-          <p>Tus paquetes y precios ya vienen cargados. Al confirmar el vehículo, el precio correcto se aplica solo.</p>
+          <p>Tus paquetes y precios ya vienen cargados. Al confirmar el vehículo, el precio correcto se aplica solo. Precios de ejemplo en USD: cada autolavado ajusta los suyos.</p>
         </div>
         <div className="price-table" data-reveal>
           <div className="price-head" />
@@ -445,13 +480,15 @@ const FAQ: { q: string; a: ReactNode }[] = [
   { q: "¿Qué pasa si la cámara lee mal una placa?",
     a: "Nunca se abre un trabajo sin que alguien lo confirme. La consola muestra la foto, la placa leída y su nivel de confianza; si la cámara dudó (0/O, 8/B), lo marca para revisar." },
   { q: "¿Funciona de noche?",
-    a: "Sí, con buena luz sobre la placa: el LED de la ESP32-CAM, un reflector o un iluminador infrarrojo. La cámara también expone /flash?on=1 para encenderlo desde el gateway." },
+    a: "Sí, con buena luz sobre la placa: el LED de la ESP32-CAM, un reflector o un iluminador infrarrojo. La cámara también expone /flash?on=1 para encenderlo desde el gateway, o desde la app con el interruptor Flash de cada cámara." },
   { q: "¿Necesito una computadora potente?",
     a: "No. Las cámaras solo toman fotos. El reconocimiento corre en un gateway: una mini PC o una Raspberry Pi (con YOLOv3-tiny) en la misma red. Un gateway por cámara o varios procesos en el mismo equipo." },
   { q: "¿Se guardan las fotos?",
     a: "Solo la foto de evidencia de cada llegada, para que el personal pueda compararla. Las consultas requieren iniciar sesión con una cuenta de Google autorizada." },
   { q: "¿Y si se cae el internet?",
-    a: "Las cámaras y el gateway trabajan en tu red local. Si la API no responde, el gateway reintenta con el mismo identificador de evento, así que no se duplican llegadas." },
+    a: "Las cámaras y el gateway trabajan en tu red local. Si la API no responde, el gateway reintenta con el mismo identificador de evento, así que no se duplican llegadas. En la app de iPhone y iPad el equipo puede seguir confirmando llegadas y moviendo trabajos; los cambios se sincronizan solos al volver la conexión." },
+  { q: "¿Tengo varios autolavados?",
+    a: "Cada autolavado se registra por separado, con sus propias cámaras, bahías, equipo y zona horaria. Nadie de un autolavado ve los datos de otro." },
   { q: "¿Está en otros idiomas?",
     a: "La consola está en español por defecto y se puede cambiar a inglés desde el menú. Cada persona elige su idioma en su dispositivo." },
 ];
@@ -490,7 +527,7 @@ function FinalCta() {
         <p className="final-login">¿Ya tienes cuenta? <a href={APP_URL}>Entrar al sistema</a></p>
         <div className="cta-row center">
           <a className="btn btn-coral btn-lg" href={DEMO_URL}><PlayCircle size={20} aria-hidden />Abrir la demo</a>
-          <a className="btn btn-paper btn-lg" href={REGISTER_URL}><LogOut size={18} aria-hidden style={{ transform: "scaleX(-1)" }} />Registrar mi autolavado</a>
+          <a className="btn btn-paper btn-lg" href={REGISTER_URL}><Building2 size={18} aria-hidden />Registrar mi autolavado</a>
         </div>
       </div>
     </section>
