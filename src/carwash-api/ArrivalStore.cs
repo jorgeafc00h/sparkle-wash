@@ -9,7 +9,8 @@ public sealed record ArrivalInput(string? DeviceEventId, string? CameraId, strin
 public sealed record ConfirmArrivalInput(string? Plate, string? VehicleClass);
 public sealed record ArrivalObservation(string Id, string DeviceEventId, string CameraId, string? PlateCandidate,
     double? Confidence, DateTimeOffset CapturedAt, DateTimeOffset ReceivedAt, string? PhotoId,
-    string EvidenceDigest, string? ConfirmedPlate, string? VehicleClass, string? ConfirmedBy, DateTimeOffset? ConfirmedAt);
+    string EvidenceDigest, string? ConfirmedPlate, string? VehicleClass, string? ConfirmedBy, DateTimeOffset? ConfirmedAt,
+    string? JobId = null);
 public enum ArrivalAddStatus { Created, Duplicate, Conflict }
 public sealed record ArrivalAddResult(ArrivalAddStatus Status, ArrivalObservation Observation);
 public enum ArrivalConfirmStatus { Confirmed, Duplicate, Conflict, NotFound }
@@ -94,6 +95,23 @@ public sealed class ArrivalStore
             next[index] = confirmed;
             await PersistAsync(next);
             return new(ArrivalConfirmStatus.Confirmed, confirmed);
+        }
+        finally { _gate.Release(); }
+    }
+
+    // Ties a camera sighting to the job it belongs to, so it leaves the staff review queue and joins the plate timeline.
+    public async Task<ArrivalObservation?> LinkJobAsync(string id, string jobId)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var index = _arrivals.FindIndex(x => x.Id == id);
+            if (index < 0) return null;
+            if (_arrivals[index].JobId is not null) return _arrivals[index];
+            var next = _arrivals.ToList();
+            next[index] = next[index] with { JobId = jobId };
+            await PersistAsync(next);
+            return next[index];
         }
         finally { _gate.Release(); }
     }

@@ -47,6 +47,17 @@ public sealed class JobStore
         finally { _gate.Release(); }
     }
 
+    public async Task<JobView?> FindOpenByPlateAsync(string plate)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var job = _jobs.LastOrDefault(x => x.Plate == plate && x.Status is not ("completed" or "cancelled"));
+            return job is null ? null : View(job, DateTimeOffset.UtcNow);
+        }
+        finally { _gate.Release(); }
+    }
+
     public async Task<JobSummary> SummaryAsync()
     {
         await _gate.WaitAsync();

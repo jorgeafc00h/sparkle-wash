@@ -66,14 +66,19 @@ public static class Program
             }
             var result = await arrivals.AddAsync(input, photo, photoStore);
             if (result.Status == ArrivalAddStatus.Conflict) return Results.Conflict(new { error = "Device event ID reused with different evidence" });
-            return Results.Json(new { observation = result.Observation, duplicate = result.Status == ArrivalAddStatus.Duplicate },
+            var observation = result.Observation;
+            if (result.Status == ArrivalAddStatus.Created && observation.PlateCandidate is not null &&
+                await jobs.FindOpenByPlateAsync(observation.PlateCandidate) is { } openJob)
+                observation = await arrivals.LinkJobAsync(observation.Id, openJob.Id) ?? observation;
+            return Results.Json(new { observation, duplicate = result.Status == ArrivalAddStatus.Duplicate, trackedJobId = observation.JobId },
                 statusCode: result.Status == ArrivalAddStatus.Created ? StatusCodes.Status201Created : StatusCodes.Status200OK);
         });
-        app.MapGet("/api/arrivals", async (HttpContext context, int? limit) =>
+        app.MapGet("/api/arrivals", async (HttpContext context, int? limit, bool? pending) =>
         {
             if (staffAuth.Authenticate(context.Request.Headers.Authorization) is null) return Results.Unauthorized();
             if (limit is < 1 or > 100) return Results.BadRequest(new { error = "limit must be 1 through 100" });
-            return Results.Json((await arrivals.ListAsync()).Take(limit ?? 50));
+            var list = await arrivals.ListAsync();
+            return Results.Json((pending == true ? list.Where(x => x.ConfirmedAt is null && x.JobId is null) : list).Take(limit ?? 50));
         });
         app.MapPost("/api/arrivals/{id}/confirm", async (HttpContext context, string id, ConfirmArrivalInput input) =>
         {
@@ -99,13 +104,33 @@ public static class Program
             var bytes = await photoStore.GetAsync(observation.PhotoId);
             return bytes is null ? Results.NotFound() : Results.File(bytes, "image/jpeg");
         });
-        app.MapGet("/api/jobs", async (HttpContext context, string? status) =>
+        app.MapGet("/api/jobs", async (HttpContext context, string? status, string? plate) =>
         {
             if (staffAuth.Authenticate(context.Request.Headers.Authorization) is null) return Results.Unauthorized();
             if (status is not null && status is not ("arrived" or "queued" or "in_progress" or "completed" or "cancelled"))
                 return Results.BadRequest(new { error = "Invalid job status" });
+            var normalizedPlate = plate is null ? null : ArrivalStore.NormalizePlate(plate);
+            if (plate is not null && normalizedPlate is null) return Results.BadRequest(new { error = "Invalid plate" });
             var result = await jobs.ListAsync();
-            return Results.Json(status is null ? result : result.Where(x => x.Status == status));
+            return Results.Json(result.Where(x => (status is null || x.Status == status) && (normalizedPlate is null || x.Plate == normalizedPlate)));
+        });
+        app.MapGet("/api/plates/{plate}/timeline", async (HttpContext context, string plate) =>
+        {
+            if (staffAuth.Authenticate(context.Request.Headers.Authorization) is null) return Results.Unauthorized();
+            var normalized = ArrivalStore.NormalizePlate(plate);
+            if (normalized is null) return Results.BadRequest(new { error = "Invalid plate" });
+            var plateJobs = (await jobs.ListAsync()).Where(x => x.Plate == normalized).ToArray();
+            var sightings = (await arrivals.ListAsync())
+                .Where(x => x.PlateCandidate == normalized || x.ConfirmedPlate == normalized).Take(200).ToArray();
+            return Results.Json(new
+            {
+                plate = normalized,
+                openJob = plateJobs.FirstOrDefault(x => x.Status is not ("completed" or "cancelled")),
+                visits = plateJobs.Length,
+                lastSeenAt = sightings.Length == 0 ? (DateTimeOffset?)null : sightings.Max(x => x.CapturedAt),
+                jobs = plateJobs,
+                sightings
+            });
         });
         app.MapGet("/api/jobs/summary", async (HttpContext context) =>
         {
@@ -131,6 +156,8 @@ public static class Program
             var service = PackageCatalog.Current.Packages.FirstOrDefault(x => x.Id == input.PackageId);
             if (service is null) return Results.BadRequest(new { error = "Unknown detailing package" });
             var result = await jobs.CreateAsync(arrival, service, context.Request.Headers["Idempotency-Key"].ToString(), session.Subject);
+            if (result.Status is JobActionStatus.Created or JobActionStatus.Duplicate && result.Job is not null)
+                await arrivals.LinkJobAsync(arrival.Id, result.Job.Id);
             return result.Status switch
             {
                 JobActionStatus.Conflict => Results.Conflict(new { error = "Arrival or plate already has an open job, or idempotency key was reused" }),
@@ -343,6 +370,7 @@ public static class Program
                 ["/api/packages"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Shared detailing catalog" } } } },
                 ["/api/packages/suggestion"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Package suggestion without a charge" } } } },
                 ["/api/jobs"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Staff job list" } } }, post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Confirmed arrival opened as a job" } } } },
+                ["/api/plates/{plate}/timeline"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Jobs and camera sightings for one plate" }, ["400"] = new { description = "Invalid plate" } } } },
                 ["/api/jobs/summary"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Whole-carwash job totals and timing" } } } },
                 ["/api/jobs/{id}"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Job detail" } } } },
                 ["/api/jobs/{id}/transition"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Job status changed" } } } },
@@ -354,7 +382,7 @@ public static class Program
                 ["/api/inventory/items/{id}/movements"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Append-only item movements" } } }, post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Stock receipt, adjustment, or consumption" } } } },
                 ["/api/inventory/items/{id}/reservations"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Stock reserved for a job" } } } },
                 ["/api/auth/google"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Google ID token validated; SparkleWash staff session created" }, ["401"] = new { description = "Invalid token or unmapped Google subject" }, ["503"] = new { description = "Google client ID not configured" } } } },
-                ["/api/auth/session"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Current staff session" }, ["401"] = new { description = "No valid staff session" } } }, del = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Staff session ended" }, ["401"] = new { description = "No valid staff session" } } } },
+                ["/api/auth/session"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Current staff session" }, ["401"] = new { description = "No valid staff session" } } }, delete = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Staff session ended" }, ["401"] = new { description = "No valid staff session" } } } },
                 ["/api/payments/n1co/webhook"] = new { post = new { responses = new Dictionary<string, object> { ["202"] = new { description = "Signed event stored for reconciliation; not payment confirmation" }, ["401"] = new { description = "Invalid signature" } } } },
                 ["/healthz"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Healthy" } } } },
                 ["/api/metrics"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Demo station snapshots" } } } },

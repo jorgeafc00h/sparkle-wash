@@ -26,7 +26,7 @@
     <ProjectReference Include="../carwash-api/WebApi.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="../../../contracts/v1/*.json" Link="Contracts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../contracts/v1/*.json" Link="Contracts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Fixtures/tiny.jpg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

@@ -15,6 +15,6 @@
     <PackageReference Include="MQTTnet" Version="5.2.0.1603" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="../../../contracts/v1/service-packages.json" LogicalName="SparkleWash.ServicePackages.json" />
+    <EmbeddedResource Include="../../contracts/v1/service-packages.json" LogicalName="SparkleWash.ServicePackages.json" />
   </ItemGroup>
 </Project>

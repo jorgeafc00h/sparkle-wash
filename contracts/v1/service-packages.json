@@ -1,0 +1,39 @@
+{
+  "currency": "USD",
+  "vehicleClasses": [
+    { "id": "car", "name": "Car" },
+    { "id": "suv", "name": "SUV" },
+    { "id": "xl", "name": "XL / Minivan" },
+    { "id": "pickup", "name": "Pickup" }
+  ],
+  "packages": [
+    {
+      "id": "quick",
+      "name": "Quick Rinse",
+      "subtitle": "Exterior rinse and dry",
+      "items": ["Pre-rinse", "Pressure wash", "Spot-free dry"],
+      "prices": { "car": 8, "suv": 10, "xl": 12, "pickup": 14 }
+    },
+    {
+      "id": "essential",
+      "name": "Essential Spa",
+      "subtitle": "Foam wash with interior vacuum",
+      "items": ["Snow foam", "Hand wash", "Wheel clean", "Interior vacuum", "Spot-free dry"],
+      "prices": { "car": 15, "suv": 18, "xl": 21, "pickup": 24 }
+    },
+    {
+      "id": "renew",
+      "name": "Renew Detail",
+      "subtitle": "Essential plus wax and interior wipe-down",
+      "items": ["Everything in Essential", "Spray wax", "Tire shine", "Dashboard and panel wipe-down", "Window clean"],
+      "prices": { "car": 25, "suv": 30, "xl": 35, "pickup": 40 }
+    },
+    {
+      "id": "supreme",
+      "name": "Supreme Ceramic",
+      "subtitle": "Full detail with ceramic sealant",
+      "items": ["Everything in Renew", "Clay bar decontamination", "Ceramic sealant", "Upholstery shampoo", "Engine bay dressing"],
+      "prices": { "car": 60, "suv": 70, "xl": 80, "pickup": 90 }
+    }
+  ]
+}
