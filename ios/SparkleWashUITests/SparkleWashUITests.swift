@@ -22,7 +22,7 @@ final class SparkleWashUITests: XCTestCase {
 
     /// Opens a sidebar section; on iPhone walks back to the sidebar first.
     private func open(_ section: String) {
-        let row = app.descendants(matching: .any)["section-\(section)"]
+        let row = element("section-\(section)")
         var tries = 0
         while !row.isHittable && tries < 4 {
             let back = app.navigationBars.buttons.element(boundBy: 0)
@@ -34,7 +34,8 @@ final class SparkleWashUITests: XCTestCase {
         row.tap()
     }
 
-    private func element(_ id: String) -> XCUIElement { app.descendants(matching: .any)[id] }
+    /// SwiftUI repeats an identifier on wrapper elements (toolbar items, row children), so take the first match.
+    private func element(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
 
     func testDemoStartsInSpanishWithTheSplitView() {
         startDemo()

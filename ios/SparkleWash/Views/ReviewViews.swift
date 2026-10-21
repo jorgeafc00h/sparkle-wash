@@ -27,6 +27,7 @@ struct ReviewListView: View {
                     else if Plate.confidence(arrival.confidence) != .high { Pill(text: t("review.check"), symbol: "exclamationmark.triangle", tint: .orange) }
                 }
                 .tag(arrival.id)
+                .accessibilityElement(children: .combine) // one VoiceOver stop per arrival
                 .accessibilityIdentifier("arrival-\(arrival.plateCandidate ?? arrival.id)")
             }
         }
