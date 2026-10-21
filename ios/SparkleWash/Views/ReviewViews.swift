@@ -98,7 +98,7 @@ struct ReviewDetailView: View {
                         Text(t.clock(arrival.capturedAt)).monospacedDigit()
                     }
                     .font(.caption.weight(.semibold)).foregroundStyle(.white)
-                    .padding(8).background(.ultraThinMaterial.opacity(0.8)).padding(8)
+                    .padding(8).background(Material.ultraThinMaterial.opacity(0.8)).padding(8)
                 }
                 .listRowInsets(EdgeInsets())
                 .accessibilityElement(children: .combine)

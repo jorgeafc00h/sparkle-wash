@@ -180,6 +180,9 @@ public sealed class TenancyTests : IAsyncLifetime
         (await adminB.GetAsync($"/api/arrivals/{arrivalId}/photo")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await adminB.GetFromJsonAsync<JsonElement>("/api/devices")).GetArrayLength().Should().Be(0);
         (await adminB.GetFromJsonAsync<JsonElement>("/api/bays")).GetProperty("stations").GetArrayLength().Should().Be(0);
+        // Revenue and wash history belong to the original site only.
+        (await adminB.GetAsync("/api/metrics/summary")).IsSuccessStatusCode.Should().BeFalse();
+        (await adminB.GetAsync("/api/washes/history")).IsSuccessStatusCode.Should().BeFalse();
 
         // The legacy shared key still feeds the default carwash only.
         using var legacyDevice = Client();

@@ -22,6 +22,7 @@ final class SyncEngine {
     @ObservationIgnored let api: SparkleAPI
     @ObservationIgnored let store: LocalStore
     @ObservationIgnored private let onUnauthorized: () -> Void
+    @ObservationIgnored private var isFlushing = false
     @ObservationIgnored private var liveTask: Task<Void, Never>?
     @ObservationIgnored private var pollTask: Task<Void, Never>?
     @ObservationIgnored private var monitor: NWPathMonitor?
@@ -87,6 +88,10 @@ final class SyncEngine {
     }
 
     func flush() async {
+        // One flush at a time, or a queued change could be sent twice (dismissals carry no idempotency key).
+        guard !isFlushing else { return }
+        isFlushing = true
+        defer { isFlushing = false }
         for pending in store.pendingOperations() {
             guard let operation = pending.operation else { store.remove(pending); continue }
             let result = await OutboxProcessor.run(operation, on: api)

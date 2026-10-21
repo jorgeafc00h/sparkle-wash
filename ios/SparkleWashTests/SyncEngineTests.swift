@@ -10,12 +10,13 @@ final class SyncEngineTests: XCTestCase {
     private var demo: DemoBackend!
     private var network: OfflineSwitchAPI!
     private var engine: SyncEngine!
+    private var container: ModelContainer! // the engine's context needs its container alive
     private var expired = 0
 
     override func setUp() async throws {
         demo = DemoBackend()
         network = OfflineSwitchAPI(base: demo)
-        let container = try CacheSchema.container(inMemory: true)
+        container = try CacheSchema.container(inMemory: true)
         let session = try await demo.session()
         let store = LocalStore(context: container.mainContext, tenantId: session.tenant.id)
         engine = SyncEngine(api: network, store: store) { [weak self] in self?.expired += 1 }
@@ -37,7 +38,7 @@ final class SyncEngineTests: XCTestCase {
         let arrival = try XCTUnwrap(engine.store.pendingArrivals().first)
         network.offline = true
 
-        await engine.perform(.confirmAndOpen(arrivalId: arrival.id, plate: arrival.displayPlate, vehicleClass: "car", packageId: "quick"))
+        await engine.perform(.confirmAndOpen(arrivalId: arrival.id, plate: try XCTUnwrap(arrival.displayPlate), vehicleClass: "car", packageId: "quick"))
         XCTAssertFalse(engine.isOnline)
         XCTAssertEqual(engine.pendingCount, 1)
         XCTAssertTrue(engine.store.jobs().contains { $0.id == Job.provisionalId(arrivalId: arrival.id) })

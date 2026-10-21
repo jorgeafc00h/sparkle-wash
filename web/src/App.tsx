@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Droplets, FlaskConical, Gauge, History, Kanban, LayoutDashboard, LogOut, Moon, ScanLine, Settings, Sun, type LucideIcon } from "lucide-react";
+import { Droplets, FlaskConical, Gauge, History, Kanban, LayoutDashboard, LogOut, Menu, Moon, ScanLine, Settings, Sun, type LucideIcon } from "lucide-react";
 import { HttpApi, type SparkleApi } from "./lib/api";
 import { ApiProvider, ToastProvider, useApi, useLive } from "./lib/context";
 import { I18nProvider, useI18n } from "./i18n";
@@ -168,7 +168,25 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
         </div>
       </nav>
       <main className="main" id="main">
-        <div className="mobile-only" style={{ justifyContent: "flex-end", marginBottom: 12 }}><LanguageSwitch compact /></div>
+        <div className="mobile-only mobile-head">
+          {live.state === "live"
+            ? <span className="pill pill-ok"><span className="dot live-dot" aria-hidden />{t("shell.live")}</span>
+            : <span className="pill pill-warn"><span className="dot" aria-hidden />{t("shell.reconnecting")}</span>}
+          <span style={{ flex: 1 }} />
+          <LanguageSwitch compact />
+          <details className="mobile-menu">
+            <summary className="btn btn-ghost icon-btn" aria-label={t("shell.menu")}><Menu size={20} aria-hidden /></summary>
+            <div className="card mobile-menu-panel">
+              <button type="button" className="nav-link" onClick={toggleTheme}>
+                {theme === "dark" ? <Sun size={18} aria-hidden /> : <Moon size={18} aria-hidden />}
+                {theme === "dark" ? t("shell.lightMode") : t("shell.darkMode")}
+              </button>
+              <button type="button" className="nav-link" onClick={onSignOut}>
+                <LogOut size={18} aria-hidden />{api.mode === "demo" ? t("shell.exitDemo") : t("shell.signOut")}
+              </button>
+            </div>
+          </details>
+        </div>
         {api.mode === "demo" && (
           <div className="banner">
             <FlaskConical size={18} aria-hidden />
@@ -183,7 +201,7 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
         {nav.map(({ route: r, label, icon: Icon }) => (
           <a key={r} href={`#/${r}`} className="tab" aria-current={route === r ? "page" : undefined} style={{ textDecoration: "none" }}>
             <Icon size={22} aria-hidden />{t(r === "admin" ? "nav.adminShort" : label)}
-            {r === "review" && pendingCount > 0 && <span className="nav-badge">{pendingCount}</span>}
+            {r === "review" && pendingCount > 0 && <span className="nav-badge" aria-label={t("nav.waiting", { count: pendingCount })}>{pendingCount}</span>}
           </a>
         ))}
       </nav>

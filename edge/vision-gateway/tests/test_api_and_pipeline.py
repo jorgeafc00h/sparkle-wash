@@ -131,3 +131,29 @@ def test_rejected_device_key_is_reported_not_retried():
     finally:
         server.shutdown()
     assert SparkleWashClient("http://127.0.0.1:9", "legacy").heartbeat({}) == 0  # legacy keys have no heartbeat
+
+
+def test_unreachable_api_reports_status_zero_instead_of_crashing():
+    client = SparkleWashClient("http://127.0.0.1:9", device_key="swd.t1.ab12.secret", retries=1, timeout=0.5)
+    assert client.post_observation(build_observation("entrance-cam", EVENT, None)).status == 0
+
+
+def test_dropped_connection_is_retried_then_reported():
+    class Handler(BaseHTTPRequestHandler):
+        calls = 0
+
+        def do_POST(self):  # noqa: N802
+            Handler.calls += 1
+            self.close_connection = True  # hang up without an answer
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        client = SparkleWashClient(f"http://127.0.0.1:{server.server_port}", device_key="swd.t1.ab12.secret", retries=1, timeout=2)
+        assert client.post_observation(build_observation("entrance-cam", EVENT, None)).status == 0
+        assert Handler.calls == 2
+    finally:
+        server.shutdown()

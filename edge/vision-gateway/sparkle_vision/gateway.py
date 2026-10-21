@@ -124,14 +124,20 @@ def publish(event: PlateEvent, crop: np.ndarray | None, client: SparkleWashClien
     log.info("plate %s conf=%.2f reads=%d", event.plate, event.confidence, event.reads)
     if client is None:
         return
-    photo = encode_evidence(crop) if crop is not None else None
-    result = client.post_observation(build_observation(camera_id, event, photo))
+    try:
+        photo = encode_evidence(crop) if crop is not None else None
+        result = client.post_observation(build_observation(camera_id, event, photo))
+    except Exception:  # never let one plate stop the frame loop
+        log.exception("  -> could not send plate %s", event.plate)
+        return
     if result.tracked_job_id:
         log.info("  -> sighting linked to open job %s", result.tracked_job_id)
     elif result.status in (200, 201):
         log.info("  -> new arrival %s waiting for staff confirmation", result.observation_id)
     elif result.status == 403:
         log.error("  -> this device key belongs to another camera: --camera-id must match the camera linked in Administración")
+    elif result.status == 0:
+        log.error("  -> API unreachable after retries; plate %s not delivered", event.plate)
     elif result.status == 401:
         log.error("  -> API rejected the key (rotated, disabled or mistyped)")
     else:

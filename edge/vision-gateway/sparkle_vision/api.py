@@ -8,6 +8,7 @@ second arrival.
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import time
 import urllib.error
@@ -77,7 +78,10 @@ class SparkleWashClient:
                 f"{self.base_url}/api/arrivals/observations", data=body, method="POST", headers=self._headers())
             try:
                 with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                    data = json.loads(response.read() or b"{}")
+                    try:
+                        data = json.loads(response.read() or b"{}")
+                    except ValueError:
+                        data = {}  # accepted, but the body wasn't JSON (proxy page, truncated reply)
                     observation = data.get("observation") or {}
                     return PostResult(response.status, observation.get("id"), data.get("trackedJobId"),
                                       bool(data.get("duplicate")))
@@ -85,9 +89,10 @@ class SparkleWashClient:
                 # 4xx is a permanent answer (bad key, wrong camera id, invalid payload, conflicting evidence); don't retry.
                 if error.code < 500 or attempt == self.retries:
                     return PostResult(error.code, None, None, False)
-            except (urllib.error.URLError, TimeoutError):
+            except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException):
+                # API down or connection dropped: retry, then report status 0 so the gateway keeps running.
                 if attempt == self.retries:
-                    raise
+                    return PostResult(0, None, None, False)
             time.sleep(delay)
             delay *= 2
         raise RuntimeError("unreachable")

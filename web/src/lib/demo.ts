@@ -252,6 +252,9 @@ export class DemoApi implements SparkleApi {
       completed: done.length, cancelled: count("cancelled"),
       arrivalsTodayUtc: this.jobList.filter((j) => j.arrivalAt.slice(0, 10) === today).length,
       completedTodayUtc: done.filter((j) => j.completedAt!.slice(0, 10) === today).length,
+      // The demo runs in the browser, so "today" is the visitor's local day (the API uses the carwash's time zone).
+      arrivalsToday: this.jobList.filter((j) => isLocalToday(j.arrivalAt)).length,
+      completedToday: done.filter((j) => isLocalToday(j.completedAt!)).length,
       averageCompletedSeconds: done.length === 0 ? null
         : Math.round(done.reduce((sum, j) => sum + this.view(j).elapsedSeconds, 0) / done.length),
     };
@@ -409,4 +412,8 @@ export class DemoApi implements SparkleApi {
   }
 
   static cameras = CAMERAS;
+}
+
+function isLocalToday(iso: string): boolean {
+  return new Date(iso).toDateString() === new Date().toDateString();
 }

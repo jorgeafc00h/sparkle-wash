@@ -63,7 +63,7 @@ describe("Administración > Cámaras", () => {
     await user.clear(within(dialog).getByLabelText("ID de cámara"));
     await user.type(within(dialog).getByLabelText("ID de cámara"), "entrance-cam");
     await user.click(within(dialog).getByRole("button", { name: "Crear llave" }));
-    expect(await within(dialog).findByRole("alert")).toHaveTextContent(/Alguien ya cambió esto/);
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(/Ya hay una cámara con el ID entrance-cam\. Usa otro, por ejemplo bay2-cam/);
   });
 });
 

@@ -133,12 +133,20 @@ public struct JobTransition: Codable, Hashable, Sendable {
     public var status: JobStatus
     public var at: Date
     public var actor: String
+
+    public init(status: JobStatus, at: Date, actor: String) {
+        self.status = status; self.at = at; self.actor = actor
+    }
 }
 
 public struct JobAssignment: Codable, Hashable, Sendable {
     public var employeeId: String
     public var employeeName: String
     public var assignedAt: Date
+
+    public init(employeeId: String, employeeName: String, assignedAt: Date) {
+        self.employeeId = employeeId; self.employeeName = employeeName; self.assignedAt = assignedAt
+    }
 }
 
 public struct Job: Codable, Hashable, Identifiable, Sendable {
@@ -160,6 +168,17 @@ public struct Job: Codable, Hashable, Identifiable, Sendable {
     public var activeSeconds: Int?
     public var transitions: [JobTransition]
     public var assignments: [JobAssignment]
+
+    public init(id: String, arrivalId: String, plate: String, vehicleClass: String, packageId: String, packageName: String,
+         services: [String], priceUsd: Decimal, currency: String, status: JobStatus, arrivalAt: Date, startedAt: Date?,
+         completedAt: Date?, cancelledAt: Date?, elapsedSeconds: Int, activeSeconds: Int?, transitions: [JobTransition],
+         assignments: [JobAssignment]) {
+        self.id = id; self.arrivalId = arrivalId; self.plate = plate; self.vehicleClass = vehicleClass
+        self.packageId = packageId; self.packageName = packageName; self.services = services; self.priceUsd = priceUsd
+        self.currency = currency; self.status = status; self.arrivalAt = arrivalAt; self.startedAt = startedAt
+        self.completedAt = completedAt; self.cancelledAt = cancelledAt; self.elapsedSeconds = elapsedSeconds
+        self.activeSeconds = activeSeconds; self.transitions = transitions; self.assignments = assignments
+    }
 }
 
 public struct JobSummary: Codable, Hashable, Sendable {

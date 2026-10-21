@@ -54,7 +54,7 @@ export function useNow(intervalMs = 1000): number {
 export function useHashRoute<T extends string>(routes: readonly T[], fallback: T): [T, string, (route: T, arg?: string) => void] {
   const parse = (): [T, string] => {
     const [path, arg = ""] = window.location.hash.replace(/^#\/?/, "").split("/");
-    return [(routes as readonly string[]).includes(path) ? (path as T) : fallback, decodeURIComponent(arg)];
+    return [(routes as readonly string[]).includes(path) ? (path as T) : fallback, safeDecode(arg)];
   };
   const [state, setState] = useState(parse);
   useEffect(() => {
@@ -67,4 +67,9 @@ export function useHashRoute<T extends string>(routes: readonly T[], fallback: T
     window.location.hash = `/${route}${arg ? `/${encodeURIComponent(arg)}` : ""}`;
   }, []);
   return [state[0], state[1], go];
+}
+
+/** A malformed link (e.g. "%E0") must not crash the console. */
+function safeDecode(text: string): string {
+  try { return decodeURIComponent(text); } catch { return ""; }
 }

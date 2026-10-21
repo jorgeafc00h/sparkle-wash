@@ -62,8 +62,7 @@ targets:
     platform: iOS
     sources: [SparkleWashTests]
     dependencies:
-      - target: SparkleWash
-      - package: SparkleKit
+      - target: SparkleWash # SparkleKit comes from the host app (a second copy would split APIError's type)
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

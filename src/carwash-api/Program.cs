@@ -895,9 +895,11 @@ public static class Program
         (StaffSession Session, TenantContext Tenant)? StaffContext(HttpContext context) =>
             staffAuth.Authenticate(context.Request.Headers.Authorization) is { } session ? (session, tenants.For(session.TenantId)) : null;
 
-        // Revenue figures: staff sessions, or back-office devices holding the ingestion key.
+        // Revenue figures: staff of the original site (bay telemetry and washes are only recorded for it),
+        // or back-office devices holding the ingestion key. Other carwashes must not see these numbers.
         bool StaffOrDevice(HttpContext context) =>
-            staffAuth.Authenticate(context.Request.Headers.Authorization) is not null || Authorized(context, ingestionKey);
+            staffAuth.Authenticate(context.Request.Headers.Authorization) is { TenantId: TenantDirectory.DefaultTenantId }
+            || Authorized(context, ingestionKey);
 
         app.MapPost("/api/upload", async (HttpContext context) =>
         {

@@ -86,14 +86,14 @@ public final class HTTPSparkleAPI: SparkleAPI, @unchecked Sendable {
     public let isDemo = false
     public let token: String
     private let config: ServerConfig
-    private let session: URLSession
+    private let urlSession: URLSession
     private let decoder = SparkleJSON.decoder()
     private let encoder = SparkleJSON.encoder()
 
     public init(config: ServerConfig, token: String, session: URLSession = .shared) {
         self.config = config
         self.token = token
-        self.session = session
+        self.urlSession = session
     }
 
     // MARK: - Unauthenticated calls
@@ -156,7 +156,7 @@ public final class HTTPSparkleAPI: SparkleAPI, @unchecked Sendable {
     }
 
     private func call<Response: Decodable>(_ method: String, _ path: String, query: [URLQueryItem] = [], idempotencyKey: String? = nil) async throws -> Response {
-        let (data, response) = try await Self.send(request(method, path, query: query, idempotencyKey: idempotencyKey), session: session)
+        let (data, response) = try await Self.send(request(method, path, query: query, idempotencyKey: idempotencyKey), session: urlSession)
         try Self.check(response, data)
         return try decoder.decode(Response.self, from: data)
     }
@@ -165,7 +165,7 @@ public final class HTTPSparkleAPI: SparkleAPI, @unchecked Sendable {
         var request = request(method, path, idempotencyKey: idempotencyKey)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try encoder.encode(body)
-        let (data, response) = try await Self.send(request, session: session)
+        let (data, response) = try await Self.send(request, session: urlSession)
         try Self.check(response, data)
         return try decoder.decode(Response.self, from: data)
     }
@@ -176,7 +176,7 @@ public final class HTTPSparkleAPI: SparkleAPI, @unchecked Sendable {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try encoder.encode(body)
         }
-        let (data, response) = try await Self.send(request, session: session)
+        let (data, response) = try await Self.send(request, session: urlSession)
         try Self.check(response, data)
     }
 
@@ -195,7 +195,7 @@ public final class HTTPSparkleAPI: SparkleAPI, @unchecked Sendable {
     }
 
     public func arrivalPhoto(id: String) async throws -> Data? {
-        let (data, response) = try await Self.send(request("GET", "/api/arrivals/\(Self.segment(id))/photo"), session: session)
+        let (data, response) = try await Self.send(request("GET", "/api/arrivals/\(Self.segment(id))/photo"), session: urlSession)
         if response.statusCode == 404 { return nil }
         try Self.check(response, data)
         return data
@@ -262,12 +262,12 @@ public final class HTTPSparkleAPI: SparkleAPI, @unchecked Sendable {
     }
 
     public func signOut() async {
-        _ = try? await Self.send(request("DELETE", "/api/auth/session"), session: session)
+        _ = try? await Self.send(request("DELETE", "/api/auth/session"), session: urlSession)
     }
 
     public func changes() -> AsyncThrowingStream<ChangeTopic, Error> {
         let request = request("GET", "/api/events")
-        let session = session
+        let session = urlSession
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {

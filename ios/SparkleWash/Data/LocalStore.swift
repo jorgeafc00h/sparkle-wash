@@ -147,8 +147,10 @@ final class LocalStore {
     func apply(_ operation: OutboxOperation, catalog: Catalog? = nil, now: Date = Date()) {
         switch operation {
         case let .confirmAndOpen(arrivalId, plate, vehicleClass, packageId, _, _):
-            guard let record = arrivalRecord(arrivalId), var arrival = record.value, arrival.jobId == nil else { return }
             let provisionalId = Job.provisionalId(arrivalId: arrivalId)
+            // Re-applied after every refresh: the arrival may already point at the provisional job.
+            guard let record = arrivalRecord(arrivalId), var arrival = record.value,
+                  arrival.jobId == nil || arrival.jobId == provisionalId else { return }
             arrival.confirmedPlate = plate
             arrival.vehicleClass = vehicleClass
             arrival.confirmedAt = arrival.confirmedAt ?? now

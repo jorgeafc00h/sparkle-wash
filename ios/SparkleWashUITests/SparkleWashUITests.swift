@@ -40,7 +40,7 @@ final class SparkleWashUITests: XCTestCase {
         startDemo()
         XCTAssertTrue(element("section-review").waitForExistence(timeout: 10) || app.navigationBars.buttons.firstMatch.waitForExistence(timeout: 2))
         open("review")
-        XCTAssertTrue(app.navigationBars["Revisión"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Revisión de llegadas"].waitForExistence(timeout: 5))
         if isPad {
             // Sidebar, list and detail side by side.
             XCTAssertTrue(element("section-board").isHittable)
@@ -143,7 +143,7 @@ final class SparkleWashUITests: XCTestCase {
         picker.buttons["English"].tap()
         element("settings-close").tap()
         open("review")
-        XCTAssertTrue(app.navigationBars["Review"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Arrival review"].waitForExistence(timeout: 5))
     }
 
     // MARK: - Helpers

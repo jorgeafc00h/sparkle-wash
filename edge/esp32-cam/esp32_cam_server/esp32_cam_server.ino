@@ -83,10 +83,12 @@ static String macSuffix() {
   return String(text);
 }
 
-static bool connectWifi(const String& ssid, const String& pass, unsigned long timeoutMs) {
+// lowLatency turns modem sleep off for faster gateway polls. Not allowed while Bluetooth is on
+// (Wi-Fi/BLE coexistence needs modem sleep), so setup mode passes false.
+static bool connectWifi(const String& ssid, const String& pass, unsigned long timeoutMs, bool lowLatency) {
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
-  WiFi.setSleep(false);  // lower latency between gateway polls
+  WiFi.setSleep(!lowLatency);
   WiFi.begin(ssid.c_str(), pass.c_str());
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < timeoutMs) {
@@ -104,9 +106,14 @@ String pendingSsid, pendingPass, pendingCamId;
 volatile bool connectRequested = false;
 volatile bool resetRequested = false;
 
+// Bytes, not a const char*: NimBLE's templated setValue would copy the pointer itself.
+static void setText(NimBLECharacteristic* c, const String& text) {
+  c->setValue(reinterpret_cast<const uint8_t*>(text.c_str()), text.length());
+}
+
 static void notifyStatus(const String& text) {
   Serial.printf("setup: %s\n", text.c_str());
-  statusChar->setValue(text.c_str());
+  setText(statusChar, text);
   statusChar->notify();
 }
 
@@ -129,6 +136,7 @@ static WriteCallbacks writeCallbacks;
 
 static void runSetupMode() {
   WiFi.mode(WIFI_STA);  // the MAC (used in the name) is only readable once Wi-Fi is up
+  WiFi.setSleep(true);  // required for Wi-Fi and Bluetooth to coexist
   String name = String("SparkleCam-") + macSuffix();
   Serial.printf("Setup mode: Bluetooth name %s\n", name.c_str());
   NimBLEDevice::init(name.c_str());
@@ -141,9 +149,9 @@ static void runSetupMode() {
     service->createCharacteristic(uuid, NIMBLE_PROPERTY::WRITE)->setCallbacks(&writeCallbacks);
   }
   statusChar = service->createCharacteristic(STATUS_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
-  statusChar->setValue("idle");
+  setText(statusChar, "idle");
   String info = String("{\"cameraId\":\"") + cameraId + "\",\"fw\":\"" + FIRMWARE + "\",\"mac\":\"" + WiFi.macAddress() + "\"}";
-  service->createCharacteristic(INFO_UUID, NIMBLE_PROPERTY::READ)->setValue(info.c_str());
+  setText(service->createCharacteristic(INFO_UUID, NIMBLE_PROPERTY::READ), info);
   service->start();
 
   NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
@@ -153,7 +161,11 @@ static void runSetupMode() {
 
   // Slow blink of the flash LED says "setup mode".
   unsigned long lastBlink = 0;
+  const unsigned long started = millis();
   for (;;) {
+    // Wi-Fi was already saved (e.g. the router was slow after a power cut): retry it every 5 minutes
+    // instead of waiting in setup mode forever.
+    if (wifiSsid.length() > 0 && !connectRequested && millis() - started > 5UL * 60UL * 1000UL) ESP.restart();
     if (millis() - lastBlink > 1500) {
       lastBlink = millis();
       digitalWrite(FLASH_LED_PIN, HIGH);
@@ -169,7 +181,7 @@ static void runSetupMode() {
     if (connectRequested) {
       connectRequested = false;
       notifyStatus("connecting");
-      if (connectWifi(pendingSsid, pendingPass, WIFI_TIMEOUT_MS)) {
+      if (connectWifi(pendingSsid, pendingPass, WIFI_TIMEOUT_MS, false)) {
         saveSettings(pendingSsid, pendingPass, pendingCamId);
         notifyStatus(String("connected:") + WiFi.localIP().toString());
         delay(1500);  // let the phone read the address
@@ -247,7 +259,7 @@ void setup() {
   Serial.printf("%s, camera id %s\n", FIRMWARE, cameraId.c_str());
 
   bool forceSetup = digitalRead(BOOT_PIN) == LOW;
-  if (forceSetup || wifiSsid.length() == 0 || !connectWifi(wifiSsid, wifiPass, WIFI_TIMEOUT_MS)) {
+  if (forceSetup || wifiSsid.length() == 0 || !connectWifi(wifiSsid, wifiPass, WIFI_TIMEOUT_MS, true)) {
     WiFi.disconnect(true);
     runSetupMode();  // never returns: restarts after a successful setup
   }

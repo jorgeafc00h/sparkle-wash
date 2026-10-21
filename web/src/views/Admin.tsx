@@ -6,8 +6,10 @@ import {
 import { CarwashFields, type CarwashErrors } from "../components/CarwashForm";
 import { Empty, ErrorBanner } from "../components/ui";
 import { errorText, useFormat, useI18n } from "../i18n";
+import { ApiError } from "../lib/api";
 import type { MessageKey } from "../i18n/es";
 import { useApi, useToast } from "../lib/context";
+import { mdnsHost, needsFirmwareUpdate, suggestCameraId } from "../lib/cameras";
 import { formatDuration } from "../lib/format";
 import { usePoll } from "../lib/hooks";
 import { validateCarwash } from "../lib/regions";
@@ -213,6 +215,13 @@ function DeviceCard({ device, onChanged, onKey }: { device: Device; onChanged: (
         {state === "online" ? t("device.online") : state === "offline" ? t("device.offline", { ago: f.ago(device.lastSeenAt) })
           : state === "never" ? t("device.never") : t("device.disabled")}
       </p>
+      {state === "never" && <p className="help device-help">{t("device.neverHelp", { name: device.name })}</p>}
+      {needsFirmwareUpdate(device.lastStatus?.firmware) && (
+        <p className="device-update" role="note">
+          <span className="pill pill-warn">{t("device.updateBadge")}</span>
+          <span className="help">{t("device.updateHelp", { version: device.lastStatus?.firmware ?? "" })}</span>
+        </p>
+      )}
       <dl className="device-stats">
         <div>
           <dt>{t("device.signal")}</dt>
@@ -224,11 +233,11 @@ function DeviceCard({ device, onChanged, onKey }: { device: Device; onChanged: (
         <div><dt>{t("device.uptime")}</dt><dd>{device.lastStatus?.uptimeMs != null ? formatDuration(device.lastStatus.uptimeMs / 1000) : "—"}</dd></div>
         <div><dt>{t("device.fps")}</dt><dd>{device.lastStatus?.fps != null ? device.lastStatus.fps.toFixed(1) : "—"}</dd></div>
         <div><dt>{t("device.reads")}</dt><dd>{device.observations}</dd></div>
+        <div><dt>IP</dt><dd className="mono">{device.lastStatus?.ip ?? "—"}</dd></div>
+        <div><dt>{t("device.firmware")}</dt><dd className="mono">{device.lastStatus?.firmware?.replace("sparklewash-cam/", "") ?? "—"}</dd></div>
       </dl>
       <p className="subtle device-meta">
         <KeyRound size={13} aria-hidden /> {t("device.key")} <span className="mono">{device.keyHint}</span>
-        {device.lastStatus?.ip && <> · <span className="mono">{device.lastStatus.ip}</span></>}
-        {device.lastStatus?.firmware && <> · {device.lastStatus.firmware}</>}
       </p>
       <div className="device-actions">
         <button type="button" className="btn btn-sm" disabled={busy || device.disabled}
@@ -287,15 +296,13 @@ function Modal({ title, onClose, children, dismissable = true }: { title: string
   );
 }
 
-const SUGGESTED_ID: Record<CameraRole, string> = { entry: "entrance-cam", bay: "bay1-cam", exit: "exit-cam" };
-
 function LinkDialog({ existing, onClose, onCreated }: { existing: Device[]; onClose: () => void; onCreated: (created: DeviceWithKey) => void }) {
   const api = useApi();
   const { t } = useI18n();
   const firstFree = CAMERA_ROLES.find((role) => !existing.some((d) => d.role === role && !d.disabled)) ?? "bay";
   const [role, setRole] = useState<CameraRole>(firstFree);
   const [name, setName] = useState("");
-  const [cameraId, setCameraId] = useState(SUGGESTED_ID[firstFree]);
+  const [cameraId, setCameraId] = useState(() => suggestCameraId(firstFree, existing));
   const [touchedId, setTouchedId] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -304,10 +311,12 @@ function LinkDialog({ existing, onClose, onCreated }: { existing: Device[]; onCl
     event.preventDefault();
     const id = cameraId.trim().toLowerCase();
     if (name.trim().length < 2 || name.trim().length > 60 || !/^[a-z0-9_-]{1,64}$/.test(id)) { setError(t("link.invalid")); return; }
+    const taken = () => t("link.idTaken", { cameraId: id, suggestion: suggestCameraId(role, existing) });
+    if (existing.some((d) => d.cameraId === id)) { setError(taken()); return; }
     setBusy(true);
     setError(null);
     try { onCreated(await api.createDevice({ name: name.trim(), cameraId: id, role })); }
-    catch (e) { setError(errorText(e, t)); }
+    catch (e) { setError(e instanceof ApiError && e.status === 409 ? taken() : errorText(e, t)); }
     finally { setBusy(false); }
   }
 
@@ -321,7 +330,7 @@ function LinkDialog({ existing, onClose, onCreated }: { existing: Device[]; onCl
               const Icon = CAMERA_ROLE_ICON[r];
               return (
                 <button key={r} type="button" role="radio" aria-checked={role === r} className="seg"
-                  onClick={() => { setRole(r); if (!touchedId) setCameraId(SUGGESTED_ID[r]); }}>
+                  onClick={() => { setRole(r); if (!touchedId) setCameraId(suggestCameraId(r, existing)); }}>
                   <Icon size={18} aria-hidden />{t(`cameraRole.${r}`)}
                 </button>
               );
@@ -364,7 +373,7 @@ function CopyButton({ text }: { text: string }) {
 function KeyDialog({ issued, onClose }: { issued: DeviceWithKey; onClose: () => void }) {
   const { t } = useI18n();
   const apiUrl = API_BASE || window.location.origin;
-  const command = `python -m sparkle_vision.gateway \\\n  --camera-url http://IP-DE-LA-CAMARA/cam-hi.jpg \\\n  --camera-id ${issued.device.cameraId} \\\n  --api ${apiUrl} \\\n  --device-key ${issued.deviceKey}`;
+  const command = `python -m sparkle_vision.gateway \\\n  --camera-url http://${mdnsHost(issued.device.cameraId)}/cam-hi.jpg \\\n  --camera-id ${issued.device.cameraId} \\\n  --api ${apiUrl} \\\n  --device-key ${issued.deviceKey}`;
   return (
     <Modal title={t("link.keyTitle", { name: issued.device.name })} onClose={onClose} dismissable={false}>
       <div className="modal-body">
@@ -378,6 +387,8 @@ function KeyDialog({ issued, onClose }: { issued: DeviceWithKey; onClose: () => 
           <pre className="mono" aria-label={t("link.command")}>{command}</pre>
           <CopyButton text={command.replace(/\\\n\s+/g, "")} />
         </div>
+        <p className="help">{t("link.mdnsNote")}</p>
+        <p className="help subtle">{t("link.stepsLegacy", { cameraId: issued.device.cameraId })}</p>
         <div className="modal-actions">
           <button type="button" className="btn btn-primary" onClick={onClose}><CheckCircle2 size={17} aria-hidden />{t("link.done")}</button>
         </div>

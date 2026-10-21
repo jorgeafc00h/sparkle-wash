@@ -22,7 +22,7 @@ export function OverviewView({ onReview, onTrack }: { onReview: () => void; onTr
       <header className="page-head">
         <div>
           <h1 className="page-title">{t("floor.title")}</h1>
-          <p className="page-sub" style={{ textTransform: "capitalize" }}>{f.today()}</p>
+          <p className="page-sub">{capitalizeFirst(f.today())}</p>
         </div>
         {pending && pending.length > 0 && (
           <button type="button" className="btn btn-primary" onClick={onReview}>
@@ -35,7 +35,7 @@ export function OverviewView({ onReview, onTrack }: { onReview: () => void; onTr
         <Kpi icon={<ScanLine size={16} />} tone="var(--warn)" label={t("floor.waiting")} value={pending?.length} />
         <Kpi icon={<Droplets size={16} />} tone="var(--accent)" label={t("floor.inBays")}
           value={summary ? summary.inProgress + summary.queued + summary.arrived : undefined} />
-        <Kpi icon={<CheckCircle2 size={16} />} tone="var(--ok)" label={t("floor.doneToday")} value={summary?.completedTodayUtc} />
+        <Kpi icon={<CheckCircle2 size={16} />} tone="var(--ok)" label={t("floor.doneToday")} value={summary ? (summary.completedToday ?? summary.completedTodayUtc) : undefined} />
         <Kpi icon={<Timer size={16} />} tone="var(--violet)" label={t("floor.avgVisit")}
           value={summary ? formatDuration(summary.averageCompletedSeconds) : undefined} />
       </div>
@@ -111,4 +111,9 @@ function Kpi({ icon, tone, label, value }: { icon: ReactNode; tone: string; labe
       {value === undefined ? <span className="skeleton" style={{ height: 36, width: 80 }} /> : <span className="kpi-value">{value}</span>}
     </div>
   );
+}
+
+/** "miércoles, 21 de octubre" → "Miércoles, 21 de octubre" (CSS capitalize would capitalize every word). */
+function capitalizeFirst(text: string): string {
+  return text.charAt(0).toLocaleUpperCase() + text.slice(1);
 }

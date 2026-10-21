@@ -63,12 +63,15 @@ final class AppModel {
 
     /// Only in the demo: cut the "network" to show changes queuing and syncing back.
     var simulateOffline: Bool {
-        get { offlineSwitch?.offline ?? false }
+        get { demoOffline }
         set {
+            demoOffline = newValue
             offlineSwitch?.offline = newValue
             if !newValue { Task { await engine?.sync() } }
         }
     }
+    /// Tracked copy of the switch, so the Settings toggle redraws.
+    private var demoOffline = false
 
     // MARK: - Start
 
@@ -196,6 +199,7 @@ final class AppModel {
         engine?.stop()
         engine = nil
         offlineSwitch = nil
+        demoOffline = false
         session = nil
         phase = .signedOut
         section = .floor
