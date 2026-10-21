@@ -20,42 +20,10 @@ export function secondsSince(iso: string, now: number = Date.now()): number {
   return Math.max(0, (now - new Date(iso).getTime()) / 1000);
 }
 
-export function timeAgo(iso: string | null, now: number = Date.now()): string {
-  if (!iso) return "never";
-  const s = secondsSince(iso, now);
-  if (s < 10) return "just now";
-  if (s < 60) return `${Math.floor(s)}s ago`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
-
-export function clockTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-export function money(amount: number, currency = "USD"): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
-}
-
-export const STATUS_LABEL: Record<JobStatus, string> = {
-  arrived: "Arrived",
-  queued: "Queued",
-  in_progress: "Washing",
-  completed: "Done",
-  cancelled: "Cancelled",
-};
-
 export const NEXT_STATUS: Partial<Record<JobStatus, JobStatus>> = {
   arrived: "queued",
   queued: "in_progress",
   in_progress: "completed",
-};
-
-export const NEXT_ACTION: Partial<Record<JobStatus, string>> = {
-  arrived: "Queue",
-  queued: "Start wash",
-  in_progress: "Mark done",
 };
 
 export function confidenceLevel(confidence: number | null): "high" | "medium" | "low" {
@@ -63,10 +31,6 @@ export function confidenceLevel(confidence: number | null): "high" | "medium" | 
   if (confidence >= 0.8) return "high";
   if (confidence >= 0.5) return "medium";
   return "low";
-}
-
-export function cameraLabel(cameraId: string): string {
-  return cameraId.replace(/[-_]cam$/i, "").replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function idempotencyKey(prefix: string): string {

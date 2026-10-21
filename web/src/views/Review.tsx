@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AlertTriangle, Camera, CarFront, ScanLine, Timer } from "lucide-react";
 import { useApi, useToast } from "../lib/context";
-import { cameraLabel, clockTime, confidenceLevel, money, normalizePlate, timeAgo } from "../lib/format";
+import { confidenceLevel, normalizePlate } from "../lib/format";
 import { usePoll } from "../lib/hooks";
 import type { ArrivalObservation, Catalog } from "../lib/types";
-import { Confidence, Empty, Plate } from "../components/ui";
+import { className, errorText, packageText, useFormat, useI18n } from "../i18n";
+import { Confidence, Empty, ErrorBanner, Plate } from "../components/ui";
 
 function useArrivalPhoto(arrival: ArrivalObservation | null) {
   const api = useApi();
@@ -25,7 +26,9 @@ function Thumb({ arrival }: { arrival: ArrivalObservation }) {
 
 export function ReviewView() {
   const api = useApi();
-  const { data: pending, error, refresh } = usePoll(() => api.pendingArrivals(), 4000);
+  const { t } = useI18n();
+  const f = useFormat();
+  const { data: pending, error, refresh } = usePoll(() => api.pendingArrivals(), 15_000, ["arrivals"]);
   const { data: catalog } = usePoll(() => api.catalog(), 300_000);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -38,22 +41,22 @@ export function ReviewView() {
     <>
       <header className="page-head">
         <div>
-          <h1 className="page-title">Arrival review</h1>
-          <p className="page-sub">Cameras read the plate; you confirm it, pick the vehicle class and package, and the job opens.</p>
+          <h1 className="page-title">{t("review.title")}</h1>
+          <p className="page-sub">{t("review.subtitle")}</p>
         </div>
-        {pending && <span className="pill pill-warn"><ScanLine size={14} aria-hidden />{pending.length} waiting</span>}
+        {pending && <span className="pill pill-warn"><ScanLine size={14} aria-hidden />{t("review.waiting", { count: pending.length })}</span>}
       </header>
-      {error && <div className="banner" role="alert"><AlertTriangle size={18} aria-hidden />{error}</div>}
+      <ErrorBanner error={error} />
       <div className="grid two-col">
-        <section className="card" aria-label="Selected arrival">
+        <section className="card" aria-label={t("review.selected")}>
           {selected && catalog
             ? <ReviewForm key={selected.id} arrival={selected} catalog={catalog} onDone={() => void refresh()} />
             : pending === null
               ? <div className="card-pad"><div className="skeleton" style={{ height: 280 }} /></div>
-              : <Empty icon={CarFront} title="All caught up">New cars appear here as soon as the entrance camera reads a plate.</Empty>}
+              : <Empty icon={CarFront} title={t("review.caughtUp")}>{t("review.caughtUpBody")}</Empty>}
         </section>
-        <section className="card" aria-label="Waiting arrivals">
-          <div className="card-head"><h2 className="card-title"><Timer size={16} aria-hidden />Queue</h2></div>
+        <section className="card" aria-label={t("review.list")}>
+          <div className="card-head"><h2 className="card-title"><Timer size={16} aria-hidden />{t("review.queue")}</h2></div>
           <div className="card-pad" style={{ padding: 8 }}>
             {pending?.length ? (
               <div className="queue-list">
@@ -63,14 +66,14 @@ export function ReviewView() {
                     <Thumb arrival={a} />
                     <span style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 }}>
                       <Plate plate={a.plateCandidate} />
-                      <span className="subtle">{cameraLabel(a.cameraId)} · {timeAgo(a.receivedAt)}</span>
+                      <span className="subtle">{f.camera(a.cameraId)} · {f.ago(a.receivedAt)}</span>
                     </span>
                     {confidenceLevel(a.confidence) !== "high" &&
-                      <span className="pill pill-warn" title="Low OCR confidence"><AlertTriangle size={13} aria-hidden />Check</span>}
+                      <span className="pill pill-warn" title={t("review.lowConfidence")}><AlertTriangle size={13} aria-hidden />{t("review.check")}</span>}
                   </button>
                 ))}
               </div>
-            ) : <p className="subtle" style={{ padding: 12 }}>No cars waiting.</p>}
+            ) : <p className="subtle" style={{ padding: 12 }}>{t("review.noCars")}</p>}
           </div>
         </section>
       </div>
@@ -81,6 +84,8 @@ export function ReviewView() {
 function ReviewForm({ arrival, catalog, onDone }: { arrival: ArrivalObservation; catalog: Catalog; onDone: () => void }) {
   const api = useApi();
   const toast = useToast();
+  const { t, locale } = useI18n();
+  const f = useFormat();
   const photo = useArrivalPhoto(arrival);
   const [plate, setPlate] = useState(arrival.plateCandidate ?? "");
   const [vehicleClass, setVehicleClass] = useState(catalog.vehicleClasses[0]?.id ?? "car");
@@ -93,16 +98,16 @@ function ReviewForm({ arrival, catalog, onDone }: { arrival: ArrivalObservation;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!normalized) { setError("Plates have 3 to 12 letters or digits."); return; }
+    if (!normalized) { setError(t("review.invalidPlate")); return; }
     setBusy(true);
     setError(null);
     try {
       await api.confirmArrival(arrival.id, normalized, vehicleClass);
       const job = await api.openJob(arrival.id, packageId);
-      toast("ok", `Job opened for ${job.plate} · ${job.packageName}`);
+      toast("ok", t("review.opened", { plate: job.plate, package: job.packageName }));
       onDone();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not open the job");
+      setError(errorText(e, t));
     } finally {
       setBusy(false);
     }
@@ -111,51 +116,57 @@ function ReviewForm({ arrival, catalog, onDone }: { arrival: ArrivalObservation;
   return (
     <div className="review">
       <div className="review-photo">
-        {photo ? <img src={photo} alt={`Camera photo of plate ${arrival.plateCandidate ?? "unread"}`} />
+        {photo ? <img src={photo} alt={t("review.photoAlt", { plate: arrival.plateCandidate ?? t("plate.unread") })} />
           : <div className="skeleton" style={{ position: "absolute", inset: 0, borderRadius: 0 }} />}
         <div className="photo-overlay">
-          <span className="glass"><Camera size={12} aria-hidden style={{ verticalAlign: -1, marginRight: 6 }} />{cameraLabel(arrival.cameraId)}</span>
-          <span className="glass mono">{clockTime(arrival.capturedAt)}</span>
+          <span className="glass"><Camera size={12} aria-hidden style={{ verticalAlign: -1, marginRight: 6 }} />{f.camera(arrival.cameraId)}</span>
+          <span className="glass mono">{f.clock(arrival.capturedAt)}</span>
         </div>
       </div>
       <form className="review-form" onSubmit={submit} noValidate>
         <div className="field">
-          <label className="label" htmlFor="plate">Plate</label>
+          <label className="label" htmlFor="plate">{t("review.plate")}</label>
           <input id="plate" className={`input input-plate ${error && !normalized ? "input-error" : ""}`} value={plate}
             onChange={(e) => setPlate(e.target.value.toUpperCase())} autoComplete="off" spellCheck={false}
             aria-describedby="plate-help" maxLength={16} />
           <Confidence value={arrival.confidence} />
-          <p id="plate-help" className="help">
-            {lowConfidence ? "The camera wasn't sure. Compare with the photo, watch for 0/O, 8/B, 1/I, 5/S." : "Read by the camera. Edit it if it doesn't match the photo."}
-          </p>
+          <p id="plate-help" className="help">{lowConfidence ? t("review.helpLow") : t("review.helpHigh")}</p>
         </div>
         <div className="field" role="radiogroup" aria-labelledby="class-label">
-          <span id="class-label" className="label">Vehicle class</span>
+          <span id="class-label" className="label">{t("review.vehicleClass")}</span>
           <div className="segmented">
             {catalog.vehicleClasses.map((v) => (
               <button key={v.id} type="button" role="radio" aria-checked={vehicleClass === v.id} className="seg"
-                onClick={() => setVehicleClass(v.id)}>{v.name}</button>
+                onClick={() => setVehicleClass(v.id)}>{className(v, locale, catalog)}</button>
             ))}
           </div>
         </div>
         <div className="field" role="radiogroup" aria-labelledby="package-label">
-          <span id="package-label" className="label">Package</span>
+          <span id="package-label" className="label">{t("review.package")}</span>
           <div className="package-grid">
-            {catalog.packages.map((p) => (
-              <button key={p.id} type="button" role="radio" aria-checked={packageId === p.id} className="package"
-                onClick={() => setPackageId(p.id)}>
-                <span style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
-                  <strong>{p.name}</strong>
-                  <span className="package-price">{money(p.prices[vehicleClass] ?? 0, catalog.currency)}</span>
-                </span>
-                <span className="subtle">{p.subtitle}</span>
-              </button>
-            ))}
+            {catalog.packages.map((p) => {
+              const text = packageText(p, locale, catalog);
+              return (
+                <button key={p.id} type="button" role="radio" aria-checked={packageId === p.id} className="package"
+                  onClick={() => setPackageId(p.id)} title={`${t("review.includes")}: ${text.items.join(", ")}`}>
+                  <span style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                    <strong>{text.name}</strong>
+                    <span className="package-price">{f.money(p.prices[vehicleClass] ?? 0, catalog.currency)}</span>
+                  </span>
+                  <span className="subtle">{text.subtitle}</span>
+                </button>
+              );
+            })}
           </div>
+          {chosen && (
+            <p className="help">{t("review.includes")}: {packageText(chosen, locale, catalog).items.join(" · ")}</p>
+          )}
         </div>
         {error && <p className="error-text" role="alert"><AlertTriangle size={15} aria-hidden />{error}</p>}
         <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
-          {busy ? "Opening…" : `Confirm ${normalized ?? "plate"} & open job${chosen ? ` · ${money(chosen.prices[vehicleClass] ?? 0, catalog.currency)}` : ""}`}
+          {busy ? t("review.opening") : normalized && chosen
+            ? t("review.submit", { plate: normalized, price: f.money(chosen.prices[vehicleClass] ?? 0, catalog.currency) })
+            : t("review.submitNoPlate")}
         </button>
       </form>
     </div>

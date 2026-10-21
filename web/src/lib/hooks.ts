@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLive } from "./context";
+import type { ChangeTopic } from "./types";
 
-/** Loads data now and every `intervalMs`, pausing while the tab is hidden. */
-export function usePoll<T>(load: () => Promise<T>, intervalMs: number, deps: unknown[] = []) {
+/**
+ * Loads data now, again whenever the server announces a change to one of `topics`,
+ * and every `intervalMs` as a fallback (paused while the tab is hidden).
+ */
+export function usePoll<T>(load: () => Promise<T>, intervalMs: number, topics: ChangeTopic[] = [], deps: unknown[] = []) {
   const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const loadRef = useRef(load);
   loadRef.current = load;
 
@@ -12,7 +17,7 @@ export function usePoll<T>(load: () => Promise<T>, intervalMs: number, deps: unk
       setData(await loadRef.current());
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      setError(e);
     }
   }, []);
 
@@ -24,6 +29,14 @@ export function usePoll<T>(load: () => Promise<T>, intervalMs: number, deps: unk
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh, intervalMs, ...deps]);
+
+  const live = useLive();
+  const topicKey = topics.join(",");
+  useEffect(() => {
+    if (!topicKey) return;
+    const wanted = new Set(topicKey.split(","));
+    return live.listen((topic) => { if (wanted.has(topic)) void refresh(); });
+  }, [live, topicKey, refresh]);
 
   return { data, error, refresh, loading: data === null && error === null };
 }

@@ -5,7 +5,7 @@ import type { SparkleApi } from "./api";
 import { ApiError } from "./api";
 import { normalizePlate } from "./format";
 import type {
-  ArrivalObservation, Catalog, Employee, Job, JobStatus, JobSummary, PlateTimeline, Station, StationAlert,
+  ArrivalObservation, Catalog, ChangeTopic, Employee, Job, JobStatus, JobSummary, PlateTimeline, Station, StationAlert,
 } from "./types";
 
 const catalog = catalogJson as Catalog;
@@ -47,6 +47,7 @@ export class DemoApi implements SparkleApi {
   private arrivals: ArrivalObservation[] = [];
   private jobList: Job[] = [];
   private photos = new Map<string, string>();
+  private listeners = new Set<(topic: ChangeTopic) => void>();
   private staff: Employee[] = [
     { id: "e1", name: "Maria Garcia", active: true },
     { id: "e2", name: "Luis Hernandez", active: true },
@@ -84,7 +85,9 @@ export class DemoApi implements SparkleApi {
     const open = this.jobList.filter((j) => j.status === "in_progress" || j.status === "queued");
     if (open.length > 0 && Math.random() < 0.45) {
       const job = open[Math.floor(Math.random() * open.length)];
-      this.observe(job.status === "in_progress" ? "bay1-cam" : "entrance-cam", job.plate, 0.8 + Math.random() * 0.18);
+      // Cars being washed are spotted in the bay, and sometimes already rolling out at the exit.
+      const camera = job.status !== "in_progress" ? "entrance-cam" : Math.random() < 0.35 ? "exit-cam" : "bay1-cam";
+      this.observe(camera, job.plate, 0.8 + Math.random() * 0.18);
       return;
     }
     const known = new Set([...this.jobList.filter((j) => j.status !== "completed" && j.status !== "cancelled").map((j) => j.plate),
@@ -104,9 +107,11 @@ export class DemoApi implements SparkleApi {
       id, deviceEventId: `${cameraId}-${normalized}-${Date.now()}`, cameraId, plateCandidate: normalized,
       confidence: Math.round(confidence * 100) / 100, capturedAt: iso(ageSeconds + 1), receivedAt: iso(ageSeconds),
       photoId: id, confirmedPlate: null, vehicleClass: null, confirmedBy: null, confirmedAt: null, jobId: open?.id ?? null,
+      cameraRole: cameraId === "exit-cam" ? "exit" : "entry",
     };
     this.photos.set(id, demoPhoto(normalized ?? "?", CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)]));
     this.arrivals = [observation, ...this.arrivals].slice(0, 300);
+    this.emit(open ? "jobs" : "arrivals");
     return observation;
   }
 
@@ -122,6 +127,8 @@ export class DemoApi implements SparkleApi {
     };
     this.jobList = [job, ...this.jobList];
     this.arrivals = this.arrivals.map((a) => (a.id === arrival.id ? { ...a, jobId: job.id } : a));
+    this.emit("jobs");
+    this.emit("arrivals");
     return job;
   }
 
@@ -139,6 +146,7 @@ export class DemoApi implements SparkleApi {
     if (status === "completed") job.completedAt = now;
     if (status === "cancelled") job.cancelledAt = now;
     job.transitions = [...job.transitions, { status, at: now, actor: "demo" }];
+    this.emit("jobs");
     return this.view(job);
   }
 
@@ -148,6 +156,7 @@ export class DemoApi implements SparkleApi {
     if (!job || !employee) throw new ApiError(404, "Not found");
     if (job.assignments.some((a) => a.employeeId === employeeId)) throw new ApiError(409, "Employee is already assigned or job is closed");
     job.assignments = [...job.assignments, { employeeId, employeeName: employee.name, assignedAt: iso() }];
+    this.emit("jobs");
     return this.view(job);
   }
 
@@ -159,7 +168,7 @@ export class DemoApi implements SparkleApi {
 
   async session() { return { role: "operator" as const, subject: "demo", expiresAt: iso(-8 * 3600) }; }
   async catalog() { return catalog; }
-  async pendingArrivals() { return this.arrivals.filter((a) => !a.confirmedAt && !a.jobId); }
+  async pendingArrivals() { return this.arrivals.filter((a) => !a.confirmedAt && !a.jobId && a.cameraRole !== "exit"); }
   async recentSightings(limit = 30) { return this.arrivals.slice(0, limit); }
   async arrivalPhotoUrl(arrival: ArrivalObservation) { return this.photos.get(arrival.id) ?? null; }
 
@@ -175,6 +184,7 @@ export class DemoApi implements SparkleApi {
     }
     const confirmed = { ...prior, confirmedPlate: normalized, vehicleClass, confirmedBy: "demo", confirmedAt: iso() };
     this.arrivals[index] = confirmed;
+    this.emit("arrivals");
     return confirmed;
   }
 
@@ -213,9 +223,10 @@ export class DemoApi implements SparkleApi {
     if (!normalized) throw new ApiError(400, "Invalid plate");
     const jobs = this.jobList.filter((j) => j.plate === normalized).map((j) => this.view(j));
     const sightings = this.arrivals.filter((a) => a.plateCandidate === normalized || a.confirmedPlate === normalized);
+    const leftAt = jobs[0] ? sightings.find((a) => a.jobId === jobs[0].id && a.cameraRole === "exit")?.capturedAt ?? null : null;
     return {
       plate: normalized, openJob: jobs.find((j) => j.status !== "completed" && j.status !== "cancelled") ?? null,
-      visits: jobs.length, lastSeenAt: sightings[0]?.capturedAt ?? null, jobs, sightings,
+      visits: jobs.length, lastSeenAt: sightings[0]?.capturedAt ?? null, leftAt, jobs, sightings,
     };
   }
 
@@ -228,6 +239,16 @@ export class DemoApi implements SparkleApi {
 
   async alerts() { return alertsJson as StationAlert[]; }
   async signOut() {}
+
+  subscribe(onChange: (topic: ChangeTopic) => void, onState?: (state: "live" | "reconnecting") => void) {
+    this.listeners.add(onChange);
+    onState?.("live");
+    return () => { this.listeners.delete(onChange); };
+  }
+
+  private emit(topic: ChangeTopic) {
+    for (const listener of this.listeners) listener(topic);
+  }
 
   static cameras = CAMERAS;
 }

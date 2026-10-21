@@ -1,6 +1,6 @@
 import { idempotencyKey } from "./format";
 import type {
-  ArrivalObservation, Catalog, Employee, Job, JobStatus, JobSummary, PlateTimeline, Session, Station, StationAlert,
+  ArrivalObservation, Catalog, ChangeTopic, ConnectionState, Employee, Job, JobStatus, JobSummary, PlateTimeline, Session, Station, StationAlert,
 } from "./types";
 
 /** Everything the console needs. Implemented by the live HTTP API and by the in-browser demo. */
@@ -22,6 +22,8 @@ export interface SparkleApi {
   stations(): Promise<Station[]>;
   alerts(): Promise<StationAlert[]>;
   signOut(): Promise<void>;
+  /** Pushes "arrivals"/"jobs" change notifications; returns an unsubscribe function. */
+  subscribe(onChange: (topic: ChangeTopic) => void, onState?: (state: ConnectionState) => void): () => void;
 }
 
 export class ApiError extends Error {
@@ -42,8 +44,7 @@ export class HttpApi implements SparkleApi {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idToken }),
     });
-    if (response.status === 503) throw new ApiError(503, "Google sign-in is not configured on the server.");
-    if (!response.ok) throw new ApiError(response.status, "This Google account is not on the staff list.");
+    if (!response.ok) throw new ApiError(response.status === 503 ? 503 : 401, "Google sign-in failed");
     const body = (await response.json()) as { sessionToken: string };
     return new HttpApi(baseUrl, body.sessionToken);
   }
@@ -58,8 +59,6 @@ export class HttpApi implements SparkleApi {
     if (!response.ok) {
       let message = response.statusText || `HTTP ${response.status}`;
       try { message = ((await response.json()) as { error?: string }).error ?? message; } catch { /* no JSON body */ }
-      if (response.status === 401) message = "Your session expired. Sign in again.";
-      if (response.status === 403) message = "Your role can't do that. Ask an admin.";
       throw new ApiError(response.status, message);
     }
     return (await response.json()) as T;
@@ -126,5 +125,42 @@ export class HttpApi implements SparkleApi {
 
   async signOut() {
     await fetch(`${this.baseUrl}/api/auth/session`, { method: "DELETE", headers: { Authorization: `Bearer ${this.token}` } });
+  }
+
+  subscribe(onChange: (topic: ChangeTopic) => void, onState?: (state: ConnectionState) => void) {
+    // EventSource can't send an Authorization header, so read the SSE stream with fetch.
+    const controller = new AbortController();
+    const connect = async (attempt: number): Promise<void> => {
+      try {
+        const response = await fetch(`${this.baseUrl}/api/events`, {
+          headers: { Authorization: `Bearer ${this.token}`, Accept: "text/event-stream" }, signal: controller.signal,
+        });
+        if (!response.ok || !response.body) throw new ApiError(response.status, "event stream unavailable");
+        onState?.("live");
+        attempt = 0;
+        const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+        let buffer = "";
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += value;
+          const frames = buffer.split("\n\n");
+          buffer = frames.pop() ?? "";
+          for (const frame of frames) {
+            const data = frame.split("\n").find((line) => line.startsWith("data: "));
+            if (!data) continue;
+            try { onChange((JSON.parse(data.slice(6)) as { topic: ChangeTopic }).topic); } catch { /* ignore malformed frame */ }
+          }
+        }
+      } catch {
+        if (controller.signal.aborted) return;
+      }
+      if (controller.signal.aborted) return;
+      onState?.("reconnecting");
+      await new Promise((resolve) => window.setTimeout(resolve, Math.min(30_000, 2000 * 2 ** attempt)));
+      if (!controller.signal.aborted) void connect(attempt + 1);
+    };
+    void connect(0);
+    return () => controller.abort();
   }
 }

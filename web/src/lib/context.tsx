@@ -1,12 +1,30 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import type { SparkleApi } from "./api";
+import type { ChangeTopic, ConnectionState } from "./types";
 
 const ApiContext = createContext<SparkleApi | null>(null);
 
+type Listener = (topic: ChangeTopic) => void;
+interface Live { listen(listener: Listener): () => void; state: ConnectionState }
+const LiveContext = createContext<Live>({ listen: () => () => {}, state: "reconnecting" });
+
+/** Holds one change-feed connection for the whole console and fans it out to the screens. */
 export function ApiProvider({ api, children }: { api: SparkleApi; children: ReactNode }) {
-  return <ApiContext.Provider value={api}>{children}</ApiContext.Provider>;
+  const listeners = useRef(new Set<Listener>());
+  const [state, setState] = useState<ConnectionState>("reconnecting");
+  useEffect(() => api.subscribe((topic) => listeners.current.forEach((l) => l(topic)), setState), [api]);
+  const live = useMemo<Live>(() => ({
+    state,
+    listen: (listener) => {
+      listeners.current.add(listener);
+      return () => { listeners.current.delete(listener); };
+    },
+  }), [state]);
+  return <ApiContext.Provider value={api}><LiveContext.Provider value={live}>{children}</LiveContext.Provider></ApiContext.Provider>;
 }
+
+export const useLive = () => useContext(LiveContext);
 
 export function useApi(): SparkleApi {
   const api = useContext(ApiContext);

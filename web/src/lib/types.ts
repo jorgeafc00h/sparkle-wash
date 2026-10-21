@@ -3,11 +3,14 @@
 export type JobStatus = "arrived" | "queued" | "in_progress" | "completed" | "cancelled";
 export type Role = "viewer" | "operator" | "admin";
 
-export interface VehicleClass { id: string; name: string }
+export interface CatalogTranslation { name?: string; subtitle?: string; tagline?: string; items?: string[] }
+export interface VehicleClass { id: string; name: string; translations?: Record<string, CatalogTranslation> }
 export interface ServicePackage {
-  id: string; name: string; subtitle: string; items: string[]; prices: Record<string, number>;
+  id: string; name: string; subtitle: string; tagline: string; items: string[]; prices: Record<string, number>;
+  translations?: Record<string, CatalogTranslation>;
 }
-export interface Catalog { currency: string; vehicleClasses: VehicleClass[]; packages: ServicePackage[] }
+/** Text is in `locale` (Spanish); `translations` carries other languages. */
+export interface Catalog { currency: string; locale: string; vehicleClasses: VehicleClass[]; packages: ServicePackage[] }
 
 export interface ArrivalObservation {
   id: string;
@@ -23,6 +26,7 @@ export interface ArrivalObservation {
   confirmedBy: string | null;
   confirmedAt: string | null;
   jobId?: string | null;
+  cameraRole?: "entry" | "exit" | null;
 }
 
 export interface JobTransition { status: JobStatus; at: string; actor: string }
@@ -61,6 +65,7 @@ export interface PlateTimeline {
   openJob: Job | null;
   visits: number;
   lastSeenAt: string | null;
+  leftAt?: string | null;
   jobs: Job[];
   sightings: ArrivalObservation[];
 }
@@ -73,3 +78,6 @@ export interface StationAlert {
 }
 
 export interface Session { role: Role; subject: string; expiresAt: string }
+
+export type ChangeTopic = "arrivals" | "jobs";
+export type ConnectionState = "live" | "reconnecting";

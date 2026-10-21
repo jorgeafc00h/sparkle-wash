@@ -39,3 +39,18 @@ describe("DemoApi plate tracking", () => {
     expect((await api.pendingArrivals()).length).toBeLessThanOrEqual(4);
   });
 });
+
+describe("DemoApi live updates", () => {
+  it("notifies subscribers and keeps exit sightings out of review", async () => {
+    const api = new DemoApi();
+    const topics: string[] = [];
+    const stop = api.subscribe((topic) => topics.push(topic));
+    const [arrival] = await api.pendingArrivals();
+    await api.confirmArrival(arrival.id, arrival.plateCandidate!, "car");
+    await api.openJob(arrival.id, "quick");
+    stop();
+    expect(topics).toEqual(expect.arrayContaining(["arrivals", "jobs"]));
+    for (let i = 0; i < 300; i++) api.tick();
+    expect((await api.pendingArrivals()).some((a) => a.cameraRole === "exit")).toBe(false);
+  });
+});

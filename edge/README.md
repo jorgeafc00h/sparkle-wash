@@ -61,6 +61,10 @@ to test detection locally without posting.
 * **Plate with an open job** → the API links the observation to that job (`trackedJobId` in the
   response). It does not enter the review queue, and it shows up on the job's plate timeline,
   so staff can see the car moving from the entrance to a bay and out.
+* **Exit camera** (list it in the API's `SPARKLEWASH_EXIT_CAMERAS`, e.g. `exit-cam`): the sighting links to
+  the open job, or to one finished in the last 2 hours. It never creates a review item. If the job is still
+  *Lavando*, the API returns `suggestComplete: true` and the board shows "Visto en la salida… ¿Marcar listo?".
+  Staff still make the call. The plate timeline shows when the car left.
 * `GET /api/plates/{plate}/timeline` returns a plate's open job, visit count, past jobs and every sighting.
 
 Retries are safe: the `deviceEventId` is `camera-plate-firstSeenMs`, so a timed-out post that is
