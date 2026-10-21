@@ -2,7 +2,8 @@
 
 Carwash operations: ESP32-CAM cameras read plates, a vision gateway posts arrivals, staff confirm them
 and run jobs from a web console or the iOS/iPadOS app. Status, review history and open items:
-`docs/STATUS.md` (keep it updated after each round of work).
+`docs/STATUS.md` (keep it updated after each round of work). iOS work: follow `docs/IOS_PLAN.md`
+(how to run every test, what each UI test checks, backlog) and add to its progress log.
 
 ## Layout
 

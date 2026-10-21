@@ -93,6 +93,10 @@ Still open:
   * An equipment-health row on the floor screen.
   * Explainer video lines about the app.
 
+## iOS hand-off
+
+The detailed plan for continuing the iOS app is in [`docs/IOS_PLAN.md`](IOS_PLAN.md). It covers running and fixing every test (package, unit and UI, on iPhone and iPad), what each UI test checks, a manual verification checklist and the prioritized backlog.
+
 ## Next steps
 
 1. Train or download a licence-plate YOLO model (ONNX) for your country's plates and pass `--plate-model`. The contour fallback is fine for a demo but weak in real light.
