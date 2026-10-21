@@ -49,6 +49,8 @@ The real API contract is the generated `/openapi.json`.
   - The app's unit-test target must NOT also link SparkleKit, or two copies split `APIError`.
   - The app uses an in-memory SwiftData store when hosting tests (`AppConfig.isUnitTesting` / `-ui-testing`).
   - Read iOS CI failures in the "Failed tests" step; the raw xcodebuild log is noisy.
+  - UI tests: SwiftUI repeats identifiers on wrapper elements, so look them up with `firstMatch`. Lists are
+    lazy, so call `reveal()` before tapping rows below the fold. Close the keyboard before tapping on iPhone.
 - **Firmware:**
   - esp32cam needs C++17, so build on ESP32 core 3.x.
   - NimBLE `setValue(const char*)` copies the pointer: send `(const uint8_t*)s.c_str(), s.length()`.
