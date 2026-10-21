@@ -56,8 +56,7 @@ final class SparkleWashUITests: XCTestCase {
         XCTAssertTrue(arrival.waitForExistence(timeout: 10))
         arrival.tap()
         let confirm = element("confirm-button")
-        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
-        if !confirm.isHittable { app.swipeUp() }
+        XCTAssertTrue(reveal(confirm), "confirm button")
         confirm.tap()
         XCTAssertTrue(arrival.waitForNonExistence(timeout: 5))
 
@@ -73,8 +72,7 @@ final class SparkleWashUITests: XCTestCase {
         XCTAssertTrue(arrival.waitForExistence(timeout: 10))
         arrival.tap()
         let confirm = element("confirm-button")
-        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
-        if !confirm.isHittable { app.swipeUp() }
+        XCTAssertTrue(reveal(confirm), "confirm button")
         confirm.tap()
 
         open("board")
@@ -95,8 +93,7 @@ final class SparkleWashUITests: XCTestCase {
         startDemo()
         open("admin")
         let link = element("link-camera-button")
-        XCTAssertTrue(link.waitForExistence(timeout: 5))
-        if !link.isHittable { app.swipeUp() }
+        XCTAssertTrue(reveal(link), "link camera button")
         link.tap()
 
         let name = element("camera-name")
@@ -131,7 +128,7 @@ final class SparkleWashUITests: XCTestCase {
         name.tap()
         name.typeText("Autolavado Brillante")
         let submit = element("register-demo-button")
-        if !submit.isHittable { app.swipeUp() }
+        XCTAssertTrue(reveal(submit), "register button")
         submit.tap()
         XCTAssertTrue(element("onboarding").waitForExistence(timeout: 10))
     }
@@ -162,14 +159,29 @@ final class SparkleWashUITests: XCTestCase {
         settings.tap()
     }
 
+    /// Lists are lazy: rows below the fold don't exist until scrolled to. Swipes up until the element is hittable.
+    @discardableResult
+    private func reveal(_ element: XCUIElement, swipes: Int = 6) -> Bool {
+        if element.waitForExistence(timeout: 3) && element.isHittable { return true }
+        for _ in 0..<swipes {
+            app.swipeUp()
+            if element.exists && element.isHittable { return true }
+        }
+        return element.exists && element.isHittable
+    }
+
     private func setOffline(_ offline: Bool) {
         openSettings()
-        let toggle = app.switches["offline-toggle"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-        if (toggle.value as? String == "1") != offline {
-            // Tap the switch itself, not the label (SwiftUI toggles in forms only react to the switch).
-            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        let toggle = app.switches.matching(identifier: "offline-toggle").firstMatch
+        XCTAssertTrue(reveal(toggle), "offline toggle")
+        let wanted = offline ? "1" : "0"
+        if toggle.value as? String != wanted {
+            // In a Form only the switch control reacts; iOS 17+ exposes it as a nested switch.
+            let control = toggle.switches.firstMatch
+            if control.exists { control.tap() } else { toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap() }
         }
+        XCTAssertEqual(toggle.value as? String, wanted, "offline toggle should be \(wanted)")
         element("settings-close").tap()
+        XCTAssertTrue(element("settings-close").waitForNonExistence(timeout: 5))
     }
 }
