@@ -6,9 +6,9 @@ set -euo pipefail
 : "${IMAGE_REF:?Set the published Linux AMD64 image reference by digest}"
 IBM_CE_CPU=${IBM_CE_CPU:-0.125}
 IBM_CE_MEMORY=${IBM_CE_MEMORY:-0.25G}
-runtime_secret_args=()
+app_args=(--name "$IBM_CE_APP")
 if [[ -n "${IBM_CE_RUNTIME_SECRET:-}" ]]; then
-  runtime_secret_args+=(--env-from-secret "$IBM_CE_RUNTIME_SECRET")
+  app_args+=(--env-from-secret "$IBM_CE_RUNTIME_SECRET")
 fi
 
 if [[ ! "$IMAGE_REF" =~ ^[^[:space:]@]+@sha256:[a-f0-9]{64}$ ]]; then
@@ -16,11 +16,16 @@ if [[ ! "$IMAGE_REF" =~ ^[^[:space:]@]+@sha256:[a-f0-9]{64}$ ]]; then
   exit 2
 fi
 
-ibmcloud ce application update --name "$IBM_CE_APP" \
+if ibmcloud ce application get --name "$IBM_CE_APP" >/dev/null 2>&1; then
+  app_action=update
+else
+  app_action=create
+fi
+
+ibmcloud ce application "$app_action" "${app_args[@]}" \
   --image "$IMAGE_REF" --registry-secret "$IBM_CE_REGISTRY_SECRET" \
   --cpu "$IBM_CE_CPU" --memory "$IBM_CE_MEMORY" \
-  "${runtime_secret_args[@]}" \
-  --port 8080 --min-scale 0 --max-scale 1 \
+  --port 8080 --visibility public --min-scale 0 --max-scale 1 \
   --probe-live type=http --probe-live port=8080 --probe-live path=/healthz \
   --probe-ready type=http --probe-ready port=8080 --probe-ready path=/readyz \
   --wait

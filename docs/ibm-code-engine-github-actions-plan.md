@@ -2,9 +2,11 @@
 
 ## Recommended pilot shape
 
-Build the existing Linux AMD64 API image once in GitHub Actions, push it to
+Build the Linux AMD64 API image once in GitHub Actions, push it to
 GitHub Container Registry (GHCR), and deploy the immutable registry digest to
-an existing IBM Code Engine application. Use `min-scale=0`, `max-scale=1`,
+an IBM Code Engine application. The first approved deployment creates the
+project and application if they do not exist; later runs update that app.
+Use `min-scale=0`, `max-scale=1`,
 the current `/healthz` and `/readyz` probes. Start with 0.125 vCPU and 0.25 GB
 (`IBM_CE_CPU` and `IBM_CE_MEMORY` workflow variables) and raise the allocation
 only if the constrained smoke and measured peak memory require it.
@@ -45,19 +47,21 @@ activity or request polling grows.
 ## GitHub Actions sequence
 
 The `ibm-demo` GitHub Environment is created and restricted to the `main`
-branch. Add the target IBM resources and credentials below before dispatching
-the workflow. Require reviewer approval if environment reviewers are available:
+branch. Add the IBM region, resource group and credentials below before
+dispatching the workflow. The workflow creates the project and public app if
+they do not exist, at scale zero until requests arrive. Require reviewer
+approval if environment reviewers are available:
 
 | Name | Type | Value |
 | --- | --- | --- |
-| `IBM_CE_APP` | Variable | Existing Code Engine application name |
+| `IBM_CE_APP` | Variable | Code Engine application name (created on first deploy if missing) |
 | `IBM_CE_REGISTRY_SECRET` | Variable | Name for the Code Engine GHCR pull secret |
 | `IBM_CE_CPU` | Variable | Optional supported CPU size; defaults to `0.125` |
 | `IBM_CE_MEMORY` | Variable | Optional supported memory size; defaults to `0.25G` |
 | `IBM_CE_RUNTIME_SECRET` | Variable | Optional name of an existing Code Engine generic secret with API runtime settings |
 | `IBM_REGION` | Variable | IBM Cloud region, for example `us-south` |
 | `IBM_RESOURCE_GROUP` | Variable | IBM Cloud resource group name |
-| `IBM_CE_PROJECT` | Variable | Existing Code Engine project name |
+| `IBM_CE_PROJECT` | Variable | Code Engine project name (created on first deploy if missing) |
 | `GHCR_PULL_USERNAME` | Variable | GitHub username that can read the package |
 | `IBM_CLOUD_API_KEY` | Secret | IBM Cloud API key scoped to deployment operations |
 | `GHCR_PULL_TOKEN` | Secret | GitHub classic PAT with `read:packages` for the private image |
@@ -77,13 +81,15 @@ to pull a private image. Do not reuse that token for publishing.
    same image to GHCR using the repository `GITHUB_TOKEN` with `packages: write`.
    It captures the registry digest and never deploys a mutable tag.
 3. The deploy job is restricted to the `ibm-demo` GitHub Environment. Store an IBM API key,
-   region, resource group, Code Engine project and app name as environment
-   secrets or variables. Store a GHCR read-only package token as a secret and
-   its username as a variable. Restrict the environment to `main` and add
+   region, resource group, Code Engine project name and app name as environment
+   secrets or variables. The workflow creates the project/app on first run if
+   absent. Store a GHCR read-only package token as a secret and its username as
+   a variable. Restrict the environment to `main` and add
    required reviewers when available.
 4. Authenticate the IBM Cloud CLI, select the target resource group, install
-   or update the Code Engine plugin, select the project, create or update the
-   Code Engine registry secret for GHCR from a protected temporary file, then invoke
+   or update the Code Engine plugin, create/select the project, and create or
+   update the Code Engine registry secret for GHCR from a protected temporary
+   file. Then invoke
    `deploy/ibm/deploy-demo.sh` with `IMAGE_REF` set to the immutable digest.
 5. Read the app URL from Code Engine and run `scripts/smoke-cloud.sh` against
    it. Record the digest, app revision and smoke result in the workflow log.
@@ -108,9 +114,9 @@ for disposable demo data until PostgreSQL, staff sessions, and durable
 photo/object storage have been configured and rehearsed. Neon is independent
 of IBM's compute grant.
 
-## Before implementing the workflow
+## Before the first deployment
 
-- Confirm the IBM region, resource group, Code Engine project and existing app.
+- Confirm the IBM region, resource group, and names for the Code Engine project and app.
 - Confirm account-level free grants are unused and measure peak memory and
   request volume from a shift, including every client poll and camera retry.
 - Confirm the first-published repository-scoped GHCR package is linked to this
@@ -138,8 +144,8 @@ checks. The deployment workflow only runs from `main`, so review and merge
 must happen before deployment can be dispatched.
 
 The `ibm-demo` GitHub Environment has been created with a branch policy for
-`main`; its IBM resource variables and API key are not configured yet. The
-existing private GHCR package is unlinked, but the IBM workflow now targets a
+`main`; its IBM region, resource group, project, app variables and API key are
+not configured yet. The existing private GHCR package is unlinked, but the IBM workflow now targets a
 repository-scoped package using the Dockerfile source label. Verify that link
 after its first publish; a separate read-only GHCR pull token is required. The
 Neon project exists but is not wired to the API. No IBM deployment has been

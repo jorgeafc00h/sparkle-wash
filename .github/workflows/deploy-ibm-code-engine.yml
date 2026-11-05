@@ -90,6 +90,9 @@ jobs:
         run: |
           ibmcloud login --apikey "$IBM_CLOUD_API_KEY" -r "$IBM_REGION" -g "$IBM_RESOURCE_GROUP"
           ibmcloud target -r "$IBM_REGION" -g "$IBM_RESOURCE_GROUP"
+          if ! ibmcloud ce project get --name "$IBM_CE_PROJECT" >/dev/null 2>&1; then
+            ibmcloud ce project create --name "$IBM_CE_PROJECT"
+          fi
           ibmcloud ce project select --name "$IBM_CE_PROJECT"
 
       - name: Create or update GHCR pull secret in Code Engine
