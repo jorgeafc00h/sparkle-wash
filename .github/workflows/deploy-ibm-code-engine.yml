@@ -16,7 +16,9 @@ jobs:
       contents: read
       packages: write
     env:
-      REGISTRY: ghcr.io/${{ github.repository_owner }}/sparklewash-api
+      # Repository-scoped image name lets GHCR associate the package with this
+      # public source repository from the OCI source label in the Dockerfile.
+      REGISTRY: ghcr.io/${{ github.repository }}/api
     steps:
       - uses: actions/checkout@v4
 
@@ -62,7 +64,7 @@ jobs:
       IBM_REGION: ${{ vars.IBM_REGION }}
       IBM_RESOURCE_GROUP: ${{ vars.IBM_RESOURCE_GROUP }}
       IBM_CE_PROJECT: ${{ vars.IBM_CE_PROJECT }}
-      IMAGE_REF: ghcr.io/${{ github.repository_owner }}/sparklewash-api@${{ needs.build-publish.outputs.digest }}
+      IMAGE_REF: ghcr.io/${{ github.repository }}/api@${{ needs.build-publish.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
 

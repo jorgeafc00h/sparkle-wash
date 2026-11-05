@@ -62,13 +62,13 @@ the workflow. Require reviewer approval if environment reviewers are available:
 | `IBM_CLOUD_API_KEY` | Secret | IBM Cloud API key scoped to deployment operations |
 | `GHCR_PULL_TOKEN` | Secret | GitHub classic PAT with `read:packages` for the private image |
 
-The repository Actions token separately needs `packages: write` and access to
-the existing private `ghcr.io/jorgeafc00h/sparklewash-api` package. Grant the
-`jorgeafc00h/sparkle-wash` repository Actions access to that package (or link
-the package to the repository). The Dockerfile now includes the OCI source
-label for `https://github.com/jorgeafc00h/sparkle-wash`; the next publish can
-associate the package with its source. Verify Actions access in package
-settings before dispatching. Do not reuse `GHCR_PULL_TOKEN` for publishing.
+The repository Actions token needs `packages: write`. The IBM workflow publishes
+to `ghcr.io/jorgeafc00h/sparkle-wash/api`, a repository-scoped package. The
+Dockerfile carries the OCI source label for this repository so GHCR can link
+the package at its first publish and grant the workflow access. The older
+`ghcr.io/jorgeafc00h/sparklewash-api` package is not linked and is not the IBM
+workflow target. Code Engine still needs a separate read-only `GHCR_PULL_TOKEN`
+to pull a private image. Do not reuse that token for publishing.
 
 1. The regular validation workflow runs `make verify` and builds and smoke-checks
    the Linux AMD64 container on pushes and pull requests without registry credentials.
@@ -108,10 +108,9 @@ configured and rehearsed. Neon is independent of IBM's compute grant.
 - Confirm the IBM region, resource group, Code Engine project and existing app.
 - Confirm account-level free grants are unused and measure peak memory and
   request volume from a shift, including every client poll and camera retry.
-- Confirm GHCR package access for the Code Engine registry pull secret.
-- Grant this repository's GitHub Actions workflow access to publish the GHCR
-  package with `GITHUB_TOKEN`, and grant the pull-token account package read
-  access. The workflow push token and Code Engine pull token are separate.
+- Confirm the first-published repository-scoped GHCR package is linked to this
+  repository. Grant the pull-token account package read access. The workflow
+  push token and Code Engine pull token are separate.
 - A Neon Free project named `sparklewash` is provisioned in `aws-us-east-1` at
   0.25 CU. Create a restricted runtime role, confirm TLS with
   `SSL Mode=VerifyFull`, and place the connection string in a protected IBM
@@ -133,11 +132,13 @@ checks. The deployment workflow only runs from `main`, so review and merge
 must happen before deployment can be dispatched.
 
 The `ibm-demo` GitHub Environment has been created with a branch policy for
-`main`; its IBM resource variables and API key are not configured yet. The private
-GHCR package still needs Actions access for this repository (or a verified package
-link), and a separate read-only GHCR pull token is required. The Neon project exists but is not wired to the API. No IBM deployment has been
+`main`; its IBM resource variables and API key are not configured yet. The
+existing private GHCR package is unlinked, but the IBM workflow now targets a
+repository-scoped package using the Dockerfile source label. Verify that link
+after its first publish; a separate read-only GHCR pull token is required. The
+Neon project exists but is not wired to the API. No IBM deployment has been
 performed, and the IBM Cloud CLI/account resources are not configured locally. Configure the
-package access and IBM settings after review, then deploy only to a disposable
+IBM settings after review, then deploy only to a disposable
 Code Engine project until database, sessions and durable photo storage are ready.
 
 ## Sources
