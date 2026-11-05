@@ -24,13 +24,17 @@ final class OperationsModel: ObservableObject {
     private(set) var endpoint = ""
     private var staffScope: Data?
     private var offlineEntitlement: OfflineEntitlementDTO?
+    private var trustedOfflineSigningKey: Data?
     private var actionKeys: [String: String] = [:]
     private let send: (URLRequest) async throws -> (Data, URLResponse)
+    private let offlineKeyStore: any OfflineEntitlementKeyStoreProtocol
 
-    init(send: @escaping (URLRequest) async throws -> (Data, URLResponse) = {
+    init(keyStore: any OfflineEntitlementKeyStoreProtocol = KeychainOfflineEntitlementKeyStore(),
+         send: @escaping (URLRequest) async throws -> (Data, URLResponse) = {
         try await URLSession.shared.data(for: $0)
     }) {
         self.send = send
+        self.offlineKeyStore = keyStore
     }
 
     var canOperate: Bool { role == "operator" || role == "admin" }
@@ -43,7 +47,7 @@ final class OperationsModel: ObservableObject {
            date < savedAt.addingTimeInterval(86_400) { return true }
         guard let offlineEntitlement else { return false }
         return OfflineEntitlementVerifier.verify(offlineEntitlement, origin: origin, staffScope: staffScope,
-                                                 at: date) != nil
+                                                 trustedPublicKey: trustedOfflineSigningKey ?? Data(), at: date) != nil
     }
 
     func savedArchiveHistory(context: ModelContext) throws -> SavedArchiveHistory? {
@@ -115,7 +119,14 @@ final class OperationsModel: ObservableObject {
                       index.revision.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
                       index.offlineEntitlement.revision == index.revision,
                       OfflineEntitlementVerifier.verify(index.offlineEntitlement, origin: canonicalOrigin,
-                          staffScope: staffScope, at: .now) != nil else { throw URLError(.cannotParseResponse) }
+                          staffScope: staffScope,
+                          trustedPublicKey: Data(base64Encoded: index.offlineEntitlement.publicKey) ?? Data(),
+                          at: .now) != nil,
+                      let signingKey = Data(base64Encoded: index.offlineEntitlement.publicKey) else {
+                    throw URLError(.cannotParseResponse)
+                }
+                try offlineKeyStore.pin(signingKey, for: canonicalOrigin)
+                trustedOfflineSigningKey = signingKey
                 if let archiveRevision, archiveRevision != index.revision { throw ArchiveSyncError.archiveChanged }
                 archiveRevision = index.revision
                 entitlement = index.offlineEntitlement
@@ -214,6 +225,7 @@ final class OperationsModel: ObservableObject {
         sessionExpiry = nil
         staffScope = nil
         offlineEntitlement = nil
+        trustedOfflineSigningKey = nil
         offlineHistoryAvailable = false
         role = nil
         actionKeys.removeAll()
@@ -235,11 +247,22 @@ final class OperationsModel: ObservableObject {
             self.catalog = menu
             if let data = record.offlineEntitlementData, let scope = record.staffScope,
                let grant = try? decoder.decode(OfflineEntitlementDTO.self, from: data),
-               let origin = EndpointValidation.origin(endpoint),
-               OfflineEntitlementVerifier.verify(grant, origin: origin, staffScope: scope) != nil {
-                staffScope = scope
-                offlineEntitlement = grant
-                offlineHistoryAvailable = true
+               let origin = EndpointValidation.origin(endpoint) {
+                // Preserve protected data if Keychain is temporarily unavailable (for example before
+                // first unlock after restart). A missing or mismatched pin is a trust failure and purges it.
+                guard let signingKey = try offlineKeyStore.publicKey(for: origin) else {
+                    try clearUntrustedArchive(record, scope: scope, context: context)
+                    return
+                }
+                if OfflineEntitlementVerifier.verify(grant, origin: origin, staffScope: scope,
+                                                       trustedPublicKey: signingKey) != nil {
+                    staffScope = scope
+                    offlineEntitlement = grant
+                    trustedOfflineSigningKey = signingKey
+                    offlineHistoryAvailable = true
+                } else {
+                    try clearUntrustedArchive(record, scope: scope, context: context)
+                }
             } else if record.offlineEntitlementData != nil {
                 record.offlineEntitlementData = nil
                 record.archiveHistoryRevision = nil
@@ -250,6 +273,14 @@ final class OperationsModel: ObservableObject {
                 try context.save()
             }
         } catch { self.error = "Saved operations could not be loaded: \(error.localizedDescription)" }
+    }
+
+    private func clearUntrustedArchive(_ record: CachedOperationsSnapshot, scope: Data, context: ModelContext) throws {
+        record.offlineEntitlementData = nil
+        record.archiveHistoryRevision = nil
+        for row in try context.fetch(FetchDescriptor<CachedArchivedJob>())
+            where row.endpoint == endpoint && row.staffScope == scope { context.delete(row) }
+        try context.save()
     }
 
     private func purgeExpiredLocalData(context: ModelContext, now: Date = .now) throws {
@@ -306,6 +337,7 @@ final class OperationsModel: ObservableObject {
         } catch { self.error = "Expired offline history could not be removed: \(error.localizedDescription)" }
         self.staffScope = nil
         offlineEntitlement = nil
+        trustedOfflineSigningKey = nil
         offlineHistoryAvailable = false
     }
 

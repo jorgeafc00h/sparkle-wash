@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import CryptoKit
+import Security
 
 enum OperationsDate {
     static func parse(_ text: String) -> Date? {
@@ -146,7 +147,7 @@ struct OfflineEntitlementClaims: Decodable, Sendable {
 
 enum OfflineEntitlementVerifier {
     static func verify(_ grant: OfflineEntitlementDTO, origin: String, staffScope: Data,
-                       at date: Date = .now) -> OfflineEntitlementClaims? {
+                       trustedPublicKey: Data, at date: Date = .now) -> OfflineEntitlementClaims? {
         let segments = grant.token.split(separator: ".", omittingEmptySubsequences: false)
         guard segments.count == 3,
               let headerData = decodeBase64URL(String(segments[0])),
@@ -155,6 +156,7 @@ enum OfflineEntitlementVerifier {
               let header = try? JSONDecoder().decode(OfflineEntitlementHeader.self, from: headerData),
               header.alg == "ES256", header.typ == "JWT", header.kid == grant.keyId,
               let publicKeyData = Data(base64Encoded: grant.publicKey),
+              publicKeyData == trustedPublicKey,
               keyId(for: publicKeyData) == grant.keyId,
               let publicKey = try? P256.Signing.PublicKey(rawRepresentation: publicKeyData),
               let signature = try? P256.Signing.ECDSASignature(rawRepresentation: signatureData),
@@ -180,6 +182,63 @@ enum OfflineEntitlementVerifier {
 
     private static func keyId(for publicKey: Data) -> String {
         SHA256.hash(data: publicKey).prefix(8).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+protocol OfflineEntitlementKeyStoreProtocol {
+    func publicKey(for origin: String) throws -> Data?
+    func pin(_ publicKey: Data, for origin: String) throws
+}
+
+struct KeychainOfflineEntitlementKeyStore: OfflineEntitlementKeyStoreProtocol {
+    private let service = "com.sparklewash.offline-entitlement-key"
+
+    func publicKey(for origin: String) throws -> Data? {
+        guard EndpointValidation.origin(origin) == origin else { throw StoreError.invalidOrigin }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: origin,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let data = result as? Data else { throw StoreError.keychain(status) }
+        return data
+    }
+
+    /// Pins a key received over the authenticated HTTPS API. A live signed-in sync may rotate the pin;
+    /// cold-launch verification always requires an exact match with this device-only Keychain value.
+    func pin(_ publicKey: Data, for origin: String) throws {
+        guard EndpointValidation.origin(origin) == origin else { throw StoreError.invalidOrigin }
+        guard (try? P256.Signing.PublicKey(rawRepresentation: publicKey)) != nil else {
+            throw StoreError.invalidPublicKey
+        }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: origin
+        ]
+        let attributes: [String: Any] = [
+            kSecValueData as String: publicKey,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        ]
+        let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        if updateStatus == errSecSuccess { return }
+        guard updateStatus == errSecItemNotFound else { throw StoreError.keychain(updateStatus) }
+        var add = query
+        add[kSecValueData as String] = publicKey
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        let addStatus = SecItemAdd(add as CFDictionary, nil)
+        guard addStatus == errSecSuccess else { throw StoreError.keychain(addStatus) }
+    }
+
+    enum StoreError: Error {
+        case invalidOrigin
+        case invalidPublicKey
+        case keychain(OSStatus)
     }
 }
 

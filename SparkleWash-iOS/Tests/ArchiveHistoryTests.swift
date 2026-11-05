@@ -10,19 +10,29 @@ final class ArchiveHistoryTests: XCTestCase {
         let revision = String(repeating: "d", count: 64)
         let grant = try Self.makeGrant(origin: origin, tenant: "site", subject: "staff", role: "viewer", revision: revision)
         let scope = try JSONEncoder().encode(["site", "staff", "viewer"])
+        let trustedKey = try XCTUnwrap(Data(base64Encoded: grant.publicKey))
 
-        XCTAssertNotNil(OfflineEntitlementVerifier.verify(grant, origin: origin, staffScope: scope))
-        XCTAssertNil(OfflineEntitlementVerifier.verify(grant, origin: "https://other.example.test", staffScope: scope))
+        XCTAssertNotNil(OfflineEntitlementVerifier.verify(grant, origin: origin, staffScope: scope,
+            trustedPublicKey: trustedKey))
+        XCTAssertNil(OfflineEntitlementVerifier.verify(grant, origin: "https://other.example.test", staffScope: scope,
+            trustedPublicKey: trustedKey))
         XCTAssertNil(OfflineEntitlementVerifier.verify(grant, origin: origin,
-            staffScope: try JSONEncoder().encode(["other-site", "staff", "viewer"])))
+            staffScope: try JSONEncoder().encode(["other-site", "staff", "viewer"]), trustedPublicKey: trustedKey))
         XCTAssertNil(OfflineEntitlementVerifier.verify(grant, origin: origin, staffScope: scope,
-            at: .now.addingTimeInterval(86_401)))
+            trustedPublicKey: trustedKey, at: .now.addingTimeInterval(86_401)))
+
+        let selfSignedReplacement = try Self.makeGrant(origin: origin, tenant: "site", subject: "staff",
+            role: "viewer", revision: revision)
+        XCTAssertNil(OfflineEntitlementVerifier.verify(selfSignedReplacement, origin: origin,
+            staffScope: scope, trustedPublicKey: trustedKey),
+            "A grant cannot establish trust in the public key it carries.")
 
         var pieces = grant.token.split(separator: ".").map(String.init)
-        pieces[2] = String(pieces[2].dropLast()) + (pieces[2].last == "A" ? "B" : "A")
+        pieces[2] = (pieces[2].first == "A" ? "B" : "A") + pieces[2].dropFirst()
         let tampered = OfflineEntitlementDTO(token: pieces.joined(separator: "."), publicKey: grant.publicKey,
             keyId: grant.keyId, revision: grant.revision)
-        XCTAssertNil(OfflineEntitlementVerifier.verify(tampered, origin: origin, staffScope: scope))
+        XCTAssertNil(OfflineEntitlementVerifier.verify(tampered, origin: origin, staffScope: scope,
+            trustedPublicKey: trustedKey))
     }
 
     @MainActor
@@ -73,12 +83,13 @@ final class ArchiveHistoryTests: XCTestCase {
         let expiry = ISO8601DateFormatter().string(from: Date().addingTimeInterval(3600))
         let endpoint = "http://localhost:8080"
         let revision = String(repeating: "c", count: 64)
-        let grant = try Self.makeGrant(origin: endpoint, tenant: "site", subject: "staff", role: "viewer", revision: revision)
+        var grant = try Self.makeGrant(origin: endpoint, tenant: "site", subject: "staff", role: "viewer", revision: revision)
         var tenantID = "site"
         var withdrawBatch = false
         var offsets: [String] = []
         var discoveryCursors: [String] = []
-        let model = OperationsModel { request in
+        let keyStore = MemoryOfflineEntitlementKeyStore()
+        let model = OperationsModel(keyStore: keyStore) { request in
             let url = try XCTUnwrap(request.url)
             let path = url.path
             var status = 200
@@ -166,14 +177,28 @@ final class ArchiveHistoryTests: XCTestCase {
         let savedRows = try context.fetch(FetchDescriptor<CachedArchivedJob>())
         XCTAssertEqual(savedRows.map(\.jobID).sorted(), ["job-0", "job-1"])
         XCTAssertTrue(savedRows.allSatisfy { $0.endpoint == endpoint && !$0.staffScope.isEmpty })
+        XCTAssertEqual(try keyStore.publicKey(for: endpoint), Data(base64Encoded: grant.publicKey))
+        grant = try Self.makeGrant(origin: endpoint, tenant: "site", subject: "staff", role: "viewer", revision: revision)
+        _ = try await model.syncArchiveHistory(context: context)
+        XCTAssertEqual(try keyStore.publicKey(for: endpoint), Data(base64Encoded: grant.publicKey),
+            "A signed-in HTTPS sync accepts a server key rotation and refreshes the device pin.")
         let reopened = try ModelContainer(for: CachedOperationsSnapshot.self, CachedArchivedJob.self, configurations: configuration)
         XCTAssertEqual(try model.savedArchiveHistory(context: reopened.mainContext)?.jobs.map(\.id), ["job-1", "job-0"])
-        let coldLaunch = OperationsModel()
+        let coldLaunch = OperationsModel(keyStore: keyStore)
         coldLaunch.restore(context: reopened.mainContext, endpoint: endpoint)
         XCTAssertFalse(coldLaunch.signedIn)
         XCTAssertTrue(coldLaunch.offlineHistoryAvailable)
         XCTAssertEqual(try coldLaunch.savedArchiveHistory(context: reopened.mainContext)?.jobs.map(\.id), ["job-1", "job-0"])
         XCTAssertFalse(coldLaunch.canReadSavedHistory(at: .now.addingTimeInterval(86_401)))
+
+        keyStore.failReads = true
+        let beforeFirstUnlock = OperationsModel(keyStore: keyStore)
+        beforeFirstUnlock.restore(context: reopened.mainContext, endpoint: endpoint)
+        XCTAssertFalse(beforeFirstUnlock.offlineHistoryAvailable)
+        XCTAssertNotNil(try reopened.mainContext.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first?.offlineEntitlementData,
+            "A temporarily unavailable Keychain must not destroy the saved grant.")
+        XCTAssertEqual(try reopened.mainContext.fetch(FetchDescriptor<CachedArchivedJob>()).count, 2)
+        keyStore.failReads = false
 
         withdrawBatch = true
         do {
@@ -202,6 +227,19 @@ final class ArchiveHistoryTests: XCTestCase {
         let nextAfter: String?
         let revision: String
         let offlineEntitlement: OfflineEntitlementDTO
+    }
+
+    private final class MemoryOfflineEntitlementKeyStore: OfflineEntitlementKeyStoreProtocol {
+        private var keys: [String: Data] = [:]
+        var failReads = false
+
+        func publicKey(for origin: String) throws -> Data? {
+            if failReads { throw KeyStoreUnavailable.temporarilyUnavailable }
+            return keys[origin]
+        }
+        func pin(_ publicKey: Data, for origin: String) throws { keys[origin] = publicKey }
+
+        private enum KeyStoreUnavailable: Error { case temporarilyUnavailable }
     }
 
     private static func makeGrant(origin: String, tenant: String, subject: String, role: String,

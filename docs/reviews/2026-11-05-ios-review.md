@@ -41,11 +41,15 @@ Re-ran `make ios-test` after implementing signed offline history entitlements.
   batches and 1,000 jobs, and the client buffers the current archive before
   replacing the rows. The archive index issues a 24-hour ES256 entitlement
   bound to origin, tenant, staff subject, role, and archive revision. SwiftData
-  persists and verifies it after model-level cold restoration, enabling
-  read-only history without restoring a bearer token. The API still reads
-  file-backed archives; Neon export, COS restore, resumable cursors, and
-  tombstones remain incomplete. IBM needs a protected P-256 signing key before
-  the feature can run there.
+  persists it; the corresponding public key is pinned per API origin in the
+  device-only Keychain during authenticated HTTPS sync. Cold restore requires
+  an exact match to that pin, and an authenticated HTTPS sync accepts server
+  key rotation. Tests reject a self-signed replacement and exercise rotation
+  using an injected key store; a temporarily unavailable key store preserves
+  the cache for a later retry. Real Keychain behavior remains unverified on a
+  signed device build. The API still reads file-backed archives; Neon export,
+  COS restore, resumable cursors, and tombstones remain incomplete. IBM needs a
+  protected P-256 signing key before the feature can run there.
 - Default secondary text measured 3.29:1 against a light card surface in the
   earlier capture. Operations secondary copy now uses semantic primary color
   at 0.72 opacity; refreshed light and dark captures look legible. A full pixel
@@ -59,8 +63,9 @@ Re-ran `make ios-test` after implementing signed offline history entitlements.
 - `make ios-build` — passed.
 - `make ios-test` — passed all 8 simulator tests on November 5, including
   disk-backed cold restoration, grant signature/scope/expiry validation,
-  tamper rejection, migration from the former archive blob, expiry cleanup,
-  and withdrawn-batch handling.
+  tamper and self-signed key replacement rejection, key rotation through the
+  injected key store, temporary key-store failure preservation, migration from
+  the former archive blob, expiry cleanup, and withdrawn-batch handling.
 - iPhone 17 Pro simulator, iOS 27, live catalog backed by the local API — light
   and dark appearance captures reviewed and saved; this does not cover
   signed-in workboard behavior or prove theme contrast at largest Dynamic Type.
@@ -78,9 +83,9 @@ Re-ran `make ios-test` after implementing signed offline history entitlements.
    cap and persist each bounded page transactionally in the existing
    tenant/account-scoped SwiftData rows. Keep operational snapshot freshness
    separate.
-3. Complete signed offline entitlement operations with trusted key bootstrap
-   and rotation, selective revocation and deletion markers, expiry cleanup,
-   and a full app termination/relaunch acceptance run before claiming
+3. Complete signed offline entitlement operations with on-device Keychain
+   persistence validation, selective revocation and deletion markers, expiry
+   cleanup, and a full app termination/relaunch acceptance run before claiming
    production cold-launch offline history.
 4. Only advertise long-term local archive after encrypted object export,
    checksum verification, isolated restore, file protection, backup exclusion,
