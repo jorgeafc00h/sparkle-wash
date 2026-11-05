@@ -166,20 +166,26 @@ PostgreSQL 18 service and rolls the restore back, then publishes and verifies
 the digest-addressed batch in a private IBM COS bucket. It never purges Neon
 rows. Do not store Neon or COS credentials in the image.
 
-The `ibm-archive` environment currently has no archive variables or secrets.
-It needs `IBM_REGION`, `IBM_RESOURCE_GROUP`,
-`IBM_COS_BUCKET`, `IBM_COS_INSTANCE_ID`, and `NEON_ARCHIVE_TENANT_ID` variables,
-plus `IBM_CLOUD_API_KEY` and `NEON_ARCHIVE_CONNECTION_STRING` secrets. The
-requested tenant must exactly match the allowlisted `NEON_ARCHIVE_TENANT_ID`.
+The `ibm-archive` environment is restricted to `main` and contains the verified
+read-only Neon connection secret plus `NEON_ARCHIVE_TENANT_ID=default`. It still
+needs `IBM_REGION`, `IBM_RESOURCE_GROUP`, `IBM_COS_BUCKET`, and
+`IBM_COS_INSTANCE_ID` variables plus the `IBM_CLOUD_API_KEY` secret. The
+requested tenant must exactly match the configured
+`NEON_ARCHIVE_TENANT_ID=default` allowlist.
 The Neon secret must be a read-only PostgreSQL URI for a dedicated archive
 export login, limited to SELECT on the tables needed by
-`export_closed_jobs.py`. The `sparklewash_archive_exporter` NOLOGIN group has
-been created on Neon `main`; its attributes and SELECT-only privileges on the
-seven required tables were verified. Create a separate `NOINHERIT` login and
-grant it membership only in that group. Verify it has no elevated attributes
-or other role memberships before adding its URI to GitHub. The workflow uses
+`export_closed_jobs.py`. The `sparklewash_archive_exporter` NOLOGIN group and
+`sparklewash_archive_login` were created on Neon `main`. The login has no
+elevated attributes, has a non-inheriting membership with SET access only to
+the archive group, and was verified to read jobs and fail writes. Use
+`backend/db/roles/archive_exporter_login.sql` for future setup; Neon CLI role
+creation assigns elevated defaults, so create this login through SQL with
+explicit role attributes. Keep the login URI in the environment secret. The
+workflow uses
 `PGOPTIONS` to `SET ROLE` to the SELECT-only role, set
 `default_transaction_read_only=on`, and bound the query to 60 seconds. The
+archive URI must use Neon’s direct, non-pooled endpoint because the pooler
+rejects the startup `role` parameter in `PGOPTIONS`. The
 `NEON_ARCHIVE_TENANT_ID` allowlist variable must identify the only tenant this
 environment can export. The IBM API key should have
 only the COS access needed to upload, HEAD, GET, and inspect bucket/object

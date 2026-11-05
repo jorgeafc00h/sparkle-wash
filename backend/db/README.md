@@ -104,9 +104,10 @@ disposable PostgreSQL database before treating an uploaded batch as restorable
 or enabling any deletion policy. The repository's manual
 `.github/workflows/archive-neon-to-ibm-cos.yml` workflow performs this isolated
 restore rehearsal before publication; it requires the `ibm-archive` GitHub
-Environment (created with a `main` branch restriction; archive variables and
-secrets are still missing) with a read-only Neon export URI and IBM COS
-credentials. Add a second trusted reviewer when available. It does not
+Environment (created with a `main` branch restriction, Neon export secret, and
+tenant allowlist; IBM COS settings are still missing). Add a second trusted
+reviewer when available. The archive URI uses the direct Neon endpoint because
+the pooler rejects the `PGOPTIONS` role setting. It does not
 run automatically and does not delete source rows.
 
 The rehearsal has been smoke-tested against a disposable PostgreSQL 18 database
@@ -127,12 +128,14 @@ Track migration and cutover completion in OpenSpec change
 `sparklewash_archive_exporter` role is `NOLOGIN`, `NOINHERIT`, and has only
 SELECT grants on the seven tables used by `export_closed_jobs.py`; those role
 attributes and grants were verified against Neon. Create a separate Neon login
-role with `NOINHERIT`,
-`NOSUPERUSER`, `NOCREATEDB`, and `NOCREATEROLE`; grant it membership only in
-`sparklewash_archive_exporter`. Verify the login has no other elevated role
-memberships before storing its connection URI as the protected
+with explicit non-elevated attributes using `roles/archive_exporter_login.sql`;
+do not create this login through Neon CLI, which assigned elevated defaults.
+Grant membership only in `sparklewash_archive_exporter` with
+`INHERIT FALSE, SET TRUE`. The live `sparklewash_archive_login` has been verified to read and
+reject writes, and its direct-endpoint URI is stored in the protected
 `NEON_ARCHIVE_CONNECTION_STRING` GitHub Environment secret. The archive
 workflow starts each query session in that read-only role, enables
 `default_transaction_read_only`, sets a 60-second statement timeout, and checks
 the requested tenant against the environment's `NEON_ARCHIVE_TENANT_ID`
-allowlist. The current Neon project has no archive login yet.
+allowlist. The current Neon archive environment is allowlisted to tenant
+`default`; IBM COS settings and credentials are still required before dispatch.
