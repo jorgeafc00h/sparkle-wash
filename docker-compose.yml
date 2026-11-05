@@ -1,0 +1,15 @@
+services:
+  api:
+    build: .
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      SPARKLEWASH_GOOGLE_CLIENT_ID: ${SPARKLEWASH_GOOGLE_CLIENT_ID:-}
+      SPARKLEWASH_STAFF_ROLES: ${SPARKLEWASH_STAFF_ROLES:-}
+      SPARKLEWASH_INGEST_KEY: ${SPARKLEWASH_INGEST_KEY:-}
+      SPARKLEWASH_CORS_ORIGINS: ${SPARKLEWASH_CORS_ORIGINS:-}
+    volumes:
+      - api-data:/app/data
+
+volumes:
+  api-data:

@@ -1,0 +1,4 @@
+[
+  { "code": "lowPressure", "value": 38.0, "threshold": 45.0, "severity": "warning" },
+  { "code": "highPressure", "value": 72.0, "threshold": 60.0, "severity": "danger" }
+]

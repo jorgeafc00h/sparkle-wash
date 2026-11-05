@@ -1,0 +1,12 @@
+{
+  "short_name": "SparkleWash",
+  "name": "SparkleWash — Real-time Carwash Monitor",
+  "icons": [ { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+            { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" } ],
+  "start_url": "/",
+  "display_override": [ "fullscreen", "standalone" ],
+  "theme_color": "#fcd34d",
+  "background_color": "#0a0b0e",
+  "orientation": "any",
+  "scope": "/"
+}

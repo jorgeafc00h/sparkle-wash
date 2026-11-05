@@ -1,0 +1,72 @@
+# SparkleWash cloud cost and retention
+
+Pricing checked November 4, 2026. Amounts are USD estimates for a single site and an otherwise unused free grant. They exclude taxes, registry, web hosting, logs, object operations, storage, restores, and transfer unless noted.
+
+## Hosting decision
+
+Start with **IBM Code Engine and Neon Free** for a short, disposable demo, as requested. Code Engine can stay within its grants at low billed runtime and request counts; validate whether the API fits the 0.125 vCPU / 0.25 GB smallest allocation before relying on the lower estimate. At a regular 240-hour month, Azure Container Apps Consumption is cheaper in this estimate, so compare measured usage before making a longer-running pilot decision. Neither platform is a durable production profile until operational records, staff sessions, and photos have independent persistence. Measure latency from the site in El Salvador and use the nearest compatible Neon region. Keep the image portable and run one instance initially to bound spend. [Neon regions](https://neon.com/docs/introduction/regions), [Azure billing](https://learn.microsoft.com/en-us/azure/container-apps/billing), [IBM billing](https://cloud.ibm.com/docs/codeengine?topic=codeengine-pricing)
+
+| Meter | Azure Container Apps Consumption, East US 2 | IBM Code Engine |
+| --- | --- | --- |
+| Monthly free CPU and memory | 180,000 vCPU-seconds and 360,000 GiB-seconds per subscription | 100,000 vCPU-seconds and 200,000 GB-seconds |
+| Monthly free HTTP requests | 2 million | 100,000 |
+| Active usage after grant | $0.000024/vCPU-s, $0.000003/GiB-s, $0.40 per million requests | $0.00003431/vCPU-s, $0.00000356/GB-s, $0.538 per million requests, using IBM's published example rates |
+| Size modeled | 0.25 vCPU and 0.5 GiB | 0.25 vCPU and 0.5 GB base case; 0.125 vCPU and 0.25 GB if validated |
+| Runtime within CPU and memory grants | 200 replica hours | About 111 replica hours at the base size or 222 at the smaller size |
+
+A dedicated Azure Container Registry Basic instance in East US 2 adds
+$0.1666 per day, or about $5.00 per 30 days, before storage overages or
+transfer. This fixed charge applies even when the API scales to zero. The
+Azure template can pull from an existing private registry with a pull-only
+credential, so the near-zero pilot estimate can use a repository with no
+incremental registry charge if one is available. [Azure Container Registry pricing](https://azure.microsoft.com/en-us/pricing/details/container-registry/) · [Azure retail price API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices)
+
+The pilot uses GitHub Container Registry. GitHub currently lists container
+image storage and bandwidth as free. Both Azure and IBM can pull the same Linux AMD64 image by digest using a
+dedicated read-only package token. The pinned Azure pilot digest is recorded
+in `deploy/azure/ghcr-demo.bicepparam`. The IBM workflow builds and pushes its
+own digest, while `deploy/ibm/deploy-demo.sh` can deploy an existing digest.
+GitHub Actions runtime and any archived CI artifacts are separate meters. [GitHub Packages billing](https://docs.github.com/en/billing/concepts/product-billing/github-packages)
+
+Azure rates came from its retail API filtered by service and East US 2. Confirm IBM rates for the selected location and account in its estimator. IBM requires a Pay-as-you-Go account for Code Engine. [Azure pricing](https://azure.microsoft.com/en-us/pricing/details/container-apps/), [Azure retail price API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices), [IBM price example](https://cloud.ibm.com/docs/account?topic=account-sample), [IBM supported sizes](https://cloud.ibm.com/docs/codeengine?topic=codeengine-mem-cpu-combo), [IBM setup](https://cloud.ibm.com/docs/codeengine?topic=codeengine-deploy-app-tutorial)
+
+| Scenario per 30-day month | Azure API | IBM API | Neon at constant 0.25 CU |
+| --- | ---: | ---: | ---: |
+| 60 billed runtime hours, 30,000 requests | $0 | $0 | 15 CU-hours, within the current Free allowance |
+| 240 billed runtime hours, 288,000 requests | $1.08 | ~$4.91 base or ~$0.43 smaller | 60 CU-hours, within the current Free allowance |
+| 720 billed runtime hours, 864,000 requests | $14.04 active-rate model | ~$23.12 base or ~$9.69 smaller | 180 CU-hours, ~$19.43 on Launch with 1 GB |
+
+Runtime includes startup and time waiting to scale down. The 240- and 720-hour request rows model one active web console: five API reads every 15 seconds, or one request every three seconds. One active iOS client adds about half as many reads because it refreshes five routes every 30 seconds: roughly $0.08 more on IBM at 240 hours or $0.23 more at 720 hours after the request grant is used. Camera traffic, probes, retries, and a second web console add further requests. Azure still fits its request grant with one web and one iOS client in these scenarios. Azure's 720-hour row assumes every second is active. A minimum replica can qualify for lower idle rates. The IBM update script now sets 0.125 vCPU / 0.25 GB by default, instead of inheriting Code Engine's 1 vCPU / 4 GB default. A local constrained smoke passed at this size; measure peak memory and cold-start behavior on Code Engine before relying on it. IBM estimates subtract its 100,000 vCPU-second, 200,000 GB-second and 100,000 request monthly grants before applying the example rates. At 0.25 vCPU and 0.5 GB, the free compute grants cover about 111 hours. [Azure scaling](https://learn.microsoft.com/en-us/azure/container-apps/scale-app), [Azure billing rules](https://learn.microsoft.com/en-us/azure/container-apps/billing), [IBM price example](https://cloud.ibm.com/docs/account?topic=account-sample), [Neon pricing](https://neon.com/pricing)
+
+Use refresh on foreground, after a mutation, and after a missed refresh, with backoff and jitter. Measure whether a combined or conditional dashboard read can replace separate resource requests. Long-lived streams, camera heartbeats, and DB probes can keep infrastructure awake. Use durable camera retries over HTTPS with stable event IDs. A broker subscription inside a replica cannot receive traffic while that replica is at zero. Confirm camera timeout and cold start behavior before allowing scale to zero. Configure budget alerts and monitor runtime, request count, errors, logs and egress. Budget alerts do not cap usage. Check registry storage and pull charges separately. IBM Registry Free includes 500 MB of storage, so confirm the image and retained rollback tag fit. [IBM registry](https://cloud.ibm.com/docs/Registry?topic=Registry-registry_overview), [IBM scaling](https://cloud.ibm.com/docs/codeengine?topic=codeengine-app-scale), [Azure pricing calculator](https://azure.microsoft.com/en-us/pricing/calculator/), [IBM cost estimator](https://cloud.ibm.com/estimator)
+
+## Neon and photo budget
+
+Neon Free currently lists 100 CU-hours and 1 GB storage per project, plus 5 GB Neon Object Storage. At 0.25 CU, 100 CU-hours cover 400 compute-hours per month if compute suspends while idle. Hitting a plan limit can suspend compute until reset or upgrade. Verify current egress, restore and storage limits in the selected project. Use TLS with the API's pooled connection string held in platform secrets and a separate migration role. Launch lists $0.106/CU-hour and $0.35/GB-month. At 180 CU-hours, the Free plan cannot cover the workload. A full month on Launch at that usage is about $19.08 for compute plus $0.35 for 1 GB of storage, before restore history or other usage. The Free grant does not carry over to Launch. [Neon pricing](https://neon.com/pricing), [Neon connection pooling](https://neon.com/docs/connect/connection-pooling)
+
+At 40 jobs/day × 30 days × 5 KB of relational records per job, the raw estimate is 6 MB/month before indexes, audit records, and database overhead. At two 200 KB images per job, evidence alone adds 480 MB/month and roughly 1.44 GB over 90 days. One full download per day of that 90-day history would move roughly 43 GB/month. Keep images in private object storage and put keys, hashes and metadata in Postgres. Fetch thumbnails or individual evidence on demand. Neon advertises 5 GB of object storage on Free. Verify feature availability in the selected region and use an independently recoverable archive destination. IBM advertises 25 GB of free object storage under its free offering. Check request and transfer limits and whether the selected plan supports the required lifecycle features. [Neon pricing](https://neon.com/pricing), [IBM free storage](https://www.ibm.com/products/cloud/free/storage), [Azure Blob pricing](https://azure.microsoft.com/en-us/pricing/details/storage/blobs/)
+
+## Proposed retention and recovery policy
+
+For a pilot using an existing Azure Files Hot LRS pay-as-you-go share in East
+US 2, the retail meters list $0.0255 per GB-month, $0.065 per 10,000 write or
+list operations, and $0.0052 per 10,000 read or other operations. An illustrative
+month with 0.48 GB stored, 10,000 write or list operations, and 10,000 read or
+other operations costs about $0.08 before metadata, snapshots, and transfer.
+Use measured SMB operations and the actual share tier for billing forecasts.
+[Azure Files billing](https://learn.microsoft.com/en-us/azure/storage/files/understanding-billing) · [Azure retail price API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices)
+
+Start with 90 days of completed operational history in Neon and up to 30 days of readily available photo evidence. Confirm those provisional periods with the business before enabling automated deletion. Keep open work, unresolved disputes, financial records and inventory audit dependencies available according to their separate requirements. Hold and deletion rules should apply to replicas, archives and local caches as appropriate.
+
+1. Schedule a server-side export of eligible closed records and related evidence. Write compressed, versioned batches by tenant and date to a separate encrypted private bucket. Include schema version, job IDs, object references, row counts and checksums in the manifest. Avoid logging plates, credentials or signed image URLs.
+2. Verify the upload and run a restore into an isolated database before enabling purge. Use an idempotent archive run key and keep an online tenant-scoped archive index so the server can locate old records. Purge only exported row versions that still qualify and respect retention holds and relational dependencies. Take independent database backups and measure actual recovery time and tolerable data loss.
+3. Start with an online object tier. Azure Archive has a 180-day minimum and can take hours to retrieve. IBM Archive has a 90-day minimum and bills small objects as at least 128 KB. Consider cold tiering only when the retention period, restore latency and measured savings justify it. [Azure tiers](https://learn.microsoft.com/en-us/azure/storage/blobs/access-tiers-overview/), [IBM archive](https://cloud.ibm.com/docs/cloud-object-storage?topic=cloud-object-storage-archive)
+4. Use SwiftData for an authorized local read copy keyed by endpoint, tenant and account. Fetch incremental updates with a server cursor and show last sync and offline status. Distinguish a server archive event from a deletion or access revocation. Allow eligible downloaded history to remain readable offline within its local expiration policy. Purge account data on sign-out and apply deletions on the next authorized sync. A phone can lose its store and may never have synced particular records, so archive and restore must work independently of any phone.
+
+The default API profile uses JSON and in-memory staff sessions. The optional
+PostgreSQL profile now covers staff sessions, directory, linked devices,
+arrivals, jobs, employees and inventory. Photo bytes and legacy telemetry still
+require persistent file storage. Before a durable cloud pilot, validate that storage
+and exercise live session continuity, evidence upload, archive, restore,
+tenant isolation and camera retries. The disposable demo resets local files
+when its container is replaced.

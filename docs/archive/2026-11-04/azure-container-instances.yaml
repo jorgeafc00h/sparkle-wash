@@ -1,0 +1,61 @@
+parameters:
+  deploymentName: "sparkleswash-production"
+  resourceGroupName: "rg-sparklewash-prod"
+  location: "westus2"
+
+resources:
+  - name: ${{ parameters.resourceGroupName }}
+    type: Microsoft.ContainerInstance/resourceGroups
+    properties:
+      location: "${{ parameters.location }}"
+      containers:
+        - name: sparkleswash-api
+          image: "registry.azurecr.io/sparklewashapi:${{ github.sha }}"
+          environmentVariables:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: Kestrel__Endpoints__Http__Url
+              value: "https://0.0.0.0:5001"
+            - name: ConnectionStrings__WashEventDbContext
+              value: "Server=${{ secrets.SQL_SERVER }};Database=WashEventsDB;Username=${{ secrets.DB_USER }};Password=${{ secrets.DB_PASSWORD }}"
+
+      triggers:
+        - name: buildAndDeployTrigger
+          source: github
+          branches:
+            - main
+          env:
+            DEPLOYMENT_NAME: ${{ parameters.deploymentName }}
+            RESOURCE_GROUP_NAME: ${{ parameters.resourceGroupName }}
+          outputs:
+            - name: url
+              type: containerInstance
+              properties:
+                application: "${{ parameters.deploymentName }}"
+---
+parameters:
+  - name: image
+    value: sparklewashapi:${{ github.sha }}
+    type: string
+  - name: registryUrl
+    value: "registry.azurecr.io/sparklewash"
+    type: string
+
+resources:
+  - provider: "Microsoft.ContainerInstances"
+    parent: "[resourceGroup(parameters('resourceGroupName'))]"
+    resourceType: "Microsoft.ContainerInstances"
+    apiVersion: "2023-11-03-preview"
+    name: "sparkleswash-app"
+    properties:
+      location: "[parameters('location')]"
+      ip_address_type: "Public"
+      containers:
+        - containers_image_registry_url: "[parameters('registryUrl')]"
+          containers_image_name: "[parameters('image')]"
+          containers_port:
+            - container_port: 5001
+              protocol: "http"
+        environment_variables:
+          - name: "ConnectionStrings__WashEventDbContext"
+            value: "Server=${{ secrets.SQL_SERVER }};Database=WashEventsDB;Username=carwash_admin;Password=${{ secrets.DB_PASSWORD | default('SparkleWash!@Secure#') }}"

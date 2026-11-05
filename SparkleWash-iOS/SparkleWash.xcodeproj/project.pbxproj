@@ -1,0 +1,511 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		03F7AEFAC71070571912110C /* alerts.json in Resources */ = {isa = PBXBuildFile; fileRef = 1662A275C9A815BD269D9B7C /* alerts.json */; };
+		0C8AACC7DE76B1DE3A0DDA1A /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = F383D584968933BC3724889C /* Views.swift */; };
+		202CBDC8ED5EA8A1AA310E80 /* service-packages.json in Resources */ = {isa = PBXBuildFile; fileRef = 0827696822ECC699F6A15527 /* service-packages.json */; };
+		29B5E0D9661692D7B39CB2FC /* TestSwiftDataModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B430141B74F5C830C222FF8 /* TestSwiftDataModels.swift */; };
+		3A7B9873153325F069F89279 /* ArchiveHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132BEAC81954EE31E5FEE07D /* ArchiveHistoryTests.swift */; };
+		47AF30084FE53BEF558ED2FC /* stations.json in Resources */ = {isa = PBXBuildFile; fileRef = 7D8001D3B69775421EA98D59 /* stations.json */; };
+		59125D6A12A8FE6FAB728028 /* OperationsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 665F2C01F752E6D7DB0D6BA4 /* OperationsModels.swift */; };
+		727F60F486B5FF7453F1F7A8 /* SparkleWashApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55503F9F94FE3F14CA0DEAB9 /* SparkleWashApp.swift */; };
+		948CA8902113E797C0F1954C /* OperationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF9F39A25DC9F3929491CC58 /* OperationsView.swift */; };
+		C6B97CDE706A87E45239ACB5 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F2707101DEF606417FABC7 /* Models.swift */; };
+		C73B442EDD6B6DE4363BCE0A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = B9E664EAC9655AC8822B26FA /* GoogleSignIn */; };
+		E499A0B46DD929A21E1DC882 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = B1058D3AD147F1627C3111AC /* GoogleSignInSwift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C96CF24A372B8B803A175F87 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EDD6660AF45FB42D8D20D3DD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2492B533DD83279921B12AC0;
+			remoteInfo = SparkleWash;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0827696822ECC699F6A15527 /* service-packages.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "service-packages.json"; sourceTree = "<group>"; };
+		0EFE452D8E9A9FEE72492B84 /* SparkleWash.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SparkleWash.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		132BEAC81954EE31E5FEE07D /* ArchiveHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveHistoryTests.swift; sourceTree = "<group>"; };
+		1662A275C9A815BD269D9B7C /* alerts.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = alerts.json; sourceTree = "<group>"; };
+		4AD291FA9920009ABBE3162C /* SparkleWashTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SparkleWashTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		55503F9F94FE3F14CA0DEAB9 /* SparkleWashApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleWashApp.swift; sourceTree = "<group>"; };
+		665F2C01F752E6D7DB0D6BA4 /* OperationsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationsModels.swift; sourceTree = "<group>"; };
+		7D8001D3B69775421EA98D59 /* stations.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = stations.json; sourceTree = "<group>"; };
+		9B430141B74F5C830C222FF8 /* TestSwiftDataModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSwiftDataModels.swift; sourceTree = "<group>"; };
+		BF9F39A25DC9F3929491CC58 /* OperationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationsView.swift; sourceTree = "<group>"; };
+		D7F2707101DEF606417FABC7 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		F383D584968933BC3724889C /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		BF814E63ABDD7FB07408C3B1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C73B442EDD6B6DE4363BCE0A /* GoogleSignIn in Frameworks */,
+				E499A0B46DD929A21E1DC882 /* GoogleSignInSwift in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		19D479CDECF65BC65FBC5631 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				BF9F39A25DC9F3929491CC58 /* OperationsView.swift */,
+				F383D584968933BC3724889C /* Views.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		22CC9B526FDB8CF388E414FC /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0EFE452D8E9A9FEE72492B84 /* SparkleWash.app */,
+				4AD291FA9920009ABBE3162C /* SparkleWashTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		394220DD4581E0943E65DDB3 /* v1 */ = {
+			isa = PBXGroup;
+			children = (
+				1662A275C9A815BD269D9B7C /* alerts.json */,
+				0827696822ECC699F6A15527 /* service-packages.json */,
+				7D8001D3B69775421EA98D59 /* stations.json */,
+			);
+			name = v1;
+			path = ../contracts/v1;
+			sourceTree = "<group>";
+		};
+		7C9039A4EE01D9B89B0B486A /* SparkleWashApp */ = {
+			isa = PBXGroup;
+			children = (
+				55503F9F94FE3F14CA0DEAB9 /* SparkleWashApp.swift */,
+			);
+			path = SparkleWashApp;
+			sourceTree = "<group>";
+		};
+		BD72BC19A4F2D84CAE5850AC /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				D7F2707101DEF606417FABC7 /* Models.swift */,
+				665F2C01F752E6D7DB0D6BA4 /* OperationsModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		D328FB72034045D68A107DA7 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				132BEAC81954EE31E5FEE07D /* ArchiveHistoryTests.swift */,
+				9B430141B74F5C830C222FF8 /* TestSwiftDataModels.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		E1E41F54AD7E0485D2124AEE = {
+			isa = PBXGroup;
+			children = (
+				BD72BC19A4F2D84CAE5850AC /* Models */,
+				7C9039A4EE01D9B89B0B486A /* SparkleWashApp */,
+				D328FB72034045D68A107DA7 /* Tests */,
+				394220DD4581E0943E65DDB3 /* v1 */,
+				19D479CDECF65BC65FBC5631 /* Views */,
+				22CC9B526FDB8CF388E414FC /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2492B533DD83279921B12AC0 /* SparkleWash */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 015CB3254E23DD63412A15CB /* Build configuration list for PBXNativeTarget "SparkleWash" */;
+			buildPhases = (
+				62EA2A96FD3180035BF5A2E8 /* Sources */,
+				BF814E63ABDD7FB07408C3B1 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SparkleWash;
+			packageProductDependencies = (
+				B9E664EAC9655AC8822B26FA /* GoogleSignIn */,
+				B1058D3AD147F1627C3111AC /* GoogleSignInSwift */,
+			);
+			productName = SparkleWash;
+			productReference = 0EFE452D8E9A9FEE72492B84 /* SparkleWash.app */;
+			productType = "com.apple.product-type.application";
+		};
+		3A14EE6A9C7586786C7FC3EB /* SparkleWashTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D22C9D41BFE562654652126C /* Build configuration list for PBXNativeTarget "SparkleWashTests" */;
+			buildPhases = (
+				65D018DC937200A56233C0A8 /* Sources */,
+				112E7E17588300687B6C757C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C16944F611136408D838B4FD /* PBXTargetDependency */,
+			);
+			name = SparkleWashTests;
+			packageProductDependencies = (
+			);
+			productName = SparkleWashTests;
+			productReference = 4AD291FA9920009ABBE3162C /* SparkleWashTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		EDD6660AF45FB42D8D20D3DD /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+			};
+			buildConfigurationList = A24F3579BCC08DB27A066270 /* Build configuration list for PBXProject "SparkleWash" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = E1E41F54AD7E0485D2124AEE;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FC057EF649E4571AF0EBA438 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2492B533DD83279921B12AC0 /* SparkleWash */,
+				3A14EE6A9C7586786C7FC3EB /* SparkleWashTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		112E7E17588300687B6C757C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				03F7AEFAC71070571912110C /* alerts.json in Resources */,
+				202CBDC8ED5EA8A1AA310E80 /* service-packages.json in Resources */,
+				47AF30084FE53BEF558ED2FC /* stations.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		62EA2A96FD3180035BF5A2E8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C6B97CDE706A87E45239ACB5 /* Models.swift in Sources */,
+				59125D6A12A8FE6FAB728028 /* OperationsModels.swift in Sources */,
+				948CA8902113E797C0F1954C /* OperationsView.swift in Sources */,
+				727F60F486B5FF7453F1F7A8 /* SparkleWashApp.swift in Sources */,
+				0C8AACC7DE76B1DE3A0DDA1A /* Views.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65D018DC937200A56233C0A8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3A7B9873153325F069F89279 /* ArchiveHistoryTests.swift in Sources */,
+				29B5E0D9661692D7B39CB2FC /* TestSwiftDataModels.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C16944F611136408D838B4FD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2492B533DD83279921B12AC0 /* SparkleWash */;
+			targetProxy = C96CF24A372B8B803A175F87 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		25DF3D72EAA930D613AB7B33 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sparklewash.SparkleWashTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SparkleWash.app/SparkleWash";
+			};
+			name = Debug;
+		};
+		558E7C2072EA5E2BAEB52267 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Resources/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sparklewash.app;
+				SDKROOT = iphoneos;
+				SPARKLEWASH_GOOGLE_IOS_CLIENT_ID = "";
+				SPARKLEWASH_GOOGLE_REVERSED_CLIENT_ID = "";
+				SPARKLEWASH_GOOGLE_SERVER_CLIENT_ID = "";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		6B4D2CE39053651C087E7A36 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sparklewash.SparkleWashTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SparkleWash.app/SparkleWash";
+			};
+			name = Release;
+		};
+		7A93B3A918738B9D502AAAD9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 4;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B85A6A08F5C644C014FA6609 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 4;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		C035036BA3611ABBB65C8B13 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Resources/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sparklewash.app;
+				SDKROOT = iphoneos;
+				SPARKLEWASH_GOOGLE_IOS_CLIENT_ID = "";
+				SPARKLEWASH_GOOGLE_REVERSED_CLIENT_ID = "";
+				SPARKLEWASH_GOOGLE_SERVER_CLIENT_ID = "";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		015CB3254E23DD63412A15CB /* Build configuration list for PBXNativeTarget "SparkleWash" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				558E7C2072EA5E2BAEB52267 /* Debug */,
+				C035036BA3611ABBB65C8B13 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A24F3579BCC08DB27A066270 /* Build configuration list for PBXProject "SparkleWash" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A93B3A918738B9D502AAAD9 /* Debug */,
+				B85A6A08F5C644C014FA6609 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D22C9D41BFE562654652126C /* Build configuration list for PBXNativeTarget "SparkleWashTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				25DF3D72EAA930D613AB7B33 /* Debug */,
+				6B4D2CE39053651C087E7A36 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FC057EF649E4571AF0EBA438 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B1058D3AD147F1627C3111AC /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FC057EF649E4571AF0EBA438 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		B9E664EAC9655AC8822B26FA /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FC057EF649E4571AF0EBA438 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = EDD6660AF45FB42D8D20D3DD /* Project object */;
+}

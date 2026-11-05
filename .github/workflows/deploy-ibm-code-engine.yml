@@ -1,0 +1,120 @@
+name: Deploy IBM Code Engine demo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRY: ghcr.io/${{ github.repository_owner }}/sparklewash-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build API image and run container smoke test
+        run: |
+          docker buildx build --platform linux/amd64 --provenance=false --sbom=false \
+            --tag "$REGISTRY:$GITHUB_SHA" --load .
+          docker tag "$REGISTRY:$GITHUB_SHA" sparklewash-api:release
+          scripts/smoke-container.sh sparklewash-api:release
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GHCR_PUSH_TOKEN: ${{ github.token }}
+        run: printf '%s' "$GHCR_PUSH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Publish the smoke-tested image
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker push "$REGISTRY:$GITHUB_SHA"
+          pushed_ref=$(docker image inspect "$REGISTRY:$GITHUB_SHA" --format '{{index .RepoDigests 0}}')
+          digest=${pushed_ref##*@}
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: build-publish
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: ibm-demo
+    permissions:
+      contents: read
+    env:
+      IBM_CE_APP: ${{ vars.IBM_CE_APP }}
+      IBM_CE_REGISTRY_SECRET: ${{ vars.IBM_CE_REGISTRY_SECRET }}
+      IBM_CE_CPU: ${{ vars.IBM_CE_CPU || '0.125' }}
+      IBM_CE_MEMORY: ${{ vars.IBM_CE_MEMORY || '0.25G' }}
+      IBM_CE_RUNTIME_SECRET: ${{ vars.IBM_CE_RUNTIME_SECRET }}
+      GHCR_PULL_USERNAME: ${{ vars.GHCR_PULL_USERNAME }}
+      IBM_REGION: ${{ vars.IBM_REGION }}
+      IBM_RESOURCE_GROUP: ${{ vars.IBM_RESOURCE_GROUP }}
+      IBM_CE_PROJECT: ${{ vars.IBM_CE_PROJECT }}
+      IMAGE_REF: ghcr.io/${{ github.repository_owner }}/sparklewash-api@${{ needs.build-publish.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required IBM settings
+        shell: bash
+        env:
+          IBM_CLOUD_API_KEY: ${{ secrets.IBM_CLOUD_API_KEY }}
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+        run: |
+          set -euo pipefail
+          for name in IBM_CE_APP IBM_CE_REGISTRY_SECRET IBM_CE_CPU IBM_CE_MEMORY IBM_CLOUD_API_KEY IBM_REGION IBM_RESOURCE_GROUP IBM_CE_PROJECT GHCR_PULL_USERNAME GHCR_PULL_TOKEN IMAGE_REF; do
+            if [[ -z "${!name}" ]]; then echo "Missing GitHub Environment setting: $name" >&2; exit 1; fi
+          done
+
+      - name: Install IBM Cloud CLI and Code Engine plugin
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+          ibmcloud plugin install code-engine -f
+
+      - name: Configure IBM Cloud target
+        env:
+          IBM_CLOUD_API_KEY: ${{ secrets.IBM_CLOUD_API_KEY }}
+        run: |
+          ibmcloud login --apikey "$IBM_CLOUD_API_KEY" -r "$IBM_REGION" -g "$IBM_RESOURCE_GROUP"
+          ibmcloud target -r "$IBM_REGION" -g "$IBM_RESOURCE_GROUP"
+          ibmcloud ce project select --name "$IBM_CE_PROJECT"
+
+      - name: Create or update GHCR pull secret in Code Engine
+        env:
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          secret_file=$(mktemp)
+          trap 'rm -f "$secret_file"' EXIT
+          umask 077
+          printf '%s' "$GHCR_PULL_TOKEN" > "$secret_file"
+          if ibmcloud ce registry get --name "$IBM_CE_REGISTRY_SECRET" >/dev/null 2>&1; then
+            ibmcloud ce registry update --name "$IBM_CE_REGISTRY_SECRET" --server ghcr.io --username "$GHCR_PULL_USERNAME" \
+              --password-from-file "$secret_file"
+          else
+            ibmcloud ce secret create --name "$IBM_CE_REGISTRY_SECRET" \
+              --format registry --server ghcr.io --username "$GHCR_PULL_USERNAME" \
+              --password-from-file "$secret_file"
+          fi
+
+      - name: Deploy digest to Code Engine
+        run: deploy/ibm/deploy-demo.sh
+
+      - name: Check deployed public endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          url=$(ibmcloud ce application get --name "$IBM_CE_APP" --output url)
+          scripts/smoke-cloud.sh "$url"

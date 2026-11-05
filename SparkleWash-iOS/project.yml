@@ -1,0 +1,80 @@
+name: SparkleWash
+packages:
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: 10.0.0
+# Google sign-in: set SPARKLEWASH_GOOGLE_IOS_CLIENT_ID / SPARKLEWASH_GOOGLE_SERVER_CLIENT_ID / SPARKLEWASH_GOOGLE_REVERSED_CLIENT_ID
+# or the app shows "not configured" and skips the Google button. The API needs SPARKLEWASH_GOOGLE_CLIENT_ID + SPARKLEWASH_STAFF_ROLES.
+options:
+  bundleIdPrefix: com.sparklewash
+  deploymentTarget:
+    iOS: '18.0'
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    TARGETED_DEVICE_FAMILY: '1,2'
+    GENERATE_INFOPLIST_FILE: YES
+    MARKETING_VERSION: '1.0.0'
+    CURRENT_PROJECT_VERSION: '4'
+targets:
+  SparkleWash:
+    type: application
+    platform: iOS
+    sources:
+      - SparkleWashApp/SparkleWashApp.swift
+      - Models/Models.swift
+      - Views/Views.swift
+      - Models/OperationsModels.swift
+      - Views/OperationsView.swift
+    dependencies:
+      - package: GoogleSignIn
+        product: GoogleSignIn
+      - package: GoogleSignIn
+        product: GoogleSignInSwift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sparklewash.app
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        SPARKLEWASH_GOOGLE_IOS_CLIENT_ID: ''
+        SPARKLEWASH_GOOGLE_SERVER_CLIENT_ID: ''
+        SPARKLEWASH_GOOGLE_REVERSED_CLIENT_ID: ''
+    info:
+      path: Resources/Info.plist
+      properties:
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSCameraUsageDescription: Access your camera to capture vehicle photos for carwash job tracking.
+        NSMicrophoneUsageDescription: Audio input for potential voice commands in the future.
+        NSPhotoLibraryAddUsageDescription: Save car photos to your photo library.
+        CFBundleName: SparkleWash
+        CFBundleDisplayName: SparkleWash
+        CFBundleShortVersionString: '1.0'
+        CFBundleVersion: '4'
+        GIDClientID: $(SPARKLEWASH_GOOGLE_IOS_CLIENT_ID)
+        GIDServerClientID: $(SPARKLEWASH_GOOGLE_SERVER_CLIENT_ID)
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - $(SPARKLEWASH_GOOGLE_REVERSED_CLIENT_ID)
+  SparkleWashTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests
+      - path: ../contracts/v1
+        buildPhase: resources
+        includes:
+          - stations.json
+          - alerts.json
+          - service-packages.json
+    dependencies:
+      - target: SparkleWash
+schemes:
+  SparkleWash:
+    build:
+      targets:
+        SparkleWash: all
+    test:
+      targets: [SparkleWashTests]
