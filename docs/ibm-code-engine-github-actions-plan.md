@@ -142,6 +142,34 @@ of IBM's compute grant.
 - Run and verify the workflow against a disposable Code Engine project before
   pointing a camera or staff app at it.
 
+## Neon archive workflow for IBM COS
+
+Keep archive work separate from the Code Engine deploy workflow. A scheduled
+or manually approved GitHub Actions workflow can use the Neon read-only export
+login to create a tenant-scoped completed-job batch, then upload the manifest,
+compressed history and optional evidence ZIP to a private IBM COS bucket. Use
+an immutable key such as
+`completed-jobs/<tenant>/<history-sha256>/job-history.json.gz`; refuse to
+replace an existing key with different bytes. Do not store Neon or COS
+credentials in the image.
+
+The IBM COS CLI supports `object-put`, `object-head`, and `object-get`. After
+upload, download each object to the runner and compare its SHA-256 to the local
+file; a successful HEAD or ETag alone is not a payload checksum. Run archive
+manifest validation and the PostgreSQL restore rehearsal on a disposable
+database before the batch can be considered restorable. Keep this independent
+from the deploy job so a deploy failure or image update cannot skip retention
+work. [IBM COS CLI reference](https://cloud.ibm.com/docs/cloud-object-storage?topic=cloud-object-storage-ic-cos-cli)
+
+The future purge workflow must be separate and manually approved in a protected
+GitHub Environment. It should require both a reviewed retention-policy ID and
+an explicit purge switch, verify the COS copy and restore evidence, re-read
+every current job version, and skip any job under an active hold. Keep purge
+disabled until the retention periods and financial-record requirements are
+approved. The current repository has export and transactional restore tools;
+the COS publication, hold registry, purge implementation and an actual
+populated archive restore are still outstanding.
+
 ## Repository integration state (checked 2026-11-05)
 
 The owner confirmed that the current local workspace is the source of truth.
