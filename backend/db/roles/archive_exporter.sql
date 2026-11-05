@@ -11,7 +11,9 @@ END
 $archive_role$;
 
 ALTER ROLE sparklewash_archive_exporter
-    NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+    -- Managed Neon owner roles cannot ALTER the SUPERUSER attribute; it is
+    -- already explicitly disabled when the role is created above.
+    NOLOGIN NOINHERIT NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT USAGE ON SCHEMA sparklewash TO sparklewash_archive_exporter;
 GRANT SELECT ON TABLE
     sparklewash.tenants,

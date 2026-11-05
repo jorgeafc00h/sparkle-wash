@@ -158,24 +158,26 @@ of IBM's compute grant.
 
 Keep archive work separate from the Code Engine deploy workflow. The manual
 `Verify and archive Neon history to IBM COS` workflow runs only from `main` in
-the `ibm-archive` GitHub Environment. That environment does not exist yet;
-create it with a `main` branch restriction and required reviewers before the
-first dispatch. The workflow takes a tenant and date range, uses a
+the `ibm-archive` GitHub Environment. That environment now exists and is
+restricted to `main`; add a second trusted reviewer before the first dispatch
+if one is available. The workflow takes a tenant and date range, uses a
 read-only Neon export login, restores the resulting batch into a disposable
 PostgreSQL 18 service and rolls the restore back, then publishes and verifies
 the digest-addressed batch in a private IBM COS bucket. It never purges Neon
 rows. Do not store Neon or COS credentials in the image.
 
-The `ibm-archive` environment needs `IBM_REGION`, `IBM_RESOURCE_GROUP`,
+The `ibm-archive` environment currently has no archive variables or secrets.
+It needs `IBM_REGION`, `IBM_RESOURCE_GROUP`,
 `IBM_COS_BUCKET`, `IBM_COS_INSTANCE_ID`, and `NEON_ARCHIVE_TENANT_ID` variables,
 plus `IBM_CLOUD_API_KEY` and `NEON_ARCHIVE_CONNECTION_STRING` secrets. The
 requested tenant must exactly match the allowlisted `NEON_ARCHIVE_TENANT_ID`.
 The Neon secret must be a read-only PostgreSQL URI for a dedicated archive
 export login, limited to SELECT on the tables needed by
-`export_closed_jobs.py`. Apply `backend/db/roles/archive_exporter.sql` as the
-schema owner, create a separate `NOINHERIT` login, and grant it membership only
-in `sparklewash_archive_exporter`. Verify it has no elevated attributes or
-other role memberships before adding its URI to GitHub. The workflow uses
+`export_closed_jobs.py`. The `sparklewash_archive_exporter` NOLOGIN group has
+been created on Neon `main`; its attributes and SELECT-only privileges on the
+seven required tables were verified. Create a separate `NOINHERIT` login and
+grant it membership only in that group. Verify it has no elevated attributes
+or other role memberships before adding its URI to GitHub. The workflow uses
 `PGOPTIONS` to `SET ROLE` to the SELECT-only role, set
 `default_transaction_read_only=on`, and bound the query to 60 seconds. The
 `NEON_ARCHIVE_TENANT_ID` allowlist variable must identify the only tenant this

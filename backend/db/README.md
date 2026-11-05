@@ -104,8 +104,9 @@ disposable PostgreSQL database before treating an uploaded batch as restorable
 or enabling any deletion policy. The repository's manual
 `.github/workflows/archive-neon-to-ibm-cos.yml` workflow performs this isolated
 restore rehearsal before publication; it requires the `ibm-archive` GitHub
-Environment (not yet created) with a read-only Neon export URI, IBM COS
-credentials, a `main` branch restriction and required reviewers. It does not
+Environment (created with a `main` branch restriction; archive variables and
+secrets are still missing) with a read-only Neon export URI and IBM COS
+credentials. Add a second trusted reviewer when available. It does not
 run automatically and does not delete source rows.
 
 The rehearsal has been smoke-tested against a disposable PostgreSQL 18 database
@@ -122,9 +123,11 @@ Track migration and cutover completion in OpenSpec change
 
 ## Read-only archive export role
 
-Apply `roles/archive_exporter.sql` as the schema owner after migrations. It
-creates a `NOLOGIN`, `NOINHERIT` role with SELECT on only the tables used by
-`export_closed_jobs.py`. Create a separate Neon login role with `NOINHERIT`,
+`roles/archive_exporter.sql` has been applied to Neon `main`. Its
+`sparklewash_archive_exporter` role is `NOLOGIN`, `NOINHERIT`, and has only
+SELECT grants on the seven tables used by `export_closed_jobs.py`; those role
+attributes and grants were verified against Neon. Create a separate Neon login
+role with `NOINHERIT`,
 `NOSUPERUSER`, `NOCREATEDB`, and `NOCREATEROLE`; grant it membership only in
 `sparklewash_archive_exporter`. Verify the login has no other elevated role
 memberships before storing its connection URI as the protected
