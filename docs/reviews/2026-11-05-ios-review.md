@@ -6,15 +6,21 @@ Reviewed the active SwiftUI target declared by `SparkleWash-iOS/project.yml`,
 `OperationsView.swift`, `OperationsModels.swift`, SwiftData archive tests, and
 the November 4 public-catalog simulator capture. Applied the UI/UX Pro Max
 SwiftUI and native pre-delivery guidance, then checked Apple's current SwiftUI,
-SwiftData, and accessibility references. Re-ran `make ios-build` and
-`make ios-test` after adding per-job archive rows.
+SwiftData, and accessibility references. On November 5, launched the app on an
+iPhone 17 Pro simulator against a local API backed by isolated temporary JSON
+files and captured the light-mode catalog at
+`docs/reviews/2026-11-05-visual-smoke/iphone-17-pro-light-catalog.png`.
+Captured the same catalog in dark appearance at
+`docs/reviews/2026-11-05-visual-smoke/iphone-17-pro-dark-catalog.png`.
+Re-ran `make ios-build` and `make ios-test` after adding per-job archive rows.
 
 ## Findings
 
-- The public-catalog screenshot has a clear title and package hierarchy,
-  consistent native typography, readable price alignment, and semantic dark
-  surfaces. The first two package cards show no clipping. This is evidence for
-  the public catalog only; staff screens have no signed-in visual evidence.
+- The live public-catalog screenshot has a clear title and package hierarchy,
+  consistent native typography, readable price alignment, and distinct native
+card surfaces. The visible package cards show no clipping. Light and dark
+appearance captures cover the public catalog on a large iPhone; staff screens
+have no signed-in visual evidence.
 - The active workboard uses `Section` containers within a `LazyVStack` with
   `pinnedViews: [.sectionHeaders]`. The connection/status strip uses
   `safeAreaInset`, keeping the pinned headers below it. This matches Apple's
@@ -43,8 +49,9 @@ SwiftData, and accessibility references. Re-ran `make ios-build` and
 - `make ios-test` — passed all 7 simulator tests, including disk-backed
   per-job persistence, migration from the former archive blob, expiry cleanup,
   and withdrawn-batch handling.
-- Existing dark-mode public-catalog screenshot — reviewed; this does not cover
-  signed-in workboard behavior.
+- iPhone 17 Pro simulator, iOS 27, live catalog backed by the local API — light
+  and dark appearance captures reviewed and saved; this does not cover
+  signed-in workboard behavior or prove theme contrast at largest Dynamic Type.
 
 ## Next implementation steps
 
