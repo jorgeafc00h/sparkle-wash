@@ -98,6 +98,7 @@ jobs:
               "PGHOST": host, "PGPORT": port, "PGDATABASE": database,
               "PGUSER": user, "PGPASSFILE": str(path), "PGSSLMODE": "verify-full",
               "PGSSLROOTCERT": "system",
+              "PGOPTIONS": "-c role=sparklewash_archive_exporter -c default_transaction_read_only=on -c statement_timeout=60s",
           }
           for key, value in settings.items(): print(f"{key}={value}")
           print(f"SPARKLEWASH_PGPASSFILE={path}")

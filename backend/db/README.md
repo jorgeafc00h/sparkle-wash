@@ -119,3 +119,17 @@ coverage, an actual file-backed import, Neon restore, and full cutover rehearsal
 remain. Keep the PostgreSQL flags off until the full pilot checklist passes.
 Track migration and cutover completion in OpenSpec change
 `complete-platform-parity`, tasks 6.1–6.3.
+
+## Read-only archive export role
+
+Apply `roles/archive_exporter.sql` as the schema owner after migrations. It
+creates a `NOLOGIN`, `NOINHERIT` role with SELECT on only the tables used by
+`export_closed_jobs.py`. Create a separate Neon login role with `NOINHERIT`,
+`NOSUPERUSER`, `NOCREATEDB`, and `NOCREATEROLE`; grant it membership only in
+`sparklewash_archive_exporter`. Verify the login has no other elevated role
+memberships before storing its connection URI as the protected
+`NEON_ARCHIVE_CONNECTION_STRING` GitHub Environment secret. The archive
+workflow starts each query session in that read-only role, enables
+`default_transaction_read_only`, sets a 60-second statement timeout, and checks
+the requested tenant against the environment's `NEON_ARCHIVE_TENANT_ID`
+allowlist. The current Neon project has no archive login yet.

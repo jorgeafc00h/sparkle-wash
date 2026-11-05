@@ -159,11 +159,15 @@ The `ibm-archive` environment needs `IBM_REGION`, `IBM_RESOURCE_GROUP`,
 plus `IBM_CLOUD_API_KEY` and `NEON_ARCHIVE_CONNECTION_STRING` secrets. The
 requested tenant must exactly match the allowlisted `NEON_ARCHIVE_TENANT_ID`.
 The Neon secret must be a read-only PostgreSQL URI for a dedicated archive
-export role, limited to SELECT on the tables needed by
-`export_closed_jobs.py`, with `default_transaction_read_only=on` and a bounded
-statement timeout. Verify it has no elevated attributes or inherited admin
-membership before adding it. Current Neon state has owner/runtime roles only;
-the read-only export role is not configured yet. The IBM API key should have
+export login, limited to SELECT on the tables needed by
+`export_closed_jobs.py`. Apply `backend/db/roles/archive_exporter.sql` as the
+schema owner, create a separate `NOINHERIT` login, and grant it membership only
+in `sparklewash_archive_exporter`. Verify it has no elevated attributes or
+other role memberships before adding its URI to GitHub. The workflow uses
+`PGOPTIONS` to `SET ROLE` to the SELECT-only role, set
+`default_transaction_read_only=on`, and bound the query to 60 seconds. The
+`NEON_ARCHIVE_TENANT_ID` allowlist variable must identify the only tenant this
+environment can export. The IBM API key should have
 only the COS access needed to upload, HEAD, GET, and inspect bucket/object
 configuration. Keep the `ibm-demo` runtime database secret separate.
 
