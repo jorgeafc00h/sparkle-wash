@@ -63,7 +63,7 @@ the workflow. Require reviewer approval if environment reviewers are available:
 | `GHCR_PULL_TOKEN` | Secret | GitHub classic PAT with `read:packages` for the private image |
 
 The repository Actions token needs `packages: write`. The IBM workflow publishes
-to `ghcr.io/jorgeafc00h/sparkle-wash/api`, a repository-scoped package. The
+to `ghcr.io/jorgeafc00h/sparkle-wash`, a repository-scoped package. The
 Dockerfile carries the OCI source label for this repository so GHCR can link
 the package at its first publish and grant the workflow access. The older
 `ghcr.io/jorgeafc00h/sparklewash-api` package is not linked and is not the IBM
