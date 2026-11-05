@@ -1,0 +1,105 @@
+/*
+ * SparkleWash — PicoLish CSS stylesheet
+ * Inlined for Swift packaging (drop a real .css into this path for production)
+ * Palette: OLED dark base, neon accent, glassmorphism cards
+ */
+
+:root {
+  --color-bg-primary: #0a0c10;        /* OLED black */
+  --color-bg-surface: #1f2937;         /* dark gray card bg */
+  --color-card: #111827;               /* base card surface */
+  --color-accent: #688ef9;             /* neon primary accent (purple) */
+  --color-success: #00e676;            /* green — idle, good soap level */
+  --color-warning: #ffc107;            /* yellow — rain detected, mid-range */
+  --color-danger: #d32f2f;             /* red — error state, pressure spike */
+  --color-stroke-default: #ffffffa6;    /* subtle white borders */
+  --spacing-unit: 4px;                 /* base grid unit, scale = 2x for larger spacing */
+  --radius-card: 14px;                 /* rounded card radius */
+  --radius-button: 8px;                /* button pill shape */
+  --font-primary: "SF Pro Display", -apple-system, sans-serif;
+  --font-mono: "Menlo", monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-primary);
+  background-color: var(--color-bg-primary);
+  color: #f8fafc;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Split-view container for iPad */
+.spread-body {
+  display: flex;
+  gap: var(--spacing-unit) * 4;
+  padding: var(--spacing-unit) * 2;
+}
+
+/* Station card layout — fixed width with gap, wraps as needed */
+.station-card {
+  width: 240px;
+  min-height: 56px;
+  flex-direction: column;
+  padding: var(--spacing-unit);
+  background-color: var(--color-card);
+  border-radius: 8px;
+  border: 2px solid #111827;
+}
+
+.station-title,
+.station-label {
+  font-family: var(--font-primary);
+  line-height: 1.2;
+  letter-spacing: 0.3px;
+}
+
+/* Gauge rings: red inner arc at >60psi, green outer ring for good readings */
+.gauge-ring {
+  width: 80px;
+  height: 80px;
+  border-radius: 40px;
+  background: conic-gradient(
+    from 270deg,
+    var(--color-danger) var(--gauge-percent-red, 0%),
+    var(--color-success) var(--gauge-percent-green, 0%)
+  );
+  /* In practice: CSS custom property injected by SwiftUI view model */
+}
+
+/* Alert pill / badge styles */
+.alert-pill {
+  border-radius: 12px;
+  padding: 6px 14px 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.alert-pill.status-idle { background: #112a25; color: var(--color-success); }
+.alert-pill.status-washing { background: #2b6cb0; color: white; }
+.alert-pill.status-cleaning { background: var(--color-warning); color: #333; }
+.alert-pill.status-error { background: var(--color-danger); color: white; }
+
+/* Haptics button */
+.haptic-button {
+  border-radius: var(--radius-button);
+  border: 1px solid #9ca3af;
+  background-color: var(--card-bg);
+  padding: 8px 14px;
+  font-family: var(--font-primary);
+  color: #d1d5db;
+  cursor: pointer;
+}
+.haptic-button:active {
+  transform: scale(0.96);
+}
+
+/* Dark mode contrast helpers */
+@media (prefers-color-scheme: dark) {
+  body { background-color: var(--color-bg-primary); }
+}
+
+@supports not selector(:has(*)) {
+  /* Fallback for Safari <16.4 which doesn't support :has() sibling selectors */
+  .card-slot:nth-child(n+2) { margin-top: 16px; }
+}

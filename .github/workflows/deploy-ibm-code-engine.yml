@@ -1,0 +1,262 @@
+name: Deploy IBM Code Engine demo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Set the repository variable to 'true' only after the GHCR package has been
+  # made public. Public images can be pulled without a stored package token.
+  GHCR_PUBLIC: ${{ vars.GHCR_PUBLIC || 'false' }}
+
+jobs:
+  deploy-preflight:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: ibm-demo
+    env:
+      VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+      IBM_CE_APP: ${{ vars.IBM_CE_APP }}
+      IBM_CE_REGISTRY_SECRET: ${{ vars.IBM_CE_REGISTRY_SECRET }}
+      IBM_CE_CPU: ${{ vars.IBM_CE_CPU || '0.125' }}
+      IBM_CE_MEMORY: ${{ vars.IBM_CE_MEMORY || '0.25G' }}
+      IBM_CE_USER: ${{ vars.IBM_CE_USER || '1654' }}
+      IBM_CE_RUNTIME_SECRET: ${{ vars.IBM_CE_RUNTIME_SECRET }}
+      IBM_CE_APP_CONFIG_SECRET: ${{ vars.IBM_CE_APP_CONFIG_SECRET }}
+      SPARKLEWASH_POSTGRES_DIRECTORY: ${{ vars.SPARKLEWASH_POSTGRES_DIRECTORY || 'false' }}
+      SPARKLEWASH_POSTGRES_DEVICES: ${{ vars.SPARKLEWASH_POSTGRES_DEVICES || 'false' }}
+      SPARKLEWASH_POSTGRES_WORKFLOW: ${{ vars.SPARKLEWASH_POSTGRES_WORKFLOW || 'false' }}
+      SPARKLEWASH_POSTGRES_INVENTORY: ${{ vars.SPARKLEWASH_POSTGRES_INVENTORY || 'false' }}
+      IBM_CE_OFFLINE_SIGNING_SECRET: ${{ vars.IBM_CE_OFFLINE_SIGNING_SECRET }}
+      GHCR_PULL_USERNAME: ${{ vars.GHCR_PULL_USERNAME }}
+      IBM_REGION: ${{ vars.IBM_REGION }}
+      IBM_RESOURCE_GROUP: ${{ vars.IBM_RESOURCE_GROUP }}
+      IBM_CE_PROJECT: ${{ vars.IBM_CE_PROJECT }}
+    steps:
+      - name: Validate required IBM settings before publishing
+        shell: bash
+        env:
+          IBM_CLOUD_API_KEY: ${{ secrets.IBM_CLOUD_API_KEY }}
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY: ${{ secrets.SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY }}
+          NEON_RUNTIME_CONNECTION_STRING: ${{ secrets.NEON_RUNTIME_CONNECTION_STRING }}
+          SPARKLEWASH_APP_CONFIG_ENV: ${{ secrets.SPARKLEWASH_APP_CONFIG_ENV }}
+        run: |
+          set -euo pipefail
+          for name in IBM_CE_APP IBM_CE_APP_CONFIG_SECRET IBM_CE_CPU IBM_CE_MEMORY IBM_CE_OFFLINE_SIGNING_SECRET IBM_CLOUD_API_KEY IBM_REGION IBM_RESOURCE_GROUP IBM_CE_PROJECT SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY VITE_GOOGLE_CLIENT_ID; do
+            if [[ -z "${!name}" ]]; then echo "Missing GitHub Environment setting: $name" >&2; exit 1; fi
+          done
+          if [[ -z "$SPARKLEWASH_APP_CONFIG_ENV" ]]; then
+            echo 'Missing GitHub Environment secret: SPARKLEWASH_APP_CONFIG_ENV.' >&2
+            exit 1
+          fi
+          if ! grep -Fqx "SPARKLEWASH_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID" <<< "$SPARKLEWASH_APP_CONFIG_ENV" ||
+             ! grep -Eq '^SPARKLEWASH_STAFF_ROLES=.+$' <<< "$SPARKLEWASH_APP_CONFIG_ENV"; then
+            echo 'Protected app settings must include the matching Google client ID and a staff-role allowlist.' >&2
+            exit 1
+          fi
+          if [[ ! "$IBM_CE_USER" =~ ^[1-9][0-9]*$ ]]; then
+            echo 'IBM_CE_USER must be a non-zero numeric UID.' >&2
+            exit 1
+          fi
+          for name in SPARKLEWASH_POSTGRES_DIRECTORY SPARKLEWASH_POSTGRES_DEVICES SPARKLEWASH_POSTGRES_WORKFLOW SPARKLEWASH_POSTGRES_INVENTORY; do
+            if [[ "${!name}" != 'true' && "${!name}" != 'false' ]]; then echo "GitHub Environment variable $name must be true or false." >&2; exit 1; fi
+          done
+          if [[ "$SPARKLEWASH_POSTGRES_DEVICES" == 'true' && "$SPARKLEWASH_POSTGRES_DIRECTORY" != 'true' ]] ||
+             [[ "$SPARKLEWASH_POSTGRES_WORKFLOW" == 'true' && "$SPARKLEWASH_POSTGRES_DIRECTORY" != 'true' ]] ||
+             [[ "$SPARKLEWASH_POSTGRES_INVENTORY" == 'true' && "$SPARKLEWASH_POSTGRES_WORKFLOW" != 'true' ]]; then
+            echo 'PostgreSQL feature flags have invalid dependencies.' >&2
+            exit 1
+          fi
+          if [[ "$SPARKLEWASH_POSTGRES_DIRECTORY" == 'true' || "$SPARKLEWASH_POSTGRES_DEVICES" == 'true' || "$SPARKLEWASH_POSTGRES_WORKFLOW" == 'true' || "$SPARKLEWASH_POSTGRES_INVENTORY" == 'true' ]]; then
+            if [[ -z "$IBM_CE_RUNTIME_SECRET" || -z "$NEON_RUNTIME_CONNECTION_STRING" ]]; then
+              echo 'PostgreSQL flags require IBM_CE_RUNTIME_SECRET and NEON_RUNTIME_CONNECTION_STRING.' >&2
+              exit 1
+            fi
+          fi
+          if [[ "$GHCR_PUBLIC" != 'true' ]]; then
+            for name in IBM_CE_REGISTRY_SECRET GHCR_PULL_USERNAME GHCR_PULL_TOKEN; do
+              if [[ -z "${!name}" ]]; then echo "Missing GitHub Environment setting: $name" >&2; exit 1; fi
+            done
+          fi
+
+  build-publish:
+    needs: deploy-preflight
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # Repository-scoped image name lets GHCR associate the package with this
+      # public source repository from the OCI source label in the Dockerfile.
+      REGISTRY: ghcr.io/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build API image and run container smoke test
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          docker buildx build --platform linux/amd64 --provenance=false --sbom=false \
+            --build-arg VITE_GOOGLE_CLIENT_ID="$VITE_GOOGLE_CLIENT_ID" \
+            --tag "$REGISTRY:$GITHUB_SHA" --load .
+          docker tag "$REGISTRY:$GITHUB_SHA" sparklewash-api:release
+          scripts/smoke-container.sh sparklewash-api:release
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GHCR_PUSH_TOKEN: ${{ github.token }}
+        run: printf '%s' "$GHCR_PUSH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Publish the smoke-tested image
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker push "$REGISTRY:$GITHUB_SHA"
+          pushed_ref=$(docker image inspect "$REGISTRY:$GITHUB_SHA" --format '{{index .RepoDigests 0}}')
+          digest=${pushed_ref##*@}
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          if [[ "$GHCR_PUBLIC" == 'true' ]]; then
+            docker logout ghcr.io
+            docker pull "$REGISTRY:$GITHUB_SHA"
+          fi
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: build-publish
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: ibm-demo
+    permissions:
+      contents: read
+    env:
+      IBM_CE_APP: ${{ vars.IBM_CE_APP }}
+      IBM_CE_REGISTRY_SECRET: ${{ vars.IBM_CE_REGISTRY_SECRET }}
+      IBM_CE_CPU: ${{ vars.IBM_CE_CPU || '0.125' }}
+      IBM_CE_MEMORY: ${{ vars.IBM_CE_MEMORY || '0.25G' }}
+      IBM_CE_USER: ${{ vars.IBM_CE_USER || '1654' }}
+      IBM_CE_RUNTIME_SECRET: ${{ vars.IBM_CE_RUNTIME_SECRET }}
+      IBM_CE_APP_CONFIG_SECRET: ${{ vars.IBM_CE_APP_CONFIG_SECRET }}
+      SPARKLEWASH_POSTGRES_DIRECTORY: ${{ vars.SPARKLEWASH_POSTGRES_DIRECTORY || 'false' }}
+      SPARKLEWASH_POSTGRES_DEVICES: ${{ vars.SPARKLEWASH_POSTGRES_DEVICES || 'false' }}
+      SPARKLEWASH_POSTGRES_WORKFLOW: ${{ vars.SPARKLEWASH_POSTGRES_WORKFLOW || 'false' }}
+      SPARKLEWASH_POSTGRES_INVENTORY: ${{ vars.SPARKLEWASH_POSTGRES_INVENTORY || 'false' }}
+      IBM_CE_OFFLINE_SIGNING_SECRET: ${{ vars.IBM_CE_OFFLINE_SIGNING_SECRET }}
+      GHCR_PULL_USERNAME: ${{ vars.GHCR_PULL_USERNAME }}
+      IBM_REGION: ${{ vars.IBM_REGION }}
+      IBM_RESOURCE_GROUP: ${{ vars.IBM_RESOURCE_GROUP }}
+      IBM_CE_PROJECT: ${{ vars.IBM_CE_PROJECT }}
+      IMAGE_REF: ghcr.io/${{ github.repository }}@${{ needs.build-publish.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install IBM Cloud CLI and Code Engine plugin
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+          ibmcloud plugin install code-engine -f
+
+      - name: Configure IBM Cloud target
+        env:
+          IBM_CLOUD_API_KEY: ${{ secrets.IBM_CLOUD_API_KEY }}
+        run: |
+          ibmcloud login --apikey "$IBM_CLOUD_API_KEY" -r "$IBM_REGION" -g "$IBM_RESOURCE_GROUP"
+          ibmcloud target -r "$IBM_REGION" -g "$IBM_RESOURCE_GROUP"
+          if ! ibmcloud ce project get --name "$IBM_CE_PROJECT" >/dev/null 2>&1; then
+            ibmcloud ce project create --name "$IBM_CE_PROJECT"
+          fi
+          ibmcloud ce project select --name "$IBM_CE_PROJECT"
+
+      - name: Create or update GHCR pull secret in Code Engine
+        if: ${{ env.GHCR_PUBLIC != 'true' }}
+        env:
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          secret_file=$(mktemp)
+          trap 'rm -f "$secret_file"' EXIT
+          umask 077
+          printf '%s' "$GHCR_PULL_TOKEN" > "$secret_file"
+          if ibmcloud ce registry get --name "$IBM_CE_REGISTRY_SECRET" >/dev/null 2>&1; then
+            ibmcloud ce registry update --name "$IBM_CE_REGISTRY_SECRET" --server ghcr.io --username "$GHCR_PULL_USERNAME" \
+              --password-from-file "$secret_file"
+          else
+            ibmcloud ce secret create --name "$IBM_CE_REGISTRY_SECRET" \
+              --format registry --server ghcr.io --username "$GHCR_PULL_USERNAME" \
+              --password-from-file "$secret_file"
+          fi
+
+      - name: Create or update Neon connection secret in Code Engine
+        if: ${{ env.IBM_CE_RUNTIME_SECRET != '' }}
+        env:
+          NEON_RUNTIME_CONNECTION_STRING: ${{ secrets.NEON_RUNTIME_CONNECTION_STRING }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$NEON_RUNTIME_CONNECTION_STRING" ]]; then
+            echo 'IBM_CE_RUNTIME_SECRET is set but NEON_RUNTIME_CONNECTION_STRING is missing.' >&2
+            exit 1
+          fi
+          secret_file=$(mktemp)
+          trap 'rm -f "$secret_file"' EXIT
+          umask 077
+          printf '%s' "$NEON_RUNTIME_CONNECTION_STRING" > "$secret_file"
+          if ibmcloud ce secret get --name "$IBM_CE_RUNTIME_SECRET" >/dev/null 2>&1; then
+            ibmcloud ce secret update --name "$IBM_CE_RUNTIME_SECRET" \
+              --from-file "SPARKLEWASH_SESSION_POSTGRES=$secret_file"
+          else
+            ibmcloud ce secret create --name "$IBM_CE_RUNTIME_SECRET" \
+              --from-file "SPARKLEWASH_SESSION_POSTGRES=$secret_file"
+          fi
+
+      - name: Create or update required application settings secret
+        env:
+          SPARKLEWASH_APP_CONFIG_ENV: ${{ secrets.SPARKLEWASH_APP_CONFIG_ENV }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          config_file=$(mktemp)
+          trap 'rm -f "$config_file"' EXIT
+          umask 077
+          printf '%s' "$SPARKLEWASH_APP_CONFIG_ENV" > "$config_file"
+          if ibmcloud ce secret get --name "$IBM_CE_APP_CONFIG_SECRET" >/dev/null 2>&1; then
+            ibmcloud ce secret update --name "$IBM_CE_APP_CONFIG_SECRET" --from-env-file "$config_file"
+          else
+            ibmcloud ce secret create --name "$IBM_CE_APP_CONFIG_SECRET" --from-env-file "$config_file"
+          fi
+
+      - name: Create or update offline history signing secret in Code Engine
+        env:
+          SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY: ${{ secrets.SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          secret_file=$(mktemp)
+          trap 'rm -f "$secret_file"' EXIT
+          umask 077
+          printf '%s' "$SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY" > "$secret_file"
+          if ibmcloud ce secret get --name "$IBM_CE_OFFLINE_SIGNING_SECRET" >/dev/null 2>&1; then
+            ibmcloud ce secret update --name "$IBM_CE_OFFLINE_SIGNING_SECRET" \
+              --from-file "SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY=$secret_file"
+          else
+            ibmcloud ce secret create --name "$IBM_CE_OFFLINE_SIGNING_SECRET" \
+              --from-file "SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY=$secret_file"
+          fi
+
+      - name: Deploy digest to Code Engine
+        run: deploy/ibm/deploy-demo.sh
+
+      - name: Check deployed public endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          url=$(ibmcloud ce application get --name "$IBM_CE_APP" --output url)
+          scripts/smoke-cloud.sh "$url"

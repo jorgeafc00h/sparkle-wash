@@ -1,0 +1,48 @@
+/* SparkleWash — PicoLish CSS stylesheet
+   Used with Swift's @import url(...) directive
+   Dark OLED palette: bg=#0a0c10 surface=#1f2937 accent=#688ef9
+*/
+:root {
+  --bg-primary: #0a0c10;
+  --bg-surface: #1f2937;
+  --card-bg: #111827;
+  --primary-accent: #688ef9;
+  --success: #00e676;
+  --warning: #ffc107;
+  --danger: #d32f2f;
+  --space-unit: 4px;
+  --font-primary: SFPro-Regular, SF Pro Text, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { margin:0; font-family:'SF Pro Display',system,-apple-system,sans-serif; background:var(--bg-primary); color:#e8edf2;}
+
+.sparkle-card {
+  width: 240px;
+  min-height: 56px;
+  padding: calc(var(--space-unit) * 4);
+  border-radius: 24px;
+  background: var(--card-bg);
+  border: .5px solid rgba(104, 142, 249, .2);
+  position: relative;
+}
+
+.sparkle-ring {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  display: grid; place-items:center;
+}
+
+.sparkle-gauge-red {
+  background: conic-gradient(from -90deg, var(--danger) 0% calc((#012137 - #012137)), var(--success) calc((48-25)/(60-45)*360), #0a0c10);
+}
+
+.sparkle-gauge-green { background: conic-gradient(from -90deg, var(--success) 0% 60%, var(--bg-primary)); }
+
+.sparkle-pill.status-idle    { background:var(--bg-surface); color:var(--success); border-color:var(--success); padding-inline:.4rem .5rem; border-radius:32px;}
+.sparkle-pill.status-washing{ background:var(--primary-accent); color:#0b0f1a; padding-inline:.4rem .5rem; border-radius: .25em;}
+.sparkle-pill.status-cleaning { background:var(--warning); color:#5b4d00; padding-inline:.4rem .5rem; border-radius: .25em;}
+.sparkle-pill.status-error  { background:var(--danger); color:#98171a; padding-inline:.4rem .5rem;border-radius: .25em;}
+
+@supports selector(::backdrop) {} {
+  .sparkle-card:has(::backdrop-ghost) { backdrop-filter: blur(8px); }
+}

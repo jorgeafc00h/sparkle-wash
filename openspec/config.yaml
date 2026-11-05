@@ -1,0 +1,21 @@
+schema: spec-driven
+context: |
+  SparkleWash is a carwash operations prototype with a .NET 10 API,
+  React 18 / TypeScript / Vite 5 dashboard, Swift 6 / SwiftUI / SwiftData
+  iOS 18+ app, and unverified ESP-IDF firmware under esp32-firmware/ESP32-CAM-Station-V1.
+  Run OpenSpec from the repository root. openspec/specs is the implemented baseline;
+  openspec/changes contains desired behavior that is NOT yet implemented.
+  Current telemetry is hard-coded demo data, identified by X-SparkleWash-Data-Source.
+  docs/reviews/2026-10-16-project-review.md records evidence and feature parity.
+  docs/FINAL-SPEC*.md are historical product intent, not completion evidence.
+  Native UI uses SwiftUI system colors and Dynamic Type, not CSS injection.
+  Use the installed UI/UX Pro Max skill for UI reviews, particularly accessibility,
+  44-point touch targets, reduced motion, adaptive layouts and error feedback.
+rules:
+  proposal:
+    - Identify API, web, native, firmware and test impacts separately.
+    - Preserve missing historical requirements in the parity change; never claim mocks are real integrations.
+  specs:
+    - Each requirement MUST include a testable scenario and distinguish demo from production behavior.
+  tasks:
+    - Include real application tests and both web and iOS validation for shared features.

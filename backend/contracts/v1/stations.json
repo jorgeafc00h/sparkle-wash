@@ -1,0 +1,6 @@
+[
+  { "stationId": "b4c3", "name": "Bay #1 foam touch", "status": "idle", "pressurePsi": 52.0, "soapLevelDm": 20, "timestamp": "2026-01-01T00:00:00Z" },
+  { "stationId": "7d5c", "name": "Bay #2 high pressure", "status": "washing", "pressurePsi": 58.5, "soapLevelDm": 24, "timestamp": "2026-01-01T00:00:00Z" },
+  { "stationId": "a1f2", "name": "Bay #3 detail", "status": "idle", "pressurePsi": 48.0, "soapLevelDm": 19, "timestamp": "2026-01-01T00:00:00Z" },
+  { "stationId": "e8f1", "name": "Bay #4 diamond polish", "status": "cleaning", "pressurePsi": 63.2, "soapLevelDm": 26, "timestamp": "2026-01-01T00:00:00Z" }
+]

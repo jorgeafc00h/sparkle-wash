@@ -1,0 +1,74 @@
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { StationCard } from "@/components/StationCard";
+import type { StationData } from "@/types";
+import { useSocketConnection } from "@/hooks/useSocketConnection";
+
+// ─── Station card props matching the API response shape ────────────────────────
+
+interface AppProps {
+  stations: StationData[];
+  fetchStations: () => Promise<void>;
+  fetchAlerts: () => Promise<StationData[]>;
+  reconnectStream: (stationId: string) => void;
+}
+
+export function App({ stations, fetchStations, fetchAlerts, reconnectStream }: AppProps): JSX.Element {
+  const [mounted, setMounted] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // ─── Reconnect any dropped WebSocket streams ────────────────────────────────
+
+  useEffect(() => mounted && fetchStations());
+
+  return (
+    <div className="min-h-screen bg-card p-4 space-y-4">
+      {/* bento-grid header (6 station cards responsive) */}
+      <Card ref={cardRef} title="Live Dashboard" subtitle="Real-time wash metrics • {stations.length} stations active">
+        {stations.map(st => (
+          <StationCard
+            key={st.stationId}
+            stationId={st.stationId}
+            name={st.name}
+            subtitle={st.subtitle}
+            status={st.status}
+            pressurePsi={st.pressurePsi || 0}
+            soapLevel={st.soapLevelDm || 0}
+            reconnected={() => reconnectStream(st.stationId)}
+          />
+        ))}
+      </Card>
+
+      {/* Alerts banner */}
+      {stations.length > 0 && (
+        <AlertsPanel stations={stations} alertCount={2} />
+      )}
+
+      {/* Footer / stats */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-foreground-muted">Status: connected | Last refresh: {new Date().toLocaleTimeString()}</p>
+        <Button variant="outline" onClick={() => refreshCards()}>Refresh all</Button>
+      </div>
+    </div>
+  );
+}
+
+/** Renders an alerts banner when any station's soapLevel falls below the warning threshold. */
+function AlertsPanel({ stations, alertCount }: { stations: readonly StationData[]; alertCount: number }): JSX.Element {
+  return (
+    <div className="rounded-lg border border-warning bg-yellow100 dark:bg-yellow-950/30 text-warning px-4 py-3">
+      <p className="text-sm font-semibold">⚠️ Alerts ({alertCount})</p>
+      {stations.filter(s => s.isAlert).map(station => (
+        <p key={station.stationId} className="text-xs">Station {station.stationId}: soap low (#{station.soapLevel} dm)</p>
+      ))}
+    </div>
+  );
+}
+
+function refreshCards() {
+  // Debounce re-fetch of all cards by checking if we just started.
+  fetchStations();
+}
+
+export default App;

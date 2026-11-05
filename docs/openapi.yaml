@@ -1,0 +1,417 @@
+openapi: 3.1.0
+info:
+  title: SparkleWash demo API
+  version: 1.0.0
+  description: Current routes. Station telemetry can be ingested and persisted; the legacy upload route remains an acknowledgement only.
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/jobs:
+    get:
+      description: List staff-visible jobs and server-derived elapsed time; optional status filter.
+      responses:
+        '200': {description: Whole-carwash job list}
+        '401': {description: Invalid staff session}
+    post:
+      description: Open a job from a confirmed arrival and package. Operator/admin Bearer and Idempotency-Key required.
+      responses:
+        '201': {description: Job and immutable package price snapshot}
+        '200': {description: Identical retry}
+        '409': {description: Unconfirmed arrival or duplicate open job}
+  /api/jobs/summary:
+    get:
+      responses:
+        '200': {description: Whole-carwash counts and average completed duration}
+  /api/jobs/{id}:
+    get:
+      responses:
+        '200': {description: Job with assignments and elapsed time}
+        '404': {description: Unknown job}
+  /api/jobs/{id}/transition:
+    post:
+      description: Idempotent job status transition; releases reservations on completion/cancellation.
+      responses:
+        '200': {description: Updated job}
+        '409': {description: Invalid transition or key conflict}
+  /api/jobs/{id}/employees:
+    post:
+      description: Assign active employee to open job with idempotency key.
+      responses:
+        '200': {description: Job with assignment}
+  /api/jobs/{id}/materials:
+    get:
+      responses:
+        '200': {description: Job material consumption audit trail}
+  /api/employees:
+    get:
+      responses:
+        '200': {description: Employee list}
+    post:
+      description: Admin creates employee.
+      responses:
+        '201': {description: Employee created}
+  /api/employees/{id}/status:
+    post:
+      responses:
+        '200': {description: Employee activated or deactivated}
+  /api/inventory/items:
+    get:
+      responses:
+        '200': {description: On-hand, reserved and available stock}
+    post:
+      description: Admin creates item with SKU, unit and reorder point.
+      responses:
+        '201': {description: Inventory item created}
+  /api/inventory/items/{id}/movements:
+    get:
+      responses:
+        '200': {description: Item movement audit trail}
+    post:
+      description: Idempotent receipt, adjustment or job consumption.
+      responses:
+        '201': {description: Stock movement posted}
+        '200': {description: Identical retry}
+        '409': {description: Insufficient stock or key conflict}
+  /api/inventory/items/{id}/reservations:
+    post:
+      description: Reserve available stock for an open job.
+      responses:
+        '201': {description: Stock reserved}
+        '200': {description: Identical retry}
+        '409': {description: Insufficient stock or key conflict}
+  /api/arrivals/observations:
+    post:
+      description: Authenticated ESP32 plate/image observation; does not create a job. Requires X-SparkleWash-Ingest-Key.
+      responses:
+        '201': {description: Observation persisted}
+        '200': {description: Identical device retry acknowledged}
+        '400': {description: Invalid plate observation or JPEG}
+        '401': {description: Invalid device key}
+        '409': {description: Device event ID reused with different evidence}
+        '413': {description: Actual body or photo exceeds limit}
+  /api/arrivals:
+    get:
+      description: Latest observations for a staff Bearer session, unconfirmed or confirmed.
+      responses:
+        '200': {description: Arrival observation list}
+        '401': {description: Invalid staff session}
+  /api/arrivals/{id}/confirm:
+    post:
+      description: Operator/admin plate and vehicle-class confirmation; does not open a job.
+      responses:
+        '200': {description: Confirmed observation or identical retry}
+        '400': {description: Invalid plate or vehicle class}
+        '401': {description: Invalid staff session}
+        '403': {description: Insufficient role}
+        '404': {description: Observation not found}
+        '409': {description: Conflicting reconfirmation}
+  /api/arrivals/{id}/photo:
+    get:
+      description: Retained arrival JPEG for a staff Bearer session.
+      responses:
+        '200': {description: JPEG evidence}
+        '401': {description: Invalid staff session}
+        '404': {description: No retained photo}
+  /api/packages:
+    get:
+      description: Shared detailing package catalog and exact USD price matrix.
+      responses:
+        '200': {description: Versioned menu with vehicle classes and service inclusions}
+  /api/packages/suggestion:
+    get:
+      description: Initial Essential Spa suggestion for a vehicle class; no job or charge is created.
+      parameters:
+        - name: vehicleClass
+          in: query
+          required: true
+          schema: {type: string, enum: [car, suv, xl, pickup]}
+      responses:
+        '200': {description: Suggested package and class price}
+        '400': {description: Unknown vehicle class}
+  /api/auth/google:
+    post:
+      description: Validate a Google ID token for the configured SparkleWash client ID and issue a short-lived, server-owned staff session only for mapped Google subjects.
+      responses:
+        '200': {description: Session token, verified subject, role, expiry and tenant}
+        '401': {description: Invalid token or unmapped subject}
+        '503': {description: Google client ID not configured}
+  /api/payments/n1co/webhook:
+    post:
+      description: Verify and persist a signed N1CO event for later order reconciliation. Does not verify a payment or issue a receipt.
+      parameters:
+        - name: X-H4B-Hmac-Sha256
+          in: header
+          required: true
+          schema: {type: string}
+        - name: X-H4B-Event-Id
+          in: header
+          required: false
+          schema: {type: string}
+      responses:
+        '202': {description: Event accepted or duplicate acknowledged}
+        '400': {description: Invalid signed event body}
+        '401': {description: Invalid signature}
+        '413': {description: Actual body exceeds 65536 bytes}
+        '503': {description: Webhook secret is not configured}
+  /readyz:
+    get:
+      description: Check the embedded package catalog and write access to configured storage directories.
+      responses:
+        '200': {description: Ready}
+        '503': {description: Storage or catalog unavailable}
+  /api/history/archive:
+    get:
+      description: List staged archive digests for the authenticated staff tenant and issue a 24-hour signed offline entitlement for the current archive revision.
+      parameters:
+        - {name: after, in: query, schema: {type: string, pattern: '^[a-f0-9]{64}$'}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: X-SparkleWash-Client-Origin, in: header, required: true, schema: {type: string, format: uri}, description: Canonical API origin used to scope the signed offline grant. HTTPS is required except for localhost development.}
+      responses:
+        '200': {description: Archive digests, next cursor, revision and signed offline entitlement with its public verification key}
+        '400': {description: Invalid pagination parameters or insecure origin}
+        '401': {description: Staff authentication required}
+        '503': {description: Archive staging directory is unreadable or offline signing is not configured}
+  /api/history/archive/{batch}:
+    get:
+      description: Read a page of completed jobs from a staged archive for the authenticated staff tenant.
+      parameters:
+        - {name: batch, in: path, required: true, schema: {type: string, pattern: '^[a-f0-9]{64}$'}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+      responses:
+        '200': {description: Archive batch ID, job summaries and next offset}
+        '400': {description: Invalid batch or pagination parameters}
+        '401': {description: Staff authentication required}
+        '404': {description: Batch unavailable for this tenant}
+        '503': {description: Staged archive is corrupt or unreadable}
+  /healthz:
+    get:
+      responses:
+        '200':
+          description: Healthy
+  /health:
+    get:
+      responses:
+        '200':
+          description: Healthy
+    post:
+      responses:
+        '200':
+          description: Ready
+  /api/metrics:
+    get:
+      description: Flat station array. X-SparkleWash-Data-Source is demo before ingestion and station-ingest afterward.
+      responses:
+        '200':
+          description: Four example station snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Station'
+  /api/metrics/alerts:
+    get:
+      description: Fixed demo alerts before ingestion, then alerts derived from stored readings.
+      responses:
+        '200':
+          description: Example alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Alert'
+  /api/metrics/summary:
+    get:
+      description: Aggregate counts and revenue from recorded washes; no synthetic wash history.
+      responses:
+        '200':
+          description: Recorded fleet summary
+  /api/stations/{stationId}/telemetry:
+    post:
+      description: Persist a station reading. Requires X-SparkleWash-Ingest-Key.
+      parameters:
+        - name: stationId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, status, pressurePsi, soapLevelDm]
+              properties:
+                name: {type: string}
+                status: {type: string, enum: [idle, washing, cleaning, drying, error]}
+                pressurePsi: {type: number, minimum: 0, maximum: 150}
+                soapLevelDm: {type: number, minimum: 0, maximum: 100}
+      responses:
+        '201': {description: Reading persisted}
+        '400': {description: Invalid reading}
+        '401': {description: Invalid ingestion key}
+  /api/stations/{stationId}/washes:
+    post:
+      description: Persist a completed wash for a known station. Requires X-SparkleWash-Ingest-Key.
+      parameters:
+        - name: stationId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '201': {description: Wash persisted}
+        '400': {description: Invalid wash}
+        '401': {description: Invalid ingestion key}
+        '404': {description: Station not found}
+  /api/washes/history:
+    get:
+      parameters:
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100}
+      responses:
+        '200': {description: Recorded washes, newest first}
+        '400': {description: Invalid limit}
+  /api/stations/{stationId}/photos:
+    post:
+      description: Store one or two structurally valid JPEG files. Requires X-SparkleWash-Ingest-Key. Actual multipart body limit is 524288 bytes.
+      parameters:
+        - name: stationId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photos]
+              properties:
+                photos:
+                  type: array
+                  minItems: 1
+                  maxItems: 2
+                  items: {type: string, format: binary}
+      responses:
+        '201': {description: Photo metadata with retrieval IDs}
+        '400': {description: Malformed multipart body or JPEG}
+        '401': {description: Invalid ingestion key}
+        '404': {description: Station not found}
+        '413': {description: Actual request body exceeds 524288 bytes}
+    get:
+      description: List retained photo metadata for a station. Requires X-SparkleWash-Ingest-Key.
+      parameters:
+        - name: stationId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Retained photo metadata}
+        '401': {description: Invalid ingestion key}
+  /api/photos/{photoId}:
+    get:
+      description: Retrieve retained JPEG bytes. Requires X-SparkleWash-Ingest-Key.
+      parameters:
+        - name: photoId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: JPEG photo}
+        '401': {description: Invalid ingestion key}
+        '404': {description: Photo not found or expired}
+  /ws/app-station-streaming/{stationId}:
+    get:
+      description: WebSocket upgrade requiring X-SparkleWash-Stream-Key. Sends station and heartbeat JSON frames. Ordinary GET returns 404.
+      parameters:
+        - name: stationId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '101': {description: WebSocket upgrade accepted}
+        '401': {description: Invalid stream key}
+        '404': {description: Ordinary HTTP request}
+        '503': {description: Stream client limit reached}
+  /api/upload:
+    post:
+      description: Acknowledges a declared nonempty body without storing it. Maximum declared Content-Length is 524288 bytes.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Demo acknowledgement. A photos field omits uploadId.
+        '400':
+          description: Missing or zero Content-Length
+        '422':
+          description: Declared Content-Length above 524288 bytes
+  /api/upload/{uploadId}:
+    get:
+      description: Echoes the ID; it does not retrieve stored content.
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ID echo with stored false
+components:
+  schemas:
+    Station:
+      type: object
+      required: [stationId, name, status, pressurePsi, soapLevelDm, timestamp]
+      properties:
+        stationId: {type: string}
+        name: {type: string}
+        status: {type: string}
+        pressurePsi: {type: number}
+        soapLevelDm: {type: number}
+        timestamp: {type: string, format: date-time}
+    Alert:
+      type: object
+      required: [code, value, threshold, severity]
+      properties:
+        code: {type: string}
+        value: {type: number}
+        threshold: {type: number}
+        severity: {type: string}
+
+  /ws/app-station-streaming/{stationId}:
+    get:
+      description: >
+        WebSocket upgrade for live station telemetry streaming.
+        Requires X-SparkleWash-Ingest-Key header with a valid stream secret.
+        Sends a StationSnapshot every ~167ms with pressurePsi and soapLevelDm.
+        If no stations are known (demo mode), returns 404.
+      parameters:
+        - in: path
+          name: stationId
+          required: true
+          description: The station ID (e.g., "b4c3") for which to stream; omitted routes return 404.
+          schema:
+            type: string
+            pattern: "[A-Za-z0-9_-]+"
+      responses:
+        "101":
+          description: Upgrade response — server is a WebSocket that sends JSON frames.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        "401":
+          description: Invalid or missing X-SparkleWash-Ingest-Key header.
+        "404":
+          description: Ordinary HTTP request (client did not upgrade to WebSocket) or unknown stationId in demo mode.
+        "405":
+          description: Method not allowed — server does not support CONNECT or OPTIONS for this route; use GET with a WebSocket upgrade request.
+      summary: Live station telemetry stream via WebSocket

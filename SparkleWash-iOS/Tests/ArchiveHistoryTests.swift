@@ -1,0 +1,300 @@
+import Foundation
+import SwiftData
+import XCTest
+import CryptoKit
+@testable import SparkleWash
+
+final class ArchiveHistoryTests: XCTestCase {
+    func testOfflineGrantBindsOriginStaffScopeAndExpiry() throws {
+        let origin = "https://api.example.test"
+        let revision = String(repeating: "d", count: 64)
+        let grant = try Self.makeGrant(origin: origin, tenant: "site", subject: "staff", role: "viewer", revision: revision)
+        let scope = try JSONEncoder().encode(["site", "staff", "viewer"])
+        let trustedKey = try XCTUnwrap(Data(base64Encoded: grant.publicKey))
+
+        XCTAssertNotNil(OfflineEntitlementVerifier.verify(grant, origin: origin, staffScope: scope,
+            trustedPublicKey: trustedKey))
+        XCTAssertNil(OfflineEntitlementVerifier.verify(grant, origin: "https://other.example.test", staffScope: scope,
+            trustedPublicKey: trustedKey))
+        XCTAssertNil(OfflineEntitlementVerifier.verify(grant, origin: origin,
+            staffScope: try JSONEncoder().encode(["other-site", "staff", "viewer"]), trustedPublicKey: trustedKey))
+        XCTAssertNil(OfflineEntitlementVerifier.verify(grant, origin: origin, staffScope: scope,
+            trustedPublicKey: trustedKey, at: .now.addingTimeInterval(86_401)))
+
+        let selfSignedReplacement = try Self.makeGrant(origin: origin, tenant: "site", subject: "staff",
+            role: "viewer", revision: revision)
+        XCTAssertNil(OfflineEntitlementVerifier.verify(selfSignedReplacement, origin: origin,
+            staffScope: scope, trustedPublicKey: trustedKey),
+            "A grant cannot establish trust in the public key it carries.")
+
+        var pieces = grant.token.split(separator: ".").map(String.init)
+        pieces[2] = (pieces[2].first == "A" ? "B" : "A") + pieces[2].dropFirst()
+        let tampered = OfflineEntitlementDTO(token: pieces.joined(separator: "."), publicKey: grant.publicKey,
+            keyId: grant.keyId, revision: grant.revision)
+        XCTAssertNil(OfflineEntitlementVerifier.verify(tampered, origin: origin, staffScope: scope,
+            trustedPublicKey: trustedKey))
+    }
+
+    @MainActor
+    func testRestorePurgesExpiredStaffSnapshotsAndArchivePayloads() throws {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: CachedOperationsSnapshot.self, CachedArchivedJob.self, configurations: configuration)
+        let context = container.mainContext
+        let oldHistory = try JSONEncoder().encode(SavedArchiveHistory(jobs: [
+            ArchivedJobDTO(id: "old-job", plate: "SECRET1", packageName: "Quick", completedAt: "2026-01-01T00:00:00Z")
+        ], syncedAt: .now.addingTimeInterval(-172_800)))
+        let expired = CachedOperationsSnapshot(endpoint: "https://expired.example", arrivalsData: Data("SECRET2".utf8),
+            jobsData: Data("SECRET3".utf8), summaryData: Data("{}".utf8), employeesData: Data("[]".utf8),
+            inventoryData: Data("[]".utf8), catalogData: Data("CATALOG".utf8), savedAt: .now.addingTimeInterval(-172_800))
+        expired.staffScope = Data("staff-scope".utf8)
+        expired.archiveHistoryData = oldHistory
+        let expiredArchiveRow = CachedArchivedJob(endpoint: expired.endpoint, staffScope: Data("staff-scope".utf8),
+            batch: "old-batch", job: ArchivedJobDTO(id: "expired-row", plate: "OLD", packageName: "Quick",
+                completedAt: "2026-01-01T00:00:00Z"), syncedAt: .now.addingTimeInterval(-172_800))
+        let otherStaffArchiveRow = CachedArchivedJob(endpoint: expired.endpoint, staffScope: Data("other-staff".utf8),
+            batch: "new-batch", job: ArchivedJobDTO(id: "other-staff-row", plate: "NEW", packageName: "Plus",
+                completedAt: "2026-01-02T00:00:00Z"), syncedAt: .now)
+        let active = CachedOperationsSnapshot(endpoint: "https://active.example", arrivalsData: Data("ACTIVE".utf8),
+            jobsData: Data("ACTIVE".utf8), summaryData: Data("{}".utf8), employeesData: Data("[]".utf8),
+            inventoryData: Data("[]".utf8), catalogData: Data("CATALOG".utf8), savedAt: .now)
+        active.staffScope = Data("staff-scope".utf8)
+        active.archiveHistoryData = oldHistory
+        context.insert(expired)
+        context.insert(active)
+        context.insert(expiredArchiveRow)
+        context.insert(otherStaffArchiveRow)
+        try context.save()
+
+        let model = OperationsModel()
+        model.restore(context: context, endpoint: "https://active.example")
+
+        let records = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>())
+        let expiredAfterCleanup = try XCTUnwrap(records.first { $0.endpoint == "https://expired.example" })
+        XCTAssertNil(expiredAfterCleanup.staffScope)
+        XCTAssertNil(expiredAfterCleanup.archiveHistoryData)
+        XCTAssertEqual(expiredAfterCleanup.arrivalsData, Data("[]".utf8))
+        XCTAssertEqual(expiredAfterCleanup.jobsData, Data("[]".utf8))
+        XCTAssertEqual(expiredAfterCleanup.catalogData, Data("CATALOG".utf8))
+        let remainingArchiveRows = try context.fetch(FetchDescriptor<CachedArchivedJob>())
+        XCTAssertFalse(remainingArchiveRows.contains { $0.jobID == "expired-row" })
+        XCTAssertTrue(remainingArchiveRows.contains { $0.jobID == "other-staff-row" },
+            "Expiring one staff snapshot must not remove another staff scope's still-valid archive row.")
+
+        let activeAfterCleanup = try XCTUnwrap(records.first { $0.endpoint == "https://active.example" })
+        XCTAssertNotNil(activeAfterCleanup.staffScope)
+        XCTAssertNil(activeAfterCleanup.archiveHistoryData)
+        XCTAssertEqual(activeAfterCleanup.arrivalsData, Data("ACTIVE".utf8))
+    }
+
+    @MainActor
+    func testArchivePagesPersistOfflineAndClearWhenWithdrawn() async throws {
+        let fixture = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "service-packages", withExtension: "json"))
+        let catalog = try Data(contentsOf: fixture)
+        let batch = String(repeating: "a", count: 64)
+        let secondBatch = String(repeating: "b", count: 64)
+        let expiry = ISO8601DateFormatter().string(from: Date().addingTimeInterval(3600))
+        let endpoint = "http://localhost:8080"
+        var revision = String(repeating: "c", count: 64)
+        var grant = try Self.makeGrant(origin: endpoint, tenant: "site", subject: "staff", role: "viewer", revision: revision)
+        var tenantID = "site"
+        var withdrawBatch = false
+        var failSecondPageOnce = true
+        var offsets: [String] = []
+        var discoveryCursors: [String] = []
+        let keyStore = MemoryOfflineEntitlementKeyStore()
+        let model = OperationsModel(keyStore: keyStore) { request in
+            let url = try XCTUnwrap(request.url)
+            let path = url.path
+            var status = 200
+            let data: Data
+            switch path {
+            case "/api/auth/google":
+                data = Data("""
+                    {"sessionToken":"test-session","role":"viewer","expiresAt":"\(expiry)","tenant":{"id":"\(tenantID)"},"subject":"staff"}
+                    """.utf8)
+            case "/api/packages":
+                data = catalog
+            case "/api/jobs/summary":
+                data = Data("""
+                    {"total":0,"arrived":0,"queued":0,"inProgress":0,"completed":0,"cancelled":0,
+                    "arrivalsTodayUtc":0,"completedTodayUtc":0,"averageCompletedSeconds":null}
+                    """.utf8)
+            case "/api/history/archive":
+                XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-session")
+                XCTAssertEqual(request.value(forHTTPHeaderField: "X-SparkleWash-Client-Origin"), endpoint)
+                let cursor = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
+                    .first(where: { $0.name == "after" })?.value
+                discoveryCursors.append(cursor ?? "")
+                if cursor == nil {
+                    data = try JSONEncoder().encode(ArchiveIndex(batches: [batch], nextAfter: batch,
+                        revision: revision, offlineEntitlement: grant))
+                } else if cursor == batch {
+                    XCTAssertEqual(cursor, batch)
+                    data = try JSONEncoder().encode(ArchiveIndex(batches: [secondBatch], nextAfter: nil,
+                        revision: revision, offlineEntitlement: grant))
+                } else {
+                    data = try JSONEncoder().encode(ArchiveIndex(batches: [], nextAfter: nil,
+                        revision: revision, offlineEntitlement: grant))
+                }
+            case "/api/history/archive/\(secondBatch)":
+                data = Data("""
+                    {"batch":"\(secondBatch)","jobs":[],"nextOffset":null}
+                    """.utf8)
+            case "/api/history/archive/\(batch)":
+                XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-session")
+                let offset = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
+                    .first(where: { $0.name == "offset" })?.value ?? ""
+                offsets.append(offset)
+                if offset == "1" && failSecondPageOnce {
+                    failSecondPageOnce = false
+                    throw URLError(.timedOut)
+                }
+                if withdrawBatch {
+                    status = 404
+                    data = Data()
+                } else {
+                    let day = offset == "0" ? "01" : "02"
+                    let next = offset == "0" ? "1" : "null"
+                    data = Data("""
+                        {"batch":"\(batch)","jobs":[{"id":"job-\(offset)","plate":"ABC123",
+                        "packageName":"Quick","completedAt":"2026-01-\(day)T00:00:00Z"}],"nextOffset":\(next)}
+                        """.utf8)
+                }
+            case "/api/arrivals", "/api/jobs", "/api/employees", "/api/inventory/items":
+                data = Data("[]".utf8)
+            default:
+                XCTFail("Unexpected request: \(path)")
+                throw URLError(.badURL)
+            }
+            let response = try XCTUnwrap(HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil))
+            return (data, response)
+        }
+
+        let storeDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: storeDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: storeDirectory) }
+        let configuration = ModelConfiguration(url: storeDirectory.appendingPathComponent("Archive.store"))
+        let container = try ModelContainer(for: CachedOperationsSnapshot.self, CachedArchivedJob.self, configurations: configuration)
+        var context = container.mainContext
+        model.restore(context: context, endpoint: endpoint)
+        await model.exchangeGoogleToken("provider-credential", context: context, endpoint: endpoint)
+        XCTAssertTrue(model.canReadSavedHistory(at: .now))
+
+        let legacy = SavedArchiveHistory(jobs: [
+            ArchivedJobDTO(id: "legacy-job", plate: "OLD123", packageName: "Quick", completedAt: "2026-01-01T00:00:00Z")
+        ], syncedAt: .now)
+        let snapshot = try XCTUnwrap(context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first)
+        snapshot.archiveHistoryData = try JSONEncoder().encode(legacy)
+        try context.save()
+        XCTAssertEqual(try model.savedArchiveHistory(context: context)?.jobs.map(\.id), ["legacy-job"])
+        XCTAssertNil(snapshot.archiveHistoryData, "Reading an earlier cache should migrate it to individual rows.")
+        XCTAssertEqual(try context.fetch(FetchDescriptor<CachedArchivedJob>()).map(\.jobID), ["legacy-job"])
+
+        do {
+            _ = try await model.syncArchiveHistory(context: context)
+            XCTFail("Expected the interrupted page request to fail")
+        } catch let error as URLError { XCTAssertEqual(error.code, .timedOut) }
+        XCTAssertNil(try model.savedArchiveHistory(context: context), "Staged rows must not be visible as complete history.")
+        let interrupted = try XCTUnwrap(context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first)
+        XCTAssertEqual(interrupted.archiveSyncOffset, 1, "The next page offset must be saved with the first page.")
+        XCTAssertNil(interrupted.archiveHistoryRevision, "A partial sync must not receive an offline entitlement.")
+
+        let interruptedStore = try ModelContainer(for: CachedOperationsSnapshot.self, CachedArchivedJob.self,
+            configurations: configuration)
+        context = interruptedStore.mainContext
+        model.restore(context: context, endpoint: endpoint)
+        await model.exchangeGoogleToken("provider-credential", context: context, endpoint: endpoint)
+        XCTAssertNil(try model.savedArchiveHistory(context: context),
+            "A cold reopen must keep partially downloaded rows inaccessible until the revision completes.")
+
+        let downloaded = try await model.syncArchiveHistory(context: context)
+        XCTAssertEqual(discoveryCursors, ["", "", batch, secondBatch])
+        XCTAssertEqual(offsets, ["0", "1", "1"])
+        XCTAssertEqual(downloaded.jobs.map(\.id), ["job-1", "job-0"])
+        let savedRows = try context.fetch(FetchDescriptor<CachedArchivedJob>())
+        XCTAssertEqual(savedRows.map(\.jobID).sorted(), ["job-0", "job-1"])
+        XCTAssertTrue(savedRows.allSatisfy { $0.endpoint == endpoint && !$0.staffScope.isEmpty })
+        XCTAssertEqual(try keyStore.publicKey(for: endpoint), Data(base64Encoded: grant.publicKey))
+        grant = try Self.makeGrant(origin: endpoint, tenant: "site", subject: "staff", role: "viewer", revision: revision)
+        _ = try await model.syncArchiveHistory(context: context)
+        XCTAssertEqual(try keyStore.publicKey(for: endpoint), Data(base64Encoded: grant.publicKey),
+            "A signed-in HTTPS sync accepts a server key rotation and refreshes the device pin.")
+        let reopened = try ModelContainer(for: CachedOperationsSnapshot.self, CachedArchivedJob.self, configurations: configuration)
+        XCTAssertEqual(try model.savedArchiveHistory(context: reopened.mainContext)?.jobs.map(\.id), ["job-1", "job-0"])
+        let coldLaunch = OperationsModel(keyStore: keyStore)
+        coldLaunch.restore(context: reopened.mainContext, endpoint: endpoint)
+        XCTAssertFalse(coldLaunch.signedIn)
+        XCTAssertTrue(coldLaunch.offlineHistoryAvailable)
+        XCTAssertEqual(try coldLaunch.savedArchiveHistory(context: reopened.mainContext)?.jobs.map(\.id), ["job-1", "job-0"])
+        XCTAssertFalse(coldLaunch.canReadSavedHistory(at: .now.addingTimeInterval(86_401)))
+
+        keyStore.failReads = true
+        let beforeFirstUnlock = OperationsModel(keyStore: keyStore)
+        beforeFirstUnlock.restore(context: reopened.mainContext, endpoint: endpoint)
+        XCTAssertFalse(beforeFirstUnlock.offlineHistoryAvailable)
+        XCTAssertNotNil(try reopened.mainContext.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first?.offlineEntitlementData,
+            "A temporarily unavailable Keychain must not destroy the saved grant.")
+        XCTAssertEqual(try reopened.mainContext.fetch(FetchDescriptor<CachedArchivedJob>()).count, 2)
+        keyStore.failReads = false
+
+        withdrawBatch = true
+        revision = String(repeating: "e", count: 64)
+        grant = try Self.makeGrant(origin: endpoint, tenant: "site", subject: "staff", role: "viewer", revision: revision)
+        do {
+            _ = try await model.syncArchiveHistory(context: context)
+            XCTFail("Expected a withdrawn batch to invalidate saved history")
+        } catch OperationsModel.ArchiveSyncError.batchWithdrawn {}
+        let afterWithdrawal = try ModelContainer(for: CachedOperationsSnapshot.self, CachedArchivedJob.self, configurations: configuration)
+        XCTAssertNil(try model.savedArchiveHistory(context: afterWithdrawal.mainContext))
+        XCTAssertTrue(try afterWithdrawal.mainContext.fetch(FetchDescriptor<CachedArchivedJob>()).isEmpty)
+
+        XCTAssertFalse(model.canReadSavedHistory(at: .now.addingTimeInterval(7200)),
+                       "A downloaded archive must become inaccessible after the staff session expires.")
+        tenantID = "another-site"
+        await model.exchangeGoogleToken("provider-credential", context: context, endpoint: endpoint)
+        XCTAssertTrue(model.signedIn)
+        XCTAssertNil(try model.savedArchiveHistory(context: context),
+                     "A second tenant at the same endpoint must not inherit the prior tenant's archive.")
+
+        model.signOut(context: context)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).isEmpty,
+                      "Sign-out must remove the endpoint's saved operational and archive data.")
+    }
+
+    private struct ArchiveIndex: Encodable {
+        let batches: [String]
+        let nextAfter: String?
+        let revision: String
+        let offlineEntitlement: OfflineEntitlementDTO
+    }
+
+    private final class MemoryOfflineEntitlementKeyStore: OfflineEntitlementKeyStoreProtocol {
+        private var keys: [String: Data] = [:]
+        var failReads = false
+
+        func publicKey(for origin: String) throws -> Data? {
+            if failReads { throw KeyStoreUnavailable.temporarilyUnavailable }
+            return keys[origin]
+        }
+        func pin(_ publicKey: Data, for origin: String) throws { keys[origin] = publicKey }
+
+        private enum KeyStoreUnavailable: Error { case temporarilyUnavailable }
+    }
+
+    private static func makeGrant(origin: String, tenant: String, subject: String, role: String,
+                                  revision: String, now: Date = .now) throws -> OfflineEntitlementDTO {
+        let key = P256.Signing.PrivateKey()
+        let publicKey = key.publicKey.rawRepresentation
+        let keyId = SHA256.hash(data: publicKey).prefix(8).map { String(format: "%02x", $0) }.joined()
+        let header = try JSONSerialization.data(withJSONObject: ["alg": "ES256", "typ": "JWT", "kid": keyId], options: [.sortedKeys])
+        let issuedAt = Int64(now.timeIntervalSince1970)
+        let claims = try JSONSerialization.data(withJSONObject: ["iss": origin, "tenant": tenant, "sub": subject,
+            "role": role, "revision": revision, "iat": issuedAt, "exp": issuedAt + 86_400], options: [.sortedKeys])
+        func encode(_ value: Data) -> String { value.base64EncodedString().replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "") }
+        let signingInput = encode(header) + "." + encode(claims)
+        let signature = try key.signature(for: Data(signingInput.utf8))
+        return OfflineEntitlementDTO(token: signingInput + "." + encode(signature.rawRepresentation),
+            publicKey: publicKey.base64EncodedString(), keyId: keyId, revision: revision)
+    }
+}

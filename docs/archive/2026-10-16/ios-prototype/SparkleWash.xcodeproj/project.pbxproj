@@ -1,0 +1,250 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1C2D3B4E5F6G7H8I9J0K1L2M3N4O5P6 /* SparkleWashApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = QRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5G6; };\nA1C2D3B4E5F6G7H8I9J0K1L2M3N4O5P7 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = QRS2T3U4V5W6X7Y8Z9A0B1C3D4E5F6G8; };\nA1C2D3B4E5F6G7H8I9J0K1L2M3N4O5P8 /* StationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = QRS2T3U4V5W6X7Y8Z9A0B1C3D4E5F6G9; };\nA1C2D3B4E5F6G7H8I9J0K1L2M3N4O5P9 /* PicoLishBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = QRS2T3U4V5W6X7Y8Z9A0B1C3D4E5F7H1; };\n/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		QRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5G7 /* SparkleWashApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleWashApp.swift; sourceTree = "<group>"; };\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5G8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5G9 /* StationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationCard.swift; sourceTree = "<group>"; };\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5HA /* GaugeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaugeView.swift; sourceTree = "<group>"; };\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5HB /* PicoLishBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PicoLishBundle.swift; sourceTree = "<group>"; };\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5HC /* SparkleWash */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SparkleWash; sourceTree = BUNDLE; };\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5H0 /* SparkleWash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SparkleWash.app; sourceTree = BUNDLE; };\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5H1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5H2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5H3 /* Contents.json */ = {isa = PBXFileReference; lastKnownFileType = "text.plist.json"; path = "Contents.json"; sourceTree = "<group>"; };\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5H4 /* Cascade.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = "Cascade.css"; sourceTree = "<group>"; };\n/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		STU1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		JKL5M6N7O8P9Q0R1S2T3U4V5W6X7Y8Z9 /* root */ = {
+			isa = PBXGroup;
+			children = (
+				A0B1C2D3E4F5G6H7I8J9K0L1M2N3O4P5 /* SparkleWashApp.swift */,
+				B1C2D3E4F5G6H7I8J9K0L1M2N3O4P5Q6 /* Views */,
+				C2D3E4F5G6H7I8J9K0L1M2N3O4P5Q6R7 /* Models */,
+				D3E4F5G6H7I8J9K0L1M2N3O4P5Q6R7S8 /* Resources */,
+				A1C2D3B4E5F6G7H8I9J0K1L2M3N4O5P9P10 /* Resources */,
+			);
+			sourceTree = "<group>";
+		};
+		A0B1C2D3E4F5G6H7I8J9K0L1M2N3O4P5Q /* SparkleWashApp.swift */ = {
+			isa = PBXGroup;
+			children = (
+				QRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5G7
+			);
+			path = SparkleWashApp.swift;
+			sourceTree = "<group>";
+		};
+		B1C2D3E4F5G6H7I8J9K0L1M2N3O4P5Q /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				QRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5G8,\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5G9,\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5HA,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		C2D3E4F5G6H7I8J9K0L1M2N3O4P5Q6R7 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				QRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5I1,\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5I2,\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5I3,\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5I4,\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5I5,\nQRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5I6,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		D3E4F5G6H7I8J9K0L1M2N3O4P5Q6R7S /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				EFG1H2I3J4K5L6M7N8O9P0Q1R2S3T4U5 /* Assets.xcassets */,
+				VWX5Y6Z7A8B9C0D1E2F3G4H5I6J7K8 /* PicoLish CSS */
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A1C2D3B4E5F6G7H8I9J0K1L2M3N4O5P9P10 /* Resources - Icons */ = {
+			isa = PBXGroup;
+			children = (
+				QRS2T3U4V5W6X7Y8Z9A0B1C2D3E4F5I7,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		PQR9S0T1U2V3W4X5Y6Z7A8B9C0D1E2F3 /* SparkleWash */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = GHI9J0K1L2M3N4O5P6Q7R8S9T0U1V2W3X4Y5Z6A7B8C9D0;
+			buildPhases = (
+				LMN5O6P7Q8R9S0T1U2V3W4X5Y6Z7A8B9C0, /* Sources */\nSTU1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5, /* Frameworks */\nYZA2B3C4D5E6F7G8H9I0J1K2L3M4N5O6P7, /* Resources */\nPQR8S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3, /* Copy Bundle Resources */\nSTU1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5, /* Embed Frameworks */\nA1C2D3B4E5F6G7H8I9J0K1L2M3N4O5P9P15, /* Run Swift Scripts */\nA1C2D3B4E5F6G7H8I9J0K1L2M3N4O5P9P13, /* Run Script */
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SparkleWash;
+			productName = SparkleWash;
+			productReference = RST2U3V4W5X6Y7Z8A9B0C1D2E3F4G5;
+			productType = "com.apple.product-type.app-extension" ; // Changed to widget-style extension for SwiftUI
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DEF2G3H4I5J6K7L8M9N0O1P2Q3R4S5T6 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					PQR9S0T1U2V3W4X5Y6Z7A8B9C0D1E2F3 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = GHI9J0K1L2M3N4O5P6Q7R8S9T0U1V2W3X4Y5Z6A7B8C9D0;
+			completed = NO;
+			compatibilityEnabled = YES;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = JKL5M6N7O8P9Q0R1S2T3U4V5W6X7Y8Z9;
+			productRefGroup = UVW5X6Y7Z8A9B0C1D2E3F4G5H6I7; // Group for app products
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				PQR9S0T1U2V3W4X5Y6Z7A8B9C0D1E2F3,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		YZA2B3C4D5E6F7G8H9I0J1K2L3M4N5O6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EFG1H2I3J4K5L6M7N8O9P0Q1R2S3T4U5 /* Assets.xcassets in Resources */,
+				EFG1H2I3J4K5L6M7N8O9P0Q1R2S3T4U5 /* Contents.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+/* Begin PBXSourcesBuildPhase section */
+		LMN5O6P7Q8R9S0T1U2V3W4X5Y6Z7A8B9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1C2D3B4E5F6G7H8I9J0K1L2M3N4O5P6 /* SparkleWashApp.swift in Sources */,
+				A1C2D3B4E5F6G7H8I9J0K1L2M3N4O5P7 /* ContentView.swift in Sources */,
+				A1C2D3B4E5F6G7H8I9J0K1L2M3N4O5P8 /* StationCard.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		ABCD1E2F3G4H5I6J7K8L9M0N1O2P3Q4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_MOCK_OBJECT_FILES = NO;
+				INFOPLIST_FILE = SparkleWash-iOS/Resources/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen = NO;
+				INFOPLIST_KEY_UISupportsExtendedDesktop Modes = NO;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Automatic;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sparklewash.app";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		ABCD1E2F3G4H5I6J7K8L9M0N1O2P3Q5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_MOCK_OBJECT_FILES = NO;
+				INFOPLIST_FILE = SparkleWash-iOS/Resources/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen = NO;
+				INFOPLIST_KEY_UISupportsExtendedDesktop Modes = NO;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Automatic;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sparklewash.app";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "RELEASE";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCBuildConfigurationList section */
+		GHI9J0K1L2M3N4O5P6Q7R8S9T0U1V2W3 /* Build configuration list for PBXProject "SparkleWash" */ = {
+			isa = XCBuildConfigurationList;
+			buildConfigurations = (
+				ABCD1E2F3G4H5I6J7K8L9M0N1O2P3Q4,
+				ABCD1E2F3G4H5I6J7K8L9M0N1O2P3Q5,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		LMNO1P2Q3R4S5T6U7V8W9X0Y1Z2A3B4 /* Debug */ = {
+			isa = XCBuildConfigurationList;
+			buildConfigurations = (
+				ABCD1E2F3G4H5I6J7K8L9M0N1O2P3Q4,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		LMNO1P2Q3R4S5T6U7V8W9X0Y1Z2A3B5 /* Release */ = {
+			isa = XCBuildConfigurationList;
+			buildConfigurations = (
+				ABCD1E2F3G4H5I6J7K8L9M0N1O2P3Q5,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCBuildConfigurationList section */
+
+/* Begin XCVersioningComponent section */
+		CDEFGHIJKLMNOPQRSTUVWXYZ123456789 /* Versioning rules for "SparkleWash" */ = {
+			isa = XCVersioningComponent;
+			productName = SparkleWash;
+			versionFormat = $(MARKETING_VERSION);
+			versioningConfigurationList = GHI9J0K1L2M3N4O5P6Q7R8S9T0U1V2W3; /* {GUID} */;
+		};
+/* End XCVersioningComponent section */
+
+	};
+	rootObject = DEF2G3H4I5J6K7L8M9N0O1P2Q3R4S5T6;
+}
