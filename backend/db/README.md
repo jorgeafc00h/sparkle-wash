@@ -48,7 +48,10 @@ Before a pilot:
    schema stores only relational operations records. Rehearse export, checksum
    verification and isolated restore before enabling any retention purge.
 
-The API's PostgreSQL-backed stores are not yet exercised by the regular
-integration suite. Keep the
+The regular integration suite now exercises the PostgreSQL device, arrival,
+job, inventory, and staff-session paths against PostgreSQL 18. It verifies
+tenant isolation, concurrent retries and stock consumption, plus session
+survival across auth-service recreation. Broader store-method coverage, a
+read-only file import, Neon restore, and full cutover rehearsal remain. Keep the
 PostgreSQL flags off until the full pilot checklist passes. Track migration and
 cutover completion in OpenSpec change `complete-platform-parity`, tasks 6.1–6.3.

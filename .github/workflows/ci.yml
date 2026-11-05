@@ -9,6 +9,22 @@ permissions:
 jobs:
   web-api-specs:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: sparklewash_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      SPARKLEWASH_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=sparklewash_test;Username=postgres;Password=postgres;SSL Mode=Disable
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6

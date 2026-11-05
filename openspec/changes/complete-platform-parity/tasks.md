@@ -34,7 +34,7 @@
 
 ## 6. Cloud persistence and retention
 - [x] 6.1 Define tenant-scoped PostgreSQL migrations, runtime roles, immutable evidence references and production readiness checks.
-- [ ] 6.2 Implement transactional operational stores and restart-safe staff sessions. Verify concurrent writes, tenant isolation, and retry deduplication.
+- [x] 6.2 Implement transactional operational stores and restart-safe staff sessions. Verify concurrent writes, tenant isolation, and retry deduplication.
 - [ ] 6.3 Build a read-only JSON import rehearsal with row counts, checksums, cutover and rollback evidence.
 - [ ] 6.4 Export versioned archive batches, verify their checksums, and restore into an isolated database. Implement hold-aware purge behind an explicit policy switch.
 - [ ] 6.5 Add authorized paged archive reads, version cursors and revocation or deletion markers. Validate cross-tenant denials.

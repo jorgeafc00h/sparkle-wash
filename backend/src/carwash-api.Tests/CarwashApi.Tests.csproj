@@ -27,6 +27,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="../../contracts/v1/*.json" Link="Contracts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../db/migrations/*.sql" Link="Migrations/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../db/grant-runtime.sql" Link="Migrations/grant-runtime.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Fixtures/tiny.jpg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
