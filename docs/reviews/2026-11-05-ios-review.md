@@ -12,15 +12,19 @@ files and captured the light-mode catalog at
 `docs/reviews/2026-11-05-visual-smoke/iphone-17-pro-light-catalog.png`.
 Captured the same catalog in dark appearance at
 `docs/reviews/2026-11-05-visual-smoke/iphone-17-pro-dark-catalog.png`.
+Captured the iPad Pro 13 catalog in light and dark appearances at
+`docs/reviews/2026-11-05-visual-smoke/ipad-pro-13-light-catalog.png` and
+`docs/reviews/2026-11-05-visual-smoke/ipad-pro-13-dark-catalog.png`.
 Re-ran `make ios-build` and `make ios-test` after adding per-job archive rows.
 
 ## Findings
 
-- The live public-catalog screenshot has a clear title and package hierarchy,
+- The live public-catalog screenshots have a clear title and package hierarchy,
   consistent native typography, readable price alignment, and distinct native
-card surfaces. The visible package cards show no clipping. Light and dark
-appearance captures cover the public catalog on a large iPhone; staff screens
-have no signed-in visual evidence.
+  card surfaces. The visible package cards show no clipping in light or dark
+  appearance on iPhone 17 Pro and iPad Pro 13. The iPad uses a balanced four
+  column layout; its lower half remains open because the public catalog has
+  little content. Staff screens have no signed-in visual evidence.
 - The active workboard uses `Section` containers within a `LazyVStack` with
   `pinnedViews: [.sectionHeaders]`. The connection/status strip uses
   `safeAreaInset`, keeping the pinned headers below it. This matches Apple's
@@ -40,8 +44,9 @@ have no signed-in visual evidence.
   cache, not an independently durable local Neon archive.
 - VoiceOver focus through pinned headers, largest Dynamic Type, light-mode
   contrast, signed-in iPhone/iPad layouts, and Reduce Motion need runtime
-  acceptance. The Mac was locked during this review, preventing direct
-  Simulator app automation; `simctl` tests ran successfully.
+  acceptance. `simctl` captured the public screens, but interactive signed-in
+  Simulator testing is not configured because staff OAuth credentials are
+  absent.
 
 ## Verification
 
@@ -52,11 +57,14 @@ have no signed-in visual evidence.
 - iPhone 17 Pro simulator, iOS 27, live catalog backed by the local API — light
   and dark appearance captures reviewed and saved; this does not cover
   signed-in workboard behavior or prove theme contrast at largest Dynamic Type.
+- iPad Pro 13 simulator, iOS 27, live catalog backed by the local API — light
+  and dark portrait captures reviewed and saved. Landscape and signed-in
+  workboard acceptance remain outstanding.
 
 ## Next implementation steps
 
-1. Capture the workboard in phone portrait/landscape and iPad
-   portrait/landscape, then exercise pinned headers with VoiceOver and large
+1. Capture the signed-in workboard in phone portrait/landscape and iPad
+   landscape, then exercise pinned headers with VoiceOver and large
    Dynamic Type in light/dark appearances and Reduce Motion.
 2. Replace the server's file-only archive source with Neon-backed stable
    revisions, resumable cursors, and tombstones. Remove the 100-batch/1,000-job
