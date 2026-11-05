@@ -146,8 +146,9 @@ of IBM's compute grant.
 
 Keep archive work separate from the Code Engine deploy workflow. The manual
 `Verify and archive Neon history to IBM COS` workflow runs only from `main` in
-the protected `ibm-archive` GitHub Environment. Configure required reviewers
-there before the first dispatch. It takes a tenant and date range, uses a
+the `ibm-archive` GitHub Environment. That environment does not exist yet;
+create it with a `main` branch restriction and required reviewers before the
+first dispatch. The workflow takes a tenant and date range, uses a
 read-only Neon export login, restores the resulting batch into a disposable
 PostgreSQL 18 service and rolls the restore back, then publishes and verifies
 the digest-addressed batch in a private IBM COS bucket. It never purges Neon
