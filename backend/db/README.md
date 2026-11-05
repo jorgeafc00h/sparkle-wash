@@ -101,7 +101,11 @@ The script has only been rehearsed with a local fake IBM CLI. It has not been
 run against a real COS bucket. It does not purge Neon records or enforce
 row-level legal/financial holds. Run `rehearse_archive_restore.py` on a
 disposable PostgreSQL database before treating an uploaded batch as restorable
-or enabling any deletion policy.
+or enabling any deletion policy. The repository's manual
+`.github/workflows/archive-neon-to-ibm-cos.yml` workflow performs this isolated
+restore rehearsal before publication; it requires a protected `ibm-archive`
+GitHub Environment with a read-only Neon export URI, IBM COS credentials and a
+reviewer gate. It does not run automatically and does not delete source rows.
 
 The rehearsal has been smoke-tested against a disposable PostgreSQL 18 database
 using a synthetic empty snapshot. It has not yet been run against an actual

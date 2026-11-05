@@ -144,11 +144,21 @@ of IBM's compute grant.
 
 ## Neon archive workflow for IBM COS
 
-Keep archive work separate from the Code Engine deploy workflow. A scheduled
-or manually approved GitHub Actions workflow can use the Neon read-only export
-login to create a tenant-scoped completed-job batch, then upload the manifest,
-compressed history and optional evidence ZIP to a private IBM COS bucket. Do
-not store Neon or COS credentials in the image.
+Keep archive work separate from the Code Engine deploy workflow. The manual
+`Verify and archive Neon history to IBM COS` workflow runs only from `main` in
+the protected `ibm-archive` GitHub Environment. Configure required reviewers
+there before the first dispatch. It takes a tenant and date range, uses a
+read-only Neon export login, restores the resulting batch into a disposable
+PostgreSQL 18 service and rolls the restore back, then publishes and verifies
+the digest-addressed batch in a private IBM COS bucket. It never purges Neon
+rows. Do not store Neon or COS credentials in the image.
+
+The `ibm-archive` environment needs `IBM_REGION`, `IBM_RESOURCE_GROUP`,
+`IBM_COS_BUCKET`, and `IBM_COS_INSTANCE_ID` variables, plus `IBM_CLOUD_API_KEY`
+and `NEON_ARCHIVE_CONNECTION_STRING` secrets. The Neon secret must be a
+read-only PostgreSQL URI for the archive export role. The IBM API key should
+have only the COS access needed to upload, HEAD, GET, and inspect bucket/object
+configuration. Keep the `ibm-demo` runtime database secret separate.
 
 `backend/db/publish_archive_ibm_cos.py` packages a validated batch and optional
 evidence ZIP under a tenant-scoped SHA-256 key. It checks that the bucket
