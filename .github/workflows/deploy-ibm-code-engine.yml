@@ -20,7 +20,7 @@ jobs:
       # public source repository from the OCI source label in the Dockerfile.
       REGISTRY: ghcr.io/${{ github.repository }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: docker/setup-buildx-action@v3
 
@@ -66,7 +66,7 @@ jobs:
       IBM_CE_PROJECT: ${{ vars.IBM_CE_PROJECT }}
       IMAGE_REF: ghcr.io/${{ github.repository }}@${{ needs.build-publish.outputs.digest }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Validate required IBM settings
         shell: bash
