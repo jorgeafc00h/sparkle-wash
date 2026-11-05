@@ -2,11 +2,13 @@
 set -euo pipefail
 
 : "${IBM_CE_APP:?Set the existing Code Engine demo application name}"
-: "${IBM_CE_REGISTRY_SECRET:?Set the Code Engine registry pull secret name}"
 : "${IMAGE_REF:?Set the published Linux AMD64 image reference by digest}"
 IBM_CE_CPU=${IBM_CE_CPU:-0.125}
 IBM_CE_MEMORY=${IBM_CE_MEMORY:-0.25G}
 app_args=(--name "$IBM_CE_APP")
+if [[ -n "${IBM_CE_REGISTRY_SECRET:-}" ]]; then
+  app_args+=(--registry-secret "$IBM_CE_REGISTRY_SECRET")
+fi
 if [[ -n "${IBM_CE_RUNTIME_SECRET:-}" ]]; then
   app_args+=(--env-from-secret "$IBM_CE_RUNTIME_SECRET")
 fi
@@ -23,7 +25,7 @@ else
 fi
 
 ibmcloud ce application "$app_action" "${app_args[@]}" \
-  --image "$IMAGE_REF" --registry-secret "$IBM_CE_REGISTRY_SECRET" \
+  --image "$IMAGE_REF" \
   --cpu "$IBM_CE_CPU" --memory "$IBM_CE_MEMORY" \
   --port 8080 --visibility public --min-scale 0 --max-scale 1 \
   --probe-live type=http --probe-live port=8080 --probe-live path=/healthz \

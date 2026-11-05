@@ -94,6 +94,12 @@ different Container Instances setup and is historical.
 
 Build and smoke check the Linux AMD64 image before publishing it to a registry
 that Code Engine can pull from. Use the published image digest for deployment.
+The manual `Deploy IBM Code Engine demo` GitHub Actions workflow builds and
+publishes the tested image to GHCR. For anonymous pulls with no registry token,
+make the repository-scoped GHCR package public and set repository variable
+`GHCR_PUBLIC=true`; the workflow verifies the image is pullable without login.
+The default keeps the package private and requires a protected GHCR pull token
+in the `ibm-demo` environment.
 Select the IBM account, region, and Code Engine project with the IBM Cloud CLI,
 then configure the existing demo application and its registry pull secret. The
 deployment script explicitly requests 0.125 vCPU and 0.25 GB by default; raise

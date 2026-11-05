@@ -62,18 +62,28 @@ approval if environment reviewers are available:
 | `IBM_REGION` | Variable | IBM Cloud region, for example `us-south` |
 | `IBM_RESOURCE_GROUP` | Variable | IBM Cloud resource group name |
 | `IBM_CE_PROJECT` | Variable | Code Engine project name (created on first deploy if missing) |
-| `GHCR_PULL_USERNAME` | Variable | GitHub username that can read the package |
 | `IBM_CLOUD_API_KEY` | Secret | IBM Cloud API key scoped to deployment operations |
-| `GHCR_PULL_TOKEN` | Secret | GitHub classic PAT with `read:packages` for the private image |
 | `NEON_RUNTIME_CONNECTION_STRING` | Secret | Restricted runtime login with `SSL Mode=VerifyFull`; optional until database cutover |
+| `GHCR_PULL_USERNAME` | Variable | Required only for a private GHCR package |
+| `GHCR_PULL_TOKEN` | Secret | Required only for a private package; classic PAT with `read:packages` |
+
+For the lowest-friction cross-cloud pull, publish this source-matched image as
+a public GHCR package and set the repository variable `GHCR_PUBLIC=true`.
+Because the repository is already public, this exposes the deployable image as
+well as its source. Set package visibility to public after its first publish;
+the workflow verifies an anonymous pull before deploying. Leave the registry
+secret, pull username, and pull token unset in this mode. The default is
+`GHCR_PUBLIC=false`, which keeps the image private and requires the protected
+read-only token settings above.
 
 The repository Actions token needs `packages: write`. The IBM workflow publishes
 to `ghcr.io/jorgeafc00h/sparkle-wash`, a repository-scoped package. The
 Dockerfile carries the OCI source label for this repository so GHCR can link
 the package at its first publish and grant the workflow access. The older
 `ghcr.io/jorgeafc00h/sparklewash-api` package is not linked and is not the IBM
-workflow target. Code Engine still needs a separate read-only `GHCR_PULL_TOKEN`
-to pull a private image. Do not reuse that token for publishing.
+workflow target. For a private package, Code Engine uses a separate read-only
+`GHCR_PULL_TOKEN`; do not reuse that token for publishing. For a public package,
+the workflow verifies an anonymous pull and Code Engine needs no GHCR secret.
 
 1. The regular validation workflow runs `make verify` and builds and smoke-checks
    the Linux AMD64 container on pushes and pull requests without registry credentials.
@@ -84,13 +94,13 @@ to pull a private image. Do not reuse that token for publishing.
 3. The deploy job is restricted to the `ibm-demo` GitHub Environment. Store an IBM API key,
    region, resource group, Code Engine project name and app name as environment
    secrets or variables. The workflow creates the project/app on first run if
-   absent. Store a GHCR read-only package token as a secret and its username as
-   a variable. Restrict the environment to `main` and add
-   required reviewers when available.
+   absent. For a private GHCR package, store its read-only token and username;
+   for a public package, set `GHCR_PUBLIC=true` and omit those settings. Restrict
+   the environment to `main` and add required reviewers when available.
 4. Authenticate the IBM Cloud CLI, select the target resource group, install
-   or update the Code Engine plugin, create/select the project, and create or
-   update the Code Engine registry secret for GHCR from a protected temporary
-   file. Then invoke
+   or update the Code Engine plugin, create/select the project, and (for a
+   private GHCR package) create or update the Code Engine registry secret from
+   a protected temporary file. Then invoke
    `deploy/ibm/deploy-demo.sh` with `IMAGE_REF` set to the immutable digest.
 5. Read the app URL from Code Engine and run `scripts/smoke-cloud.sh` against
    it. Record the digest, app revision and smoke result in the workflow log.
@@ -127,8 +137,10 @@ of IBM's compute grant.
 - Confirm account-level free grants are unused and measure peak memory and
   request volume from a shift, including every client poll and camera retry.
 - Confirm the first-published repository-scoped GHCR package is linked to this
-  repository. Grant the pull-token account package read access. The workflow
-  push token and Code Engine pull token are separate.
+  repository. For private visibility, grant the pull-token account package
+  read access; for public visibility, set `GHCR_PUBLIC=true` and let the
+  workflow validate anonymous image access. The workflow push token and private
+  Code Engine pull token are separate.
 - A Neon Free project named `sparklewash` is provisioned in `aws-us-east-1` at
 0.25 CU. Its default `main` branch has migrations `001_core` and
 `002_immutable_arrival_evidence`, plus the restricted

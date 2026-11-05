@@ -6,6 +6,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # Set the repository variable to 'true' only after the GHCR package has been
+  # made public. Public images can be pulled without a stored package token.
+  GHCR_PUBLIC: ${{ vars.GHCR_PUBLIC || 'false' }}
+
 jobs:
   build-publish:
     if: github.ref == 'refs/heads/main'
@@ -45,6 +50,10 @@ jobs:
           pushed_ref=$(docker image inspect "$REGISTRY:$GITHUB_SHA" --format '{{index .RepoDigests 0}}')
           digest=${pushed_ref##*@}
           [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          if [[ "$GHCR_PUBLIC" == 'true' ]]; then
+            docker logout ghcr.io
+            docker pull "$REGISTRY:$GITHUB_SHA"
+          fi
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
   deploy:
@@ -75,9 +84,14 @@ jobs:
           GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
         run: |
           set -euo pipefail
-          for name in IBM_CE_APP IBM_CE_REGISTRY_SECRET IBM_CE_CPU IBM_CE_MEMORY IBM_CLOUD_API_KEY IBM_REGION IBM_RESOURCE_GROUP IBM_CE_PROJECT GHCR_PULL_USERNAME GHCR_PULL_TOKEN IMAGE_REF; do
+          for name in IBM_CE_APP IBM_CE_CPU IBM_CE_MEMORY IBM_CLOUD_API_KEY IBM_REGION IBM_RESOURCE_GROUP IBM_CE_PROJECT IMAGE_REF; do
             if [[ -z "${!name}" ]]; then echo "Missing GitHub Environment setting: $name" >&2; exit 1; fi
           done
+          if [[ "$GHCR_PUBLIC" != 'true' ]]; then
+            for name in IBM_CE_REGISTRY_SECRET GHCR_PULL_USERNAME GHCR_PULL_TOKEN; do
+              if [[ -z "${!name}" ]]; then echo "Missing private GHCR setting: $name" >&2; exit 1; fi
+            done
+          fi
 
       - name: Install IBM Cloud CLI and Code Engine plugin
         run: |
@@ -96,6 +110,7 @@ jobs:
           ibmcloud ce project select --name "$IBM_CE_PROJECT"
 
       - name: Create or update GHCR pull secret in Code Engine
+        if: ${{ env.GHCR_PUBLIC != 'true' }}
         env:
           GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
         shell: bash
