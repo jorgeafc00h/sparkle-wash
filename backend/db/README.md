@@ -48,10 +48,29 @@ Before a pilot:
    schema stores only relational operations records. Rehearse export, checksum
    verification and isolated restore before enabling any retention purge.
 
-The regular integration suite now exercises the PostgreSQL device, arrival,
-job, inventory, and staff-session paths against PostgreSQL 18. It verifies
-tenant isolation, concurrent retries and stock consumption, plus session
-survival across auth-service recreation. Broader store-method coverage, a
-read-only file import, Neon restore, and full cutover rehearsal remain. Keep the
-PostgreSQL flags off until the full pilot checklist passes. Track migration and
-cutover completion in OpenSpec change `complete-platform-parity`, tasks 6.1–6.3.
+For a non-persisting import rehearsal, point `psql` at a disposable database
+after applying the active migrations and run:
+
+```sh
+PGHOST=127.0.0.1 PGDATABASE=sparklewash_test PGUSER=postgres \
+  python3 backend/db/rehearse_import.py /path/to/snapshot \
+  --evidence-file /path/to/import-rehearsal.json
+```
+
+The script imports within one transaction and rolls it back. It accepts only
+empty target tables, except for the migration's matching seeded `default`
+tenant. The evidence file records source-file SHA-256 values, row counts,
+source immutability, the post-rollback baseline, and that cutover was not
+performed. Never point this rehearsal at Neon `main` or a production database.
+
+The rehearsal has been smoke-tested against a disposable PostgreSQL 18 database
+using a synthetic empty snapshot. It has not yet been run against an actual
+file-backed application data directory, so this is tool validation rather than
+cutover evidence. The regular integration suite now exercises the PostgreSQL
+device, arrival, job, inventory, and staff-session paths against PostgreSQL 18.
+It verifies tenant isolation, concurrent retries and stock consumption, plus
+session survival across auth-service recreation. Broader store-method
+coverage, an actual file-backed import, Neon restore, and full cutover rehearsal
+remain. Keep the PostgreSQL flags off until the full pilot checklist passes.
+Track migration and cutover completion in OpenSpec change
+`complete-platform-parity`, tasks 6.1–6.3.
