@@ -98,14 +98,15 @@ PostgreSQL-backed stores, include `SPARKLEWASH_SESSION_POSTGRES` with
 `SPARKLEWASH_POSTGRES_DEVICES=true`, `SPARKLEWASH_POSTGRES_WORKFLOW=true`, and
 `SPARKLEWASH_POSTGRES_INVENTORY=true`. Include `SPARKLEWASH_INGEST_KEY` if a
 camera will send observations. The current application uses file-backed JSON by default, in-memory
-staff sessions, and file-backed photos. The repository does not yet contain
-the schema migrations/bootstrap or runtime grants required by these PostgreSQL
-stores; the API expects an existing `sparklewash` schema. Do not set the
-PostgreSQL flags until versioned migrations and grants are implemented and
-verified on a fresh Neon branch. Code Engine scale-to-zero or a new revision
-can lose the default file-backed state. Use this profile only for disposable
-demo data until PostgreSQL, staff sessions, and durable photo/object storage
-have been configured and rehearsed. Neon is independent of IBM's compute grant.
+staff sessions, and file-backed photos. The initial PostgreSQL schema migration
+and least-privilege DML grant script are checked in and were validated against
+an ephemeral Neon branch. The default `main` branch remains empty. Do not set
+the PostgreSQL flags until all stores are integration-tested and the migrations,
+role separation, import and restore are rehearsed. Code Engine scale-to-zero or
+a new revision can lose the default file-backed state. Use this profile only
+for disposable demo data until PostgreSQL, staff sessions, and durable
+photo/object storage have been configured and rehearsed. Neon is independent
+of IBM's compute grant.
 
 ## Before implementing the workflow
 
@@ -116,11 +117,10 @@ have been configured and rehearsed. Neon is independent of IBM's compute grant.
   repository. Grant the pull-token account package read access. The workflow
   push token and Code Engine pull token are separate.
 - A Neon Free project named `sparklewash` is provisioned in `aws-us-east-1` at
-  0.25 CU. Create a restricted runtime role, confirm TLS with
-  `SSL Mode=VerifyFull`, and place the connection string in a protected IBM
-  Code Engine generic secret. The project is empty and not connected to the API;
-  first implement and verify the schema migrations and grants in
-  `backend/db/README.md`.
+  0.25 CU. Its default `main` branch is empty and not connected to the API. Use
+  `backend/db/README.md` to apply the migration on a disposable branch, create
+  the restricted runtime role, verify TLS with `SSL Mode=VerifyFull`, and then
+  place the runtime connection string in a protected IBM Code Engine secret.
 - Keep photo evidence out of the Neon database. Select an object-storage
   target and rehearse export, checksum verification and restore before any
   automated retention purge.

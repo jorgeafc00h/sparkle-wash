@@ -205,10 +205,9 @@ mounts at `/app/data` for the container's unprivileged user. Azure Files
 adds storage and transaction charges to the Consumption app.
 
 Optionally supply `postgresConnection` as a secure deployment parameter
-after completing the [PostgreSQL cutover](backend/db/README.md). The cutover is
-not complete: the API expects a pre-provisioned `sparklewash` schema, and the
-versioned schema migrations and runtime grants are still to be implemented. Use
-`SSL Mode=VerifyFull`. This enables the migrated operational stores while
+after completing the [PostgreSQL cutover](backend/db/README.md). An initial
+schema migration and runtime-grant script exist, but the cutover is not
+complete. Require `SSL Mode=VerifyFull`. This enables the operational stores while
 keeping photo bytes and compatibility data on the share. Pass secure values
 through protected deployment parameters. Supply `googleClientIds` and the
 secure `staffRoles` parameter for staff sign-in. Set `corsOrigins` to the
