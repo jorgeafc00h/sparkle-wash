@@ -16,11 +16,18 @@ DML operations used by the current stores and no schema creation or
 migration-ledger access. Extend the grants deliberately when a new store or
 table is added. Never put either connection string in the image or GitHub logs.
 
+`migrations/002_immutable_arrival_evidence.sql` prevents rewrites to original
+device provenance and photo identifiers/checksums while allowing staff
+confirmation, job linkage and dismissal updates. Four earlier table-creation
+migrations are preserved under `docs/archive/2026-11-05/db-migrations/`; they
+duplicate the consolidated baseline and are not part of the active chain.
+
 ## Validation and remaining cutover
 
 The initial migration has been applied to an isolated local PostgreSQL 17
 instance, an ephemeral Neon PostgreSQL 18 validation branch, and the default
-Neon `main` branch. On `main`, the restricted runtime role was verified to
+Neon `main` branch. Migrations `001_core` and
+`002_immutable_arrival_evidence` are applied on `main`. The runtime role was verified to
 have no elevated attributes or role memberships; it can perform allowed DML,
 cannot read `schema_migrations`, and cannot create tables. The GitHub `ibm-demo`
 environment contains `NEON_RUNTIME_CONNECTION_STRING`. The value has not been
@@ -42,6 +49,6 @@ Before a pilot:
    verification and isolated restore before enabling any retention purge.
 
 The API's PostgreSQL-backed stores are not yet exercised by the regular
-integration suite, and only the initial schema migration exists. Keep the
+integration suite. Keep the
 PostgreSQL flags off until the full pilot checklist passes. Track migration and
 cutover completion in OpenSpec change `complete-platform-parity`, tasks 6.1–6.3.

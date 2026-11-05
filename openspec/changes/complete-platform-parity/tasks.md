@@ -33,7 +33,7 @@
 - [ ] 5.4 Run end-to-end acceptance for each job workflow on web and SwiftUI; archive only with evidence.
 
 ## 6. Cloud persistence and retention
-- [ ] 6.1 Define tenant-scoped PostgreSQL migrations, runtime roles, immutable evidence references and production readiness checks.
+- [x] 6.1 Define tenant-scoped PostgreSQL migrations, runtime roles, immutable evidence references and production readiness checks.
 - [ ] 6.2 Implement transactional operational stores and restart-safe staff sessions. Verify concurrent writes, tenant isolation, and retry deduplication.
 - [ ] 6.3 Build a read-only JSON import rehearsal with row counts, checksums, cutover and rollback evidence.
 - [ ] 6.4 Export versioned archive batches, verify their checksums, and restore into an isolated database. Implement hold-aware purge behind an explicit policy switch.

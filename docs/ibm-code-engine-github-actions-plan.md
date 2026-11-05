@@ -107,10 +107,11 @@ PostgreSQL-backed stores, include `SPARKLEWASH_SESSION_POSTGRES` with
 `SPARKLEWASH_POSTGRES_DEVICES=true`, `SPARKLEWASH_POSTGRES_WORKFLOW=true`, and
 `SPARKLEWASH_POSTGRES_INVENTORY=true`. Include `SPARKLEWASH_INGEST_KEY` if a
 camera will send observations. The current application uses file-backed JSON by default, in-memory
-staff sessions, and file-backed photos. The initial PostgreSQL schema migration
-and least-privilege DML grant script are checked in and were validated against
-an ephemeral Neon branch. The migration and grants have also been applied to
-the default `main` branch; its runtime role was checked for least privilege.
+staff sessions, and file-backed photos. PostgreSQL migrations `001_core` and
+`002_immutable_arrival_evidence` plus the least-privilege DML grants are checked
+in and were applied to an ephemeral Neon branch and default `main`. The runtime
+role was checked for least privilege, and an attempted evidence rewrite was
+rejected by the database trigger.
 The GitHub `ibm-demo` Environment now has `NEON_RUNTIME_CONNECTION_STRING`,
 but the value has not been read back or copied into Code Engine. Do not set
 the PostgreSQL flags until all stores are integration-tested and the migrations,
@@ -129,7 +130,8 @@ of IBM's compute grant.
   repository. Grant the pull-token account package read access. The workflow
   push token and Code Engine pull token are separate.
 - A Neon Free project named `sparklewash` is provisioned in `aws-us-east-1` at
-  0.25 CU. Its default `main` branch has the initial migration and restricted
+0.25 CU. Its default `main` branch has migrations `001_core` and
+`002_immutable_arrival_evidence`, plus the restricted
   runtime role, but the API is not yet using it. Verify the connection stored
   in GitHub and have the workflow sync it only when `IBM_CE_RUNTIME_SECRET` is
   set. Keep PostgreSQL flags off until store integration tests and migration,
