@@ -44,9 +44,9 @@ activity or request polling grows.
 
 ## GitHub Actions sequence
 
-Create a GitHub Environment named `ibm-demo`, restrict it to the `main`
-branch, and require reviewer approval if the repository supports environment
-reviewers. Add these environment values before dispatching the workflow:
+The `ibm-demo` GitHub Environment is created and restricted to the `main`
+branch. Add the target IBM resources and credentials below before dispatching
+the workflow. Require reviewer approval if environment reviewers are available:
 
 | Name | Type | Value |
 | --- | --- | --- |
@@ -130,11 +130,12 @@ branch, and the pull request validation workflow runs the current project
 checks. The deployment workflow only runs from `main`, so review and merge
 must happen before deployment can be dispatched.
 
-The private GHCR package still needs Actions access for this repository (or a
-verified package link), and the `ibm-demo` GitHub Environment plus its IBM and
-read-only GHCR credentials must be configured. No IBM deployment has been
-performed. Configure those values after review, then deploy only to a disposable
-Code Engine project until PostgreSQL and durable photo storage are ready.
+The `ibm-demo` GitHub Environment has been created with a branch policy for
+`main`; its IBM resource variables and API key are not configured yet. The private
+GHCR package still needs Actions access for this repository (or a verified package
+link), and a separate read-only GHCR pull token is required. No IBM deployment has
+been performed. Configure those values after review, then deploy only to a
+disposable Code Engine project until PostgreSQL and durable photo storage are ready.
 
 ## Sources
 
