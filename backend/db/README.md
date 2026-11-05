@@ -8,24 +8,28 @@ migrations transactionally and records them in `sparklewash.schema_migrations`.
 It reads the connection URL from `SPARKLEWASH_MIGRATION_DATABASE_URL`, writes a
 temporary mode-0600 libpq password file, and removes it on exit.
 
-The runtime role grants are in `grant-runtime.sql`. Create a dedicated login
-role named `sparklewash_runtime` in Neon, run migrations with a migration
-owner, then execute the grants file as the schema owner. The runtime role gets
-only the DML operations used by the current stores and no schema creation or
+The runtime role grants are in `grant-runtime.sql`. Neon Console/CLI-created
+roles inherit Neon administrative privileges, so create the restricted login
+with SQL as described in `docs/ibm-code-engine-github-actions-plan.md`, then
+execute the grants file as the schema owner. The runtime role gets only the
+DML operations used by the current stores and no schema creation or
 migration-ledger access. Extend the grants deliberately when a new store or
 table is added. Never put either connection string in the image or GitHub logs.
 
 ## Validation and remaining cutover
 
 The initial migration has been applied to an isolated local PostgreSQL 17
-instance and an ephemeral Neon PostgreSQL 18 branch. The API's JSONB row
-inserts for arrivals/jobs and its custom runtime grants were checked there.
-The Neon validation branch was removed after the check. The default Neon
-`main` branch remains empty; it has not been migrated or connected to the API.
+instance, an ephemeral Neon PostgreSQL 18 validation branch, and the default
+Neon `main` branch. On `main`, the restricted runtime role was verified to
+have no elevated attributes or role memberships; it can perform allowed DML,
+cannot read `schema_migrations`, and cannot create tables. The GitHub `ibm-demo`
+environment contains `NEON_RUNTIME_CONNECTION_STRING`. The value has not been
+read back from GitHub, and it has not been copied into Code Engine or used by
+the API. PostgreSQL feature flags remain off.
 
 Before a pilot:
 
-1. Apply the reviewed migrations to a fresh branch and verify every API store,
+1. Verify every API store on a disposable branch,
    including tenant isolation, concurrent writes, retry deduplication and a
    restore from a backup.
 2. Create and store a restricted runtime login separately from the migration

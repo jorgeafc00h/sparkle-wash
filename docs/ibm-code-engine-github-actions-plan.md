@@ -65,6 +65,7 @@ approval if environment reviewers are available:
 | `GHCR_PULL_USERNAME` | Variable | GitHub username that can read the package |
 | `IBM_CLOUD_API_KEY` | Secret | IBM Cloud API key scoped to deployment operations |
 | `GHCR_PULL_TOKEN` | Secret | GitHub classic PAT with `read:packages` for the private image |
+| `NEON_RUNTIME_CONNECTION_STRING` | Secret | Restricted runtime login with `SSL Mode=VerifyFull`; optional until database cutover |
 
 The repository Actions token needs `packages: write`. The IBM workflow publishes
 to `ghcr.io/jorgeafc00h/sparkle-wash`, a repository-scoped package. The
@@ -95,9 +96,11 @@ to pull a private image. Do not reuse that token for publishing.
    it. Record the digest, app revision and smoke result in the workflow log.
 
 Never put Neon credentials or staff/device secrets in the image or workflow
-logs. Supply database and application secrets through Code Engine secret
-references and set `IBM_CE_RUNTIME_SECRET` to the generic secret name so the
-deployment attaches it with `--env-from-secret`. At minimum, include the
+logs. When `IBM_CE_RUNTIME_SECRET` is nonempty, the workflow copies
+`NEON_RUNTIME_CONNECTION_STRING` from the protected GitHub Environment secret
+to a Code Engine generic secret key named `SPARKLEWASH_SESSION_POSTGRES`, then
+attaches that secret with `--env-from-secret`. Leave `IBM_CE_RUNTIME_SECRET`
+empty to keep the database connection out of Code Engine. At minimum, include the
 Google client ID and staff-role allowlist for staff sign-in. To enable durable
 PostgreSQL-backed stores, include `SPARKLEWASH_SESSION_POSTGRES` with
 `SSL Mode=VerifyFull`, plus `SPARKLEWASH_POSTGRES_DIRECTORY=true`,
@@ -106,7 +109,10 @@ PostgreSQL-backed stores, include `SPARKLEWASH_SESSION_POSTGRES` with
 camera will send observations. The current application uses file-backed JSON by default, in-memory
 staff sessions, and file-backed photos. The initial PostgreSQL schema migration
 and least-privilege DML grant script are checked in and were validated against
-an ephemeral Neon branch. The default `main` branch remains empty. Do not set
+an ephemeral Neon branch. The migration and grants have also been applied to
+the default `main` branch; its runtime role was checked for least privilege.
+The GitHub `ibm-demo` Environment now has `NEON_RUNTIME_CONNECTION_STRING`,
+but the value has not been read back or copied into Code Engine. Do not set
 the PostgreSQL flags until all stores are integration-tested and the migrations,
 role separation, import and restore are rehearsed. Code Engine scale-to-zero or
 a new revision can lose the default file-backed state. Use this profile only
@@ -123,10 +129,11 @@ of IBM's compute grant.
   repository. Grant the pull-token account package read access. The workflow
   push token and Code Engine pull token are separate.
 - A Neon Free project named `sparklewash` is provisioned in `aws-us-east-1` at
-  0.25 CU. Its default `main` branch is empty and not connected to the API. Use
-  `backend/db/README.md` to apply the migration on a disposable branch, create
-  the restricted runtime role, verify TLS with `SSL Mode=VerifyFull`, and then
-  place the runtime connection string in a protected IBM Code Engine secret.
+  0.25 CU. Its default `main` branch has the initial migration and restricted
+  runtime role, but the API is not yet using it. Verify the connection stored
+  in GitHub and have the workflow sync it only when `IBM_CE_RUNTIME_SECRET` is
+  set. Keep PostgreSQL flags off until store integration tests and migration,
+  role separation, import and restore are rehearsed.
 - Keep photo evidence out of the Neon database. Select an object-storage
   target and rehearse export, checksum verification and restore before any
   automated retention purge.

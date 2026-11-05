@@ -114,6 +114,29 @@ jobs:
               --password-from-file "$secret_file"
           fi
 
+      - name: Create or update Neon connection secret in Code Engine
+        if: ${{ env.IBM_CE_RUNTIME_SECRET != '' }}
+        env:
+          NEON_RUNTIME_CONNECTION_STRING: ${{ secrets.NEON_RUNTIME_CONNECTION_STRING }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$NEON_RUNTIME_CONNECTION_STRING" ]]; then
+            echo 'IBM_CE_RUNTIME_SECRET is set but NEON_RUNTIME_CONNECTION_STRING is missing.' >&2
+            exit 1
+          fi
+          secret_file=$(mktemp)
+          trap 'rm -f "$secret_file"' EXIT
+          umask 077
+          printf '%s' "$NEON_RUNTIME_CONNECTION_STRING" > "$secret_file"
+          if ibmcloud ce secret get --name "$IBM_CE_RUNTIME_SECRET" >/dev/null 2>&1; then
+            ibmcloud ce secret update --name "$IBM_CE_RUNTIME_SECRET" \
+              --from-file "SPARKLEWASH_SESSION_POSTGRES=$secret_file"
+          else
+            ibmcloud ce secret create --name "$IBM_CE_RUNTIME_SECRET" \
+              --from-file "SPARKLEWASH_SESSION_POSTGRES=$secret_file"
+          fi
+
       - name: Deploy digest to Code Engine
         run: deploy/ibm/deploy-demo.sh
 
