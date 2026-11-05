@@ -147,28 +147,42 @@ of IBM's compute grant.
 Keep archive work separate from the Code Engine deploy workflow. A scheduled
 or manually approved GitHub Actions workflow can use the Neon read-only export
 login to create a tenant-scoped completed-job batch, then upload the manifest,
-compressed history and optional evidence ZIP to a private IBM COS bucket. Use
-an immutable key such as
-`completed-jobs/<tenant>/<history-sha256>/job-history.json.gz`; refuse to
-replace an existing key with different bytes. Do not store Neon or COS
-credentials in the image.
+compressed history and optional evidence ZIP to a private IBM COS bucket. Do
+not store Neon or COS credentials in the image.
 
-The IBM COS CLI supports `object-put`, `object-head`, and `object-get`. After
-upload, download each object to the runner and compare its SHA-256 to the local
-file; a successful HEAD or ETag alone is not a payload checksum. Run archive
-manifest validation and the PostgreSQL restore rehearsal on a disposable
-database before the batch can be considered restorable. Keep this independent
-from the deploy job so a deploy failure or image update cannot skip retention
-work. [IBM COS CLI reference](https://cloud.ibm.com/docs/cloud-object-storage?topic=cloud-object-storage-ic-cos-cli)
+`backend/db/publish_archive_ibm_cos.py` packages a validated batch and optional
+evidence ZIP under a tenant-scoped SHA-256 key. It checks that the bucket
+blocks all public access and has Object Lock enabled with a nonzero default
+retention in COMPLIANCE or GOVERNANCE mode. The business must approve that
+retention and mode before configuring the bucket; this is separate from the
+90-day minimum storage duration of IBM Archive tier. The publisher uses
+`object-head` to avoid overwriting an existing object, checks the object's
+active retention, downloads the complete object, and compares its SHA-256 to
+the local bundle. An ETag alone is not treated as a payload checksum. Run it after `export_closed_jobs.py` and, when applicable,
+`export_archive_evidence.py`:
+
+```sh
+python3 backend/db/publish_archive_ibm_cos.py /path/to/archive \
+  --bucket YOUR_PRIVATE_ARCHIVE_BUCKET --region us-south \
+  --evidence /path/to/evidence.zip
+```
+
+The local fake-CLI rehearsal verifies upload, readback, checksum validation,
+and idempotent reuse. A live IBM bucket publication and PostgreSQL restore are
+still required before the batch is considered restorable. The script does not
+manage row/legal holds or purge Neon data. Keep this independent from the
+deploy job so a deployment failure cannot skip retention work. Use an online
+COS tier until the approved access and retention period justify the cold tier;
+IBM Archive bills a minimum 90 days and small objects as 128 KB. [IBM COS CLI reference](https://cloud.ibm.com/docs/cloud-object-storage?topic=cloud-object-storage-ic-cos-cli)
 
 The future purge workflow must be separate and manually approved in a protected
 GitHub Environment. It should require both a reviewed retention-policy ID and
 an explicit purge switch, verify the COS copy and restore evidence, re-read
 every current job version, and skip any job under an active hold. Keep purge
 disabled until the retention periods and financial-record requirements are
-approved. The current repository has export and transactional restore tools;
-the COS publication, hold registry, purge implementation and an actual
-populated archive restore are still outstanding.
+approved. The repository now has export, transactional restore, and a COS
+publisher; live publication, a hold registry, purge implementation, and an
+actual populated archive restore are still outstanding.
 
 ## Repository integration state (checked 2026-11-05)
 

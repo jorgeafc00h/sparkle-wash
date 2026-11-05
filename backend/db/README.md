@@ -78,6 +78,31 @@ matching migration-seeded `default` tenant. It checks the restored counts,
 rolls back, and records the archive and manifest digests. This proves the
 transactional restore path, not a retained copy in independent object storage.
 
+## IBM Cloud Object Storage publication
+
+`publish_archive_ibm_cos.py` accepts a v3 archive directory, optional evidence
+ZIP, private bucket, and bucket region. Authenticate `ibmcloud` and install its
+Cloud Object Storage plug-in first. The publisher refuses a bucket without all
+four public-access-block flags and a nonzero Object Lock default in COMPLIANCE
+or GOVERNANCE mode. The business must approve the retention window and mode
+before configuring the bucket; do not confuse this with IBM Archive tier's
+90-day minimum storage duration. It writes a digest-addressed ZIP, checks the
+object's active retention, downloads the complete object, and verifies its
+SHA-256. Re-running the command reuses an existing digest key only after
+downloading and matching the bytes.
+
+```sh
+python3 backend/db/publish_archive_ibm_cos.py /path/to/archive \
+  --bucket YOUR_PRIVATE_ARCHIVE_BUCKET --region us-south \
+  --evidence /path/to/evidence.zip
+```
+
+The script has only been rehearsed with a local fake IBM CLI. It has not been
+run against a real COS bucket. It does not purge Neon records or enforce
+row-level legal/financial holds. Run `rehearse_archive_restore.py` on a
+disposable PostgreSQL database before treating an uploaded batch as restorable
+or enabling any deletion policy.
+
 The rehearsal has been smoke-tested against a disposable PostgreSQL 18 database
 using a synthetic empty snapshot. It has not yet been run against an actual
 file-backed application data directory, so this is tool validation rather than
