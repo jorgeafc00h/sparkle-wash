@@ -155,10 +155,16 @@ the digest-addressed batch in a private IBM COS bucket. It never purges Neon
 rows. Do not store Neon or COS credentials in the image.
 
 The `ibm-archive` environment needs `IBM_REGION`, `IBM_RESOURCE_GROUP`,
-`IBM_COS_BUCKET`, and `IBM_COS_INSTANCE_ID` variables, plus `IBM_CLOUD_API_KEY`
-and `NEON_ARCHIVE_CONNECTION_STRING` secrets. The Neon secret must be a
-read-only PostgreSQL URI for the archive export role. The IBM API key should
-have only the COS access needed to upload, HEAD, GET, and inspect bucket/object
+`IBM_COS_BUCKET`, `IBM_COS_INSTANCE_ID`, and `NEON_ARCHIVE_TENANT_ID` variables,
+plus `IBM_CLOUD_API_KEY` and `NEON_ARCHIVE_CONNECTION_STRING` secrets. The
+requested tenant must exactly match the allowlisted `NEON_ARCHIVE_TENANT_ID`.
+The Neon secret must be a read-only PostgreSQL URI for a dedicated archive
+export role, limited to SELECT on the tables needed by
+`export_closed_jobs.py`, with `default_transaction_read_only=on` and a bounded
+statement timeout. Verify it has no elevated attributes or inherited admin
+membership before adding it. Current Neon state has owner/runtime roles only;
+the read-only export role is not configured yet. The IBM API key should have
+only the COS access needed to upload, HEAD, GET, and inspect bucket/object
 configuration. Keep the `ibm-demo` runtime database secret separate.
 
 `backend/db/publish_archive_ibm_cos.py` packages a validated batch and optional

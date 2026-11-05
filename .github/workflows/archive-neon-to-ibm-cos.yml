@@ -46,6 +46,7 @@ jobs:
       IBM_RESOURCE_GROUP: ${{ vars.IBM_RESOURCE_GROUP }}
       IBM_COS_BUCKET: ${{ vars.IBM_COS_BUCKET }}
       IBM_COS_INSTANCE_ID: ${{ vars.IBM_COS_INSTANCE_ID }}
+      NEON_ARCHIVE_TENANT_ID: ${{ vars.NEON_ARCHIVE_TENANT_ID }}
     steps:
       - uses: actions/checkout@v5
 
@@ -56,10 +57,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in IBM_CLOUD_API_KEY NEON_ARCHIVE_CONNECTION_STRING IBM_REGION IBM_RESOURCE_GROUP IBM_COS_BUCKET IBM_COS_INSTANCE_ID TENANT_ID COMPLETED_BEFORE_UTC; do
+          for name in IBM_CLOUD_API_KEY NEON_ARCHIVE_CONNECTION_STRING IBM_REGION IBM_RESOURCE_GROUP IBM_COS_BUCKET IBM_COS_INSTANCE_ID NEON_ARCHIVE_TENANT_ID TENANT_ID COMPLETED_BEFORE_UTC; do
             if [[ -z "${!name}" ]]; then echo "Missing ibm-archive Environment setting: $name" >&2; exit 1; fi
           done
           if [[ ! "$TENANT_ID" =~ ^[A-Za-z0-9]+$ ]]; then echo 'Invalid tenant ID.' >&2; exit 1; fi
+          if [[ "$TENANT_ID" != "$NEON_ARCHIVE_TENANT_ID" ]]; then echo 'Requested tenant is not allowed by this archive environment.' >&2; exit 1; fi
           if [[ ! "$COMPLETED_BEFORE_UTC" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then echo 'Invalid UTC cutoff date.' >&2; exit 1; fi
           if [[ -n "$COMPLETED_ON_OR_AFTER_UTC" && ! "$COMPLETED_ON_OR_AFTER_UTC" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then echo 'Invalid UTC start date.' >&2; exit 1; fi
 
