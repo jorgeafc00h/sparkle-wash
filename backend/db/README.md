@@ -63,6 +63,21 @@ tenant. The evidence file records source-file SHA-256 values, row counts,
 source immutability, the post-rollback baseline, and that cutover was not
 performed. Never point this rehearsal at Neon `main` or a production database.
 
+After creating an archive with `export_closed_jobs.py`, verify its compressed
+checksum, tenant scope, row counts and relational constraints by restoring it
+inside a transaction on a separate disposable database:
+
+```sh
+PGHOST=127.0.0.1 PGDATABASE=sparklewash_test PGUSER=postgres \
+  python3 backend/db/rehearse_archive_restore.py /path/to/archive \
+  --evidence-file /path/to/restore-rehearsal.json
+```
+
+The restore rehearsal requires empty operational tables and permits only the
+matching migration-seeded `default` tenant. It checks the restored counts,
+rolls back, and records the archive and manifest digests. This proves the
+transactional restore path, not a retained copy in independent object storage.
+
 The rehearsal has been smoke-tested against a disposable PostgreSQL 18 database
 using a synthetic empty snapshot. It has not yet been run against an actual
 file-backed application data directory, so this is tool validation rather than
