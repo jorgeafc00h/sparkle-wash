@@ -81,6 +81,14 @@ final class CachedSnapshot {
 }
 
 enum EndpointValidation {
+    static func origin(_ address: String) -> String? {
+        guard isValid(address), var parts = URLComponents(string: address) else { return nil }
+        parts.path = ""
+        parts.query = nil
+        parts.fragment = nil
+        return parts.string?.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
     static func isValid(_ address: String) -> Bool {
         guard let parts = URLComponents(string: address),
               parts.scheme == "http" || parts.scheme == "https",
