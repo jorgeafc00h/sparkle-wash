@@ -98,10 +98,14 @@ PostgreSQL-backed stores, include `SPARKLEWASH_SESSION_POSTGRES` with
 `SPARKLEWASH_POSTGRES_DEVICES=true`, `SPARKLEWASH_POSTGRES_WORKFLOW=true`, and
 `SPARKLEWASH_POSTGRES_INVENTORY=true`. Include `SPARKLEWASH_INGEST_KEY` if a
 camera will send observations. The current application uses file-backed JSON by default, in-memory
-staff sessions, and file-backed photos. Code Engine scale-to-zero or a new
-revision can lose this state. Use this profile only for disposable demo data
-until PostgreSQL, staff sessions, and durable photo/object storage have been
-configured and rehearsed. Neon is independent of IBM's compute grant.
+staff sessions, and file-backed photos. The repository does not yet contain
+the schema migrations/bootstrap or runtime grants required by these PostgreSQL
+stores; the API expects an existing `sparklewash` schema. Do not set the
+PostgreSQL flags until versioned migrations and grants are implemented and
+verified on a fresh Neon branch. Code Engine scale-to-zero or a new revision
+can lose the default file-backed state. Use this profile only for disposable
+demo data until PostgreSQL, staff sessions, and durable photo/object storage
+have been configured and rehearsed. Neon is independent of IBM's compute grant.
 
 ## Before implementing the workflow
 
@@ -114,7 +118,9 @@ configured and rehearsed. Neon is independent of IBM's compute grant.
 - A Neon Free project named `sparklewash` is provisioned in `aws-us-east-1` at
   0.25 CU. Create a restricted runtime role, confirm TLS with
   `SSL Mode=VerifyFull`, and place the connection string in a protected IBM
-  Code Engine generic secret. The project is not connected to the API yet.
+  Code Engine generic secret. The project is empty and not connected to the API;
+  first implement and verify the schema migrations and grants in
+  `backend/db/README.md`.
 - Keep photo evidence out of the Neon database. Select an object-storage
   target and rehearse export, checksum verification and restore before any
   automated retention purge.
