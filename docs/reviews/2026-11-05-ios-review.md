@@ -7,8 +7,8 @@ Reviewed the active SwiftUI target declared by `SparkleWash-iOS/project.yml`,
 the November 5 public-catalog simulator captures. Applied the UI/UX Pro Max
 SwiftUI and native pre-delivery guidance, then checked Apple's current SwiftUI,
 SwiftData, and accessibility references. On November 5, launched the app on an
-iPhone 17 Pro simulator against a local API backed by isolated temporary JSON
-files and captured the light-mode catalog at
+iPhone 17 Pro simulator against the local API, without staff OAuth credentials,
+and captured the light-mode catalog at
 `docs/reviews/2026-11-05-visual-smoke/iphone-17-pro-light-catalog.png`.
 Captured the same catalog in dark appearance at
 `docs/reviews/2026-11-05-visual-smoke/iphone-17-pro-dark-catalog.png`.
