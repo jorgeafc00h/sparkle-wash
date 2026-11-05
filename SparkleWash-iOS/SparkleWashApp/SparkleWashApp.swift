@@ -9,6 +9,6 @@ struct SparkleWashApp: App {
             OperationsView()
                 .onOpenURL { url in _ = GIDSignIn.sharedInstance.handle(url) }
         }
-        .modelContainer(for: [CachedSnapshot.self, CachedOperationsSnapshot.self])
+        .modelContainer(for: [CachedSnapshot.self, CachedOperationsSnapshot.self, CachedArchivedJob.self])
     }
 }

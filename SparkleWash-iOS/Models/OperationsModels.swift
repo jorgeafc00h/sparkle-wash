@@ -145,3 +145,38 @@ final class CachedOperationsSnapshot {
         self.savedAt = savedAt
     }
 }
+
+/// A locally cached archive row. The composite key keeps records isolated by API,
+/// tenant/staff scope, and stable server job ID without storing a bearer token.
+@Model
+final class CachedArchivedJob {
+    @Attribute(.unique) var key: String
+    var endpoint: String
+    var staffScope: Data
+    var batch: String
+    var jobID: String
+    var plate: String
+    var packageName: String
+    var completedAt: String
+    var syncedAt: Date
+
+    init(endpoint: String, staffScope: Data, batch: String, job: ArchivedJobDTO, syncedAt: Date) {
+        self.key = Self.makeKey(endpoint: endpoint, staffScope: staffScope, jobID: job.id)
+        self.endpoint = endpoint
+        self.staffScope = staffScope
+        self.batch = batch
+        self.jobID = job.id
+        self.plate = job.plate
+        self.packageName = job.packageName
+        self.completedAt = job.completedAt
+        self.syncedAt = syncedAt
+    }
+
+    static func makeKey(endpoint: String, staffScope: Data, jobID: String) -> String {
+        "\(endpoint)|\(staffScope.base64EncodedString())|\(jobID)"
+    }
+
+    var dto: ArchivedJobDTO {
+        ArchivedJobDTO(id: jobID, plate: plate, packageName: packageName, completedAt: completedAt)
+    }
+}

@@ -42,13 +42,32 @@ final class OperationsModel: ObservableObject {
 
     func savedArchiveHistory(context: ModelContext) throws -> SavedArchiveHistory? {
         try purgeExpiredLocalData(context: context)
-        guard canReadSavedHistory(at: .now), let staffScope,
-              let record = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first(where: {
-                  $0.endpoint == endpoint && $0.staffScope == staffScope
-              }), let data = record.archiveHistoryData else { return nil }
-        let history = try JSONDecoder().decode(SavedArchiveHistory.self, from: data)
-        guard Date().timeIntervalSince(history.syncedAt) < 86_400 else { return nil }
-        return history
+        guard canReadSavedHistory(at: .now), let staffScope else { return nil }
+        let rows = try context.fetch(FetchDescriptor<CachedArchivedJob>()).filter {
+            $0.endpoint == endpoint && $0.staffScope == staffScope
+        }
+        if !rows.isEmpty {
+            guard let syncedAt = rows.map(\.syncedAt).max(), Date().timeIntervalSince(syncedAt) < 86_400 else {
+                return nil
+            }
+            return SavedArchiveHistory(jobs: rows.map(\.dto).sorted {
+                ($0.completedDate ?? .distantPast, $0.id) > ($1.completedDate ?? .distantPast, $1.id)
+            }, syncedAt: syncedAt)
+        }
+
+        // Move the earlier single-blob cache into individual SwiftData rows.
+        guard let snapshot = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first(where: {
+            $0.endpoint == endpoint && $0.staffScope == staffScope
+        }), let data = snapshot.archiveHistoryData else { return nil }
+        let legacy = try JSONDecoder().decode(SavedArchiveHistory.self, from: data)
+        guard Date().timeIntervalSince(legacy.syncedAt) < 86_400 else { return nil }
+        for job in legacy.jobs {
+            context.insert(CachedArchivedJob(endpoint: endpoint, staffScope: staffScope, batch: "legacy",
+                                             job: job, syncedAt: legacy.syncedAt))
+        }
+        snapshot.archiveHistoryData = nil
+        try context.save()
+        return legacy
     }
 
     enum ArchiveSyncError: Error {
@@ -93,7 +112,7 @@ final class OperationsModel: ObservableObject {
                 cursor = index.nextAfter
             } while cursor != nil
 
-            var jobs: [String: ArchivedJobDTO] = [:]
+            var jobs: [String: (job: ArchivedJobDTO, batch: String)] = [:]
             var downloadedCount = 0
             for batch in batches {
                 var offset = 0
@@ -107,8 +126,10 @@ final class OperationsModel: ObservableObject {
                             $0.endpoint == origin && $0.staffScope == staffScope
                         }) {
                             record.archiveHistoryData = nil
-                            try context.save()
                         }
+                        for row in try context.fetch(FetchDescriptor<CachedArchivedJob>())
+                            where row.endpoint == origin && row.staffScope == staffScope { context.delete(row) }
+                        try context.save()
                         throw ArchiveSyncError.batchWithdrawn
                     }
                     try checkScope()
@@ -120,7 +141,7 @@ final class OperationsModel: ObservableObject {
                         guard !job.id.isEmpty, !job.plate.isEmpty, !job.packageName.isEmpty, job.completedDate != nil else {
                             throw URLError(.cannotParseResponse)
                         }
-                        jobs[job.id] = job
+                        jobs[job.id] = (job, batch)
                     }
                     guard let next = page.nextOffset else { break }
                     guard !page.jobs.isEmpty, next == offset + page.jobs.count else { throw URLError(.cannotParseResponse) }
@@ -128,13 +149,20 @@ final class OperationsModel: ObservableObject {
                 }
             }
             try checkScope()
-            let history = SavedArchiveHistory(jobs: jobs.values.sorted {
+            let syncedAt = Date.now
+            let history = SavedArchiveHistory(jobs: jobs.values.map(\.job).sorted {
                 ($0.completedDate ?? .distantPast, $0.id) > ($1.completedDate ?? .distantPast, $1.id)
-            }, syncedAt: .now)
+            }, syncedAt: syncedAt)
             guard let record = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first(where: {
                 $0.endpoint == origin && $0.staffScope == staffScope
             }) else { throw URLError(.cannotWriteToFile) }
-            record.archiveHistoryData = try JSONEncoder().encode(history)
+            for oldRow in try context.fetch(FetchDescriptor<CachedArchivedJob>())
+                where oldRow.endpoint == origin && oldRow.staffScope == staffScope { context.delete(oldRow) }
+            for item in jobs.values {
+                context.insert(CachedArchivedJob(endpoint: origin, staffScope: staffScope, batch: item.batch,
+                                                 job: item.job, syncedAt: syncedAt))
+            }
+            record.archiveHistoryData = nil
             try context.save()
             return history
         } catch {
@@ -176,6 +204,7 @@ final class OperationsModel: ObservableObject {
 
     private func purgeExpiredLocalData(context: ModelContext, now: Date = .now) throws {
         let records = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>())
+        let archivedRows = try context.fetch(FetchDescriptor<CachedArchivedJob>())
         var changed = false
         let emptyList = Data("[]".utf8)
         for record in records {
@@ -191,6 +220,7 @@ final class OperationsModel: ObservableObject {
                     record.savedAt = .distantPast
                     changed = true
                 }
+                for row in archivedRows where row.endpoint == record.endpoint { context.delete(row); changed = true }
                 continue
             }
 
@@ -201,6 +231,10 @@ final class OperationsModel: ObservableObject {
                 changed = true
                 continue
             }
+        }
+        for row in archivedRows where now.timeIntervalSince(row.syncedAt) >= 86_400 {
+            context.delete(row)
+            changed = true
         }
         if changed { try context.save() }
     }
@@ -271,7 +305,11 @@ final class OperationsModel: ObservableObject {
             error = nil
             do {
                 if let record = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first(where: { $0.endpoint == endpoint }) {
-                    if record.staffScope != staffScope { record.archiveHistoryData = nil }
+                    if record.staffScope != staffScope {
+                        record.archiveHistoryData = nil
+                        for row in try context.fetch(FetchDescriptor<CachedArchivedJob>())
+                            where row.endpoint == endpoint { context.delete(row) }
+                    }
                     record.staffScope = staffScope
                     record.arrivalsData = arrivalsData
                     record.jobsData = jobsData
@@ -347,6 +385,9 @@ final class OperationsModel: ObservableObject {
         do {
             let records = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>())
             for record in records where record.endpoint == endpoint { context.delete(record) }
+            for row in try context.fetch(FetchDescriptor<CachedArchivedJob>()) where row.endpoint == endpoint {
+                context.delete(row)
+            }
             try context.save()
         } catch { self.error = "Could not remove saved operations: \(error.localizedDescription)" }
         GIDSignIn.sharedInstance.signOut()

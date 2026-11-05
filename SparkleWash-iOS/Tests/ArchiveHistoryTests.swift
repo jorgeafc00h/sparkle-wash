@@ -7,7 +7,7 @@ final class ArchiveHistoryTests: XCTestCase {
     @MainActor
     func testRestorePurgesExpiredStaffSnapshotsAndArchivePayloads() throws {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: CachedOperationsSnapshot.self, configurations: configuration)
+        let container = try ModelContainer(for: CachedOperationsSnapshot.self, CachedArchivedJob.self, configurations: configuration)
         let context = container.mainContext
         let oldHistory = try JSONEncoder().encode(SavedArchiveHistory(jobs: [
             ArchivedJobDTO(id: "old-job", plate: "SECRET1", packageName: "Quick", completedAt: "2026-01-01T00:00:00Z")
@@ -121,17 +121,30 @@ final class ArchiveHistoryTests: XCTestCase {
         try FileManager.default.createDirectory(at: storeDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: storeDirectory) }
         let configuration = ModelConfiguration(url: storeDirectory.appendingPathComponent("Archive.store"))
-        let container = try ModelContainer(for: CachedOperationsSnapshot.self, configurations: configuration)
+        let container = try ModelContainer(for: CachedOperationsSnapshot.self, CachedArchivedJob.self, configurations: configuration)
         let context = container.mainContext
         model.restore(context: context, endpoint: endpoint)
         await model.exchangeGoogleToken("provider-credential", context: context, endpoint: endpoint)
         XCTAssertTrue(model.canReadSavedHistory(at: .now))
 
+        let legacy = SavedArchiveHistory(jobs: [
+            ArchivedJobDTO(id: "legacy-job", plate: "OLD123", packageName: "Quick", completedAt: "2026-01-01T00:00:00Z")
+        ], syncedAt: .now)
+        let snapshot = try XCTUnwrap(context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first)
+        snapshot.archiveHistoryData = try JSONEncoder().encode(legacy)
+        try context.save()
+        XCTAssertEqual(try model.savedArchiveHistory(context: context)?.jobs.map(\.id), ["legacy-job"])
+        XCTAssertNil(snapshot.archiveHistoryData, "Reading an earlier cache should migrate it to individual rows.")
+        XCTAssertEqual(try context.fetch(FetchDescriptor<CachedArchivedJob>()).map(\.jobID), ["legacy-job"])
+
         let downloaded = try await model.syncArchiveHistory(context: context)
         XCTAssertEqual(discoveryCursors, ["", batch])
         XCTAssertEqual(offsets, ["0", "1"])
         XCTAssertEqual(downloaded.jobs.map(\.id), ["job-1", "job-0"])
-        let reopened = try ModelContainer(for: CachedOperationsSnapshot.self, configurations: configuration)
+        let savedRows = try context.fetch(FetchDescriptor<CachedArchivedJob>())
+        XCTAssertEqual(savedRows.map(\.jobID).sorted(), ["job-0", "job-1"])
+        XCTAssertTrue(savedRows.allSatisfy { $0.endpoint == endpoint && !$0.staffScope.isEmpty })
+        let reopened = try ModelContainer(for: CachedOperationsSnapshot.self, CachedArchivedJob.self, configurations: configuration)
         XCTAssertEqual(try model.savedArchiveHistory(context: reopened.mainContext)?.jobs.map(\.id), ["job-1", "job-0"])
 
         withdrawBatch = true
@@ -139,8 +152,9 @@ final class ArchiveHistoryTests: XCTestCase {
             _ = try await model.syncArchiveHistory(context: context)
             XCTFail("Expected a withdrawn batch to invalidate saved history")
         } catch OperationsModel.ArchiveSyncError.batchWithdrawn {}
-        let afterWithdrawal = try ModelContainer(for: CachedOperationsSnapshot.self, configurations: configuration)
+        let afterWithdrawal = try ModelContainer(for: CachedOperationsSnapshot.self, CachedArchivedJob.self, configurations: configuration)
         XCTAssertNil(try model.savedArchiveHistory(context: afterWithdrawal.mainContext))
+        XCTAssertTrue(try afterWithdrawal.mainContext.fetch(FetchDescriptor<CachedArchivedJob>()).isEmpty)
 
         XCTAssertFalse(model.canReadSavedHistory(at: .now.addingTimeInterval(7200)),
                        "A downloaded archive must become inaccessible after the staff session expires.")

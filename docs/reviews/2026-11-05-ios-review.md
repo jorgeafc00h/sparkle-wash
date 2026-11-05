@@ -6,8 +6,8 @@ Reviewed the active SwiftUI target declared by `SparkleWash-iOS/project.yml`,
 `OperationsView.swift`, `OperationsModels.swift`, SwiftData archive tests, and
 the November 4 public-catalog simulator capture. Applied the UI/UX Pro Max
 SwiftUI and native pre-delivery guidance, then checked Apple's current SwiftUI,
-SwiftData, and accessibility references. Ran `make ios-build` and `make
-ios-test` after enabling iPhone landscape orientations.
+SwiftData, and accessibility references. Re-ran `make ios-build` and
+`make ios-test` after adding per-job archive rows.
 
 ## Findings
 
@@ -25,11 +25,13 @@ ios-test` after enabling iPhone landscape orientations.
 - The project initially restricted iPhone to portrait. Both landscape
   orientations are now declared in `project.yml`. Build and simulator tests
   pass, but a landscape capture is still needed to validate the layout.
-- Completed-history rows are still serialized together into one optional
-  `Data` field on `CachedOperationsSnapshot`. Discovery is capped at 100 batches
-  and 1,000 jobs. Cold-launch offline reading requires a live staff token and
-  has no signed short-lived entitlement. The app therefore has an expiring
-  SwiftData cache, not an independently durable local Neon archive.
+- Completed-history rows now persist individually in `CachedArchivedJob`, with
+  endpoint and tenant/subject/role scope, stable job ID, source batch, and sync
+  time. The prior blob migrates on read. Discovery is still capped at 100
+  batches and 1,000 jobs, and the client buffers the current archive before
+  replacing the rows. Cold-launch offline reading requires a live staff token
+  and has no signed short-lived entitlement. This remains an expiring local
+  cache, not an independently durable local Neon archive.
 - VoiceOver focus through pinned headers, largest Dynamic Type, light-mode
   contrast, signed-in iPhone/iPad layouts, and Reduce Motion need runtime
   acceptance. The Mac was locked during this review, preventing direct
@@ -38,7 +40,9 @@ ios-test` after enabling iPhone landscape orientations.
 ## Verification
 
 - `make ios-build` — passed.
-- `make ios-test` — passed all 7 simulator tests.
+- `make ios-test` — passed all 7 simulator tests, including disk-backed
+  per-job persistence, migration from the former archive blob, expiry cleanup,
+  and withdrawn-batch handling.
 - Existing dark-mode public-catalog screenshot — reviewed; this does not cover
   signed-in workboard behavior.
 
@@ -47,10 +51,11 @@ ios-test` after enabling iPhone landscape orientations.
 1. Capture the workboard in phone portrait/landscape and iPad
    portrait/landscape, then exercise pinned headers with VoiceOver and large
    Dynamic Type in light/dark appearances and Reduce Motion.
-2. Replace the single archive `Data` snapshot with tenant/account-scoped
-   `ArchivedJob` SwiftData rows. Persist each bounded server page and resume
-   from a stable server revision/cursor; keep the 24-hour operational snapshot
-   policy separate.
+2. Replace the server's file-only archive source with Neon-backed stable
+   revisions, resumable cursors, and tombstones. Remove the 100-batch/1,000-job
+   cap and persist each bounded page transactionally in the existing
+   tenant/account-scoped SwiftData rows. Keep operational snapshot freshness
+   separate.
 3. Add signed offline entitlements and propagate revocation and deletion
    markers before claiming cold-launch offline history.
 4. Only advertise long-term local archive after encrypted object export,
