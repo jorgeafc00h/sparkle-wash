@@ -20,7 +20,15 @@ GET `/api/metrics/alerts` SHALL return an array with code, value, threshold and 
 - **THEN** it receives the lowPressure and highPressure sample alerts
 
 ### Requirement: Infrastructure routes and unsupported paths
-The API SHALL serve GET `/healthz`, GET and POST `/health`, and an OpenAPI document at GET `/openapi.json`. Unknown `/api` and `/ws` routes SHALL return 404 even when the SPA is present.
+The API SHALL serve GET `/healthz`, GET `/readyz`, GET and POST `/health`, and an OpenAPI document at GET `/openapi.json`. `/readyz` SHALL return 200 only when the catalog, configured writable storage, and the configured PostgreSQL connection and core schema are available; otherwise it SHALL return 503. Unknown `/api` and `/ws` routes SHALL return 404 even when the SPA is present.
+
+#### Scenario: PostgreSQL is unavailable
+- **WHEN** the API is configured to use PostgreSQL and the database cannot be reached
+- **THEN** GET `/readyz` returns 503 so a container orchestrator does not route work to the unready instance
+
+#### Scenario: PostgreSQL core schema is missing
+- **WHEN** the configured PostgreSQL database is reachable but the required migration has not been applied
+- **THEN** GET `/readyz` returns 503 until the core tables are available
 
 #### Scenario: Unsupported streaming request
 - **WHEN** a client requests `/ws/app-station-streaming/b4c3`

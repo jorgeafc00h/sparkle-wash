@@ -139,3 +139,33 @@ public class ServerFixture : IAsyncLifetime, IDisposable
 
     public void Dispose() => (Client as IDisposable)?.Dispose();
 }
+
+public class PostgresReadinessTests
+{
+    [Fact]
+    public async Task ReadinessReturns503WhenConfiguredPostgresCannotBeReached()
+    {
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sparklewash-ready-" + Guid.NewGuid().ToString("N"));
+        System.IO.Directory.CreateDirectory(directory);
+        try
+        {
+            await using var app = CarwashApi.Program.BuildApp([
+                "--environment", "Development",
+                "--urls", "http://127.0.0.1:0",
+                "--SPARKLEWASH_SESSION_POSTGRES", "Host=127.0.0.1;Port=1;Database=sparklewash;Username=test;Password=test;Timeout=1;SSL Mode=Disable",
+                "--SPARKLEWASH_DATA_FILE", System.IO.Path.Combine(directory, "stations.json"),
+                "--SPARKLEWASH_PHOTO_DIR", System.IO.Path.Combine(directory, "photos")]);
+            await app.StartAsync();
+            using var client = new HttpClient { BaseAddress = new Uri(app.Urls.First()) };
+
+            var response = await client.GetAsync("/readyz");
+
+            response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+            (await response.Content.ReadAsStringAsync()).Should().Contain("not-ready");
+        }
+        finally
+        {
+            System.IO.Directory.Delete(directory, true);
+        }
+    }
+}

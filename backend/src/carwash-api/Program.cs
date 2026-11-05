@@ -111,7 +111,7 @@ public static class Program
         var heartbeatSeconds = int.TryParse(builder.Configuration["SPARKLEWASH_STREAM_HEARTBEAT_SECONDS"], out var configuredHeartbeat)
             ? Math.Clamp(configuredHeartbeat, 1, 60) : 15;
 
-        app.MapGet("/readyz", () =>
+        app.MapGet("/readyz", async (HttpContext context) =>
         {
             try
             {
@@ -124,9 +124,34 @@ public static class Program
                         bufferSize: 1, FileOptions.DeleteOnClose);
                     file.WriteByte(0);
                 }
+                if (sessionDatabase is not null)
+                {
+                    using var timeout = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+                    timeout.CancelAfter(TimeSpan.FromSeconds(5));
+                    await using var connection = await sessionDatabase.OpenConnectionAsync(timeout.Token);
+                    await using var command = new NpgsqlCommand("""
+                        SELECT to_regclass('sparklewash.tenants') IS NOT NULL
+                           AND to_regclass('sparklewash.staff_sessions') IS NOT NULL
+                           AND to_regclass('sparklewash.memberships') IS NOT NULL
+                           AND to_regclass('sparklewash.invitations') IS NOT NULL
+                           AND to_regclass('sparklewash.devices') IS NOT NULL
+                           AND to_regclass('sparklewash.arrivals') IS NOT NULL
+                           AND to_regclass('sparklewash.jobs') IS NOT NULL
+                           AND to_regclass('sparklewash.employees') IS NOT NULL
+                           AND to_regclass('sparklewash.items') IS NOT NULL
+                           AND to_regclass('sparklewash.movements') IS NOT NULL
+                           AND to_regclass('sparklewash.reservations') IS NOT NULL
+                        """, connection);
+                    if (await command.ExecuteScalarAsync(timeout.Token) is not true)
+                        return Results.Json(new { status = "not-ready" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+                }
                 return Results.Json(new { status = "ready" });
             }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException or TypeInitializationException)
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or TypeInitializationException or NpgsqlException)
+            {
+                return Results.Json(new { status = "not-ready" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+            catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested)
             {
                 return Results.Json(new { status = "not-ready" }, statusCode: StatusCodes.Status503ServiceUnavailable);
             }
@@ -795,7 +820,7 @@ public static class Program
                 ["/api/auth/session"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Current staff session" }, ["401"] = new { description = "No valid staff session" } } }, delete = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Staff session ended" }, ["401"] = new { description = "No valid staff session" } } } },
                 ["/api/payments/n1co/webhook"] = new { post = new { responses = new Dictionary<string, object> { ["202"] = new { description = "Signed event stored for reconciliation; not payment confirmation" }, ["401"] = new { description = "Invalid signature" } } } },
                 ["/healthz"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Healthy" } } } },
-                ["/readyz"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Ready" }, ["503"] = new { description = "Storage or catalog unavailable" } } } },
+                ["/readyz"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Ready" }, ["503"] = new { description = "Storage, catalog, or configured database unavailable" } } } },
                 ["/api/metrics"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Demo station snapshots" } } } },
                 ["/api/metrics/alerts"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Demo alerts" } } } },
                 ["/api/upload"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Demo acknowledgement; no file is stored" }, ["422"] = new { description = "Declared body exceeds 524288 bytes" } } } },
