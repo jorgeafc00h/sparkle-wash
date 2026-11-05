@@ -38,5 +38,5 @@
 - [ ] 6.3 Build a read-only JSON import rehearsal with row counts, checksums, cutover and rollback evidence.
 - [ ] 6.4 Export versioned archive batches, verify their checksums, and restore into an isolated database. Implement hold-aware purge behind an explicit policy switch.
 - [ ] 6.5 Add authorized paged archive reads, version cursors and revocation or deletion markers. Validate cross-tenant denials.
-- [x] 6.6 Add scoped SwiftData history downloads with explicit offline expiry, read-only browsing and reconnection cleanup. Verify tenant switching, sign-out, expiry and restore.
+- [ ] 6.6 Complete authorized offline history: persist archive jobs as tenant/account-scoped SwiftData records, add bounded resumable server cursors and tombstones, issue a signed short-lived offline entitlement for cold launch, and verify expiry, revocation, tenant switching, sign-out and restore. The existing 24-hour snapshot cache is a foundation only.
 - [ ] 6.7 Validate HTTPS, image pulls, secrets, cold starts, persistent data and measured cost on the selected cloud.

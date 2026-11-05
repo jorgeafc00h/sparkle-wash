@@ -112,8 +112,10 @@ configured and rehearsed. Neon is independent of IBM's compute grant.
 - Grant this repository's GitHub Actions workflow access to publish the GHCR
   package with `GITHUB_TOKEN`, and grant the pull-token account package read
   access. The workflow push token and Code Engine pull token are separate.
-- Decide the Neon project region and provision PostgreSQL using the restricted
-  runtime role and `SSL Mode=VerifyFull`.
+- A Neon Free project named `sparklewash` is provisioned in `aws-us-east-1` at
+  0.25 CU. Create a restricted runtime role, confirm TLS with
+  `SSL Mode=VerifyFull`, and place the connection string in a protected IBM
+  Code Engine generic secret. The project is not connected to the API yet.
 - Keep photo evidence out of the Neon database. Select an object-storage
   target and rehearse export, checksum verification and restore before any
   automated retention purge.
@@ -133,9 +135,10 @@ must happen before deployment can be dispatched.
 The `ibm-demo` GitHub Environment has been created with a branch policy for
 `main`; its IBM resource variables and API key are not configured yet. The private
 GHCR package still needs Actions access for this repository (or a verified package
-link), and a separate read-only GHCR pull token is required. No IBM deployment has
-been performed. Configure those values after review, then deploy only to a
-disposable Code Engine project until PostgreSQL and durable photo storage are ready.
+link), and a separate read-only GHCR pull token is required. The Neon project exists but is not wired to the API. No IBM deployment has been
+performed, and the IBM Cloud CLI/account resources are not configured locally. Configure the
+package access and IBM settings after review, then deploy only to a disposable
+Code Engine project until database, sessions and durable photo storage are ready.
 
 ## Sources
 
