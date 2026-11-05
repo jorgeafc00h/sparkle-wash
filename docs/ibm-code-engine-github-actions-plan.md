@@ -59,10 +59,12 @@ approval if environment reviewers are available:
 | `IBM_CE_CPU` | Variable | Optional supported CPU size; defaults to `0.125` |
 | `IBM_CE_MEMORY` | Variable | Optional supported memory size; defaults to `0.25G` |
 | `IBM_CE_RUNTIME_SECRET` | Variable | Optional name for the workflow-managed Code Engine generic secret; leave empty until runtime DB injection is wanted |
+| `IBM_CE_OFFLINE_SIGNING_SECRET` | Variable | Required name for the Code Engine generic secret that contains the offline entitlement signing key |
 | `IBM_REGION` | Variable | IBM Cloud region, for example `us-south` |
 | `IBM_RESOURCE_GROUP` | Variable | IBM Cloud resource group name |
 | `IBM_CE_PROJECT` | Variable | Code Engine project name (created on first deploy if missing) |
 | `IBM_CLOUD_API_KEY` | Secret | IBM Cloud API key scoped to deployment operations |
+| `SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY` | Secret | Required PEM-encoded ECDSA P-256 private key; signs 24-hour offline history grants |
 | `NEON_RUNTIME_CONNECTION_STRING` | Secret | Restricted runtime login with `SSL Mode=VerifyFull`; optional until database cutover |
 | `GHCR_PULL_USERNAME` | Variable | Required only for a private GHCR package |
 | `GHCR_PULL_TOKEN` | Secret | Required only for a private package; classic PAT with `read:packages` |
@@ -130,6 +132,17 @@ a new revision can lose the default file-backed state. Use this profile only
 for disposable demo data until PostgreSQL, staff sessions, and durable
 photo/object storage have been configured and rehearsed. Neon is independent
 of IBM's compute grant.
+
+Offline history also requires `SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY` and
+`IBM_CE_OFFLINE_SIGNING_SECRET`. Generate a dedicated key locally with
+`openssl ecparam -name prime256v1 -genkey -noout -out offline-history-key.pem`.
+Store the PEM contents only as the protected GitHub Environment secret; do not
+commit the private key. The deploy workflow syncs it to a Code Engine generic
+secret and mounts it as `SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY`. The API
+returns only the corresponding public key over the authenticated HTTPS archive
+index. Grants are bound to origin, tenant, staff subject, role, and archive
+revision and expire after 24 hours. Local HTTP is accepted only for localhost
+development.
 
 ## Before the first deployment
 

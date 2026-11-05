@@ -161,15 +161,16 @@ paths:
         '503': {description: Storage or catalog unavailable}
   /api/history/archive:
     get:
-      description: List staged archive digests for the authenticated staff tenant.
+      description: List staged archive digests for the authenticated staff tenant and issue a 24-hour signed offline entitlement for the current archive revision.
       parameters:
         - {name: after, in: query, schema: {type: string, pattern: '^[a-f0-9]{64}$'}}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: X-SparkleWash-Client-Origin, in: header, required: true, schema: {type: string, format: uri}, description: Canonical API origin used to scope the signed offline grant. HTTPS is required except for localhost development.}
       responses:
-        '200': {description: Archive digests and next cursor}
-        '400': {description: Invalid pagination parameters}
+        '200': {description: Archive digests, next cursor, revision and signed offline entitlement with its public verification key}
+        '400': {description: Invalid pagination parameters or insecure origin}
         '401': {description: Staff authentication required}
-        '503': {description: Archive staging directory is unreadable}
+        '503': {description: Archive staging directory is unreadable or offline signing is not configured}
   /api/history/archive/{batch}:
     get:
       description: Read a page of completed jobs from a staged archive for the authenticated staff tenant.

@@ -14,6 +14,7 @@ final class OperationsModel: ObservableObject {
     @Published private(set) var role: String?
     @Published private(set) var savedAt: Date?
     @Published private(set) var isStale = true
+    @Published private(set) var offlineHistoryAvailable = false
     @Published private(set) var isLoading = false
     @Published var error: String?
     @Published private(set) var navigationSession = UUID()
@@ -22,6 +23,7 @@ final class OperationsModel: ObservableObject {
     private var signInGeneration = UUID()
     private(set) var endpoint = ""
     private var staffScope: Data?
+    private var offlineEntitlement: OfflineEntitlementDTO?
     private var actionKeys: [String: String] = [:]
     private let send: (URLRequest) async throws -> (Data, URLResponse)
 
@@ -36,8 +38,12 @@ final class OperationsModel: ObservableObject {
     var currentSignInGeneration: UUID { signInGeneration }
 
     func canReadSavedHistory(at date: Date) -> Bool {
-        guard signedIn, staffScope != nil, let sessionExpiry, let savedAt else { return false }
-        return date < sessionExpiry && date < savedAt.addingTimeInterval(86_400)
+        guard let staffScope, let origin = EndpointValidation.origin(endpoint) else { return false }
+        if signedIn, let sessionExpiry, let savedAt, date < sessionExpiry,
+           date < savedAt.addingTimeInterval(86_400) { return true }
+        guard let offlineEntitlement else { return false }
+        return OfflineEntitlementVerifier.verify(offlineEntitlement, origin: origin, staffScope: staffScope,
+                                                 at: date) != nil
     }
 
     func savedArchiveHistory(context: ModelContext) throws -> SavedArchiveHistory? {
@@ -72,16 +78,23 @@ final class OperationsModel: ObservableObject {
 
     enum ArchiveSyncError: Error {
         case batchWithdrawn
+        case archiveChanged
     }
 
     func syncArchiveHistory(context: ModelContext) async throws -> SavedArchiveHistory {
-        struct Index: Decodable { let batches: [String]; let nextAfter: String? }
+        struct Index: Decodable {
+            let batches: [String]
+            let nextAfter: String?
+            let revision: String
+            let offlineEntitlement: OfflineEntitlementDTO
+        }
         struct Page: Decodable { let batch: String; let jobs: [ArchivedJobDTO]; let nextOffset: Int? }
 
         guard canReadSavedHistory(at: .now), let staffScope, let token else {
             throw URLError(.userAuthenticationRequired)
         }
         let origin = endpoint
+        guard let canonicalOrigin = EndpointValidation.origin(origin) else { throw URLError(.badURL) }
         func checkScope() throws {
             guard !Task.isCancelled, self.endpoint == origin, self.token == token,
                   self.staffScope == staffScope, canReadSavedHistory(at: .now) else { throw CancellationError() }
@@ -91,11 +104,21 @@ final class OperationsModel: ObservableObject {
         do {
             var batches: [String] = []
             var cursor: String?
+            var archiveRevision: String?
+            var entitlement: OfflineEntitlementDTO?
             repeat {
                 let query = cursor.map { "&after=\($0)" } ?? ""
                 let data = try await request("/api/history/archive?limit=20" + query, endpoint: origin)
                 try checkScope()
                 let index = try decoder.decode(Index.self, from: data)
+                guard index.revision.utf8.count == 64,
+                      index.revision.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
+                      index.offlineEntitlement.revision == index.revision,
+                      OfflineEntitlementVerifier.verify(index.offlineEntitlement, origin: canonicalOrigin,
+                          staffScope: staffScope, at: .now) != nil else { throw URLError(.cannotParseResponse) }
+                if let archiveRevision, archiveRevision != index.revision { throw ArchiveSyncError.archiveChanged }
+                archiveRevision = index.revision
+                entitlement = index.offlineEntitlement
                 guard index.batches.count <= 20 else { throw URLError(.cannotParseResponse) }
                 for batch in index.batches {
                     guard batch.utf8.count == 64,
@@ -126,10 +149,14 @@ final class OperationsModel: ObservableObject {
                             $0.endpoint == origin && $0.staffScope == staffScope
                         }) {
                             record.archiveHistoryData = nil
+                            record.offlineEntitlementData = nil
+                            record.archiveHistoryRevision = nil
                         }
                         for row in try context.fetch(FetchDescriptor<CachedArchivedJob>())
                             where row.endpoint == origin && row.staffScope == staffScope { context.delete(row) }
                         try context.save()
+                        offlineEntitlement = nil
+                        offlineHistoryAvailable = false
                         throw ArchiveSyncError.batchWithdrawn
                     }
                     try checkScope()
@@ -163,7 +190,12 @@ final class OperationsModel: ObservableObject {
                                                  job: item.job, syncedAt: syncedAt))
             }
             record.archiveHistoryData = nil
+            guard let entitlement, let archiveRevision else { throw URLError(.cannotParseResponse) }
+            record.offlineEntitlementData = try JSONEncoder().encode(entitlement)
+            record.archiveHistoryRevision = archiveRevision
             try context.save()
+            offlineEntitlement = entitlement
+            offlineHistoryAvailable = true
             return history
         } catch {
             if (error as? URLError)?.code == .userAuthenticationRequired,
@@ -181,6 +213,8 @@ final class OperationsModel: ObservableObject {
         token = nil
         sessionExpiry = nil
         staffScope = nil
+        offlineEntitlement = nil
+        offlineHistoryAvailable = false
         role = nil
         actionKeys.removeAll()
         catalog = nil
@@ -199,6 +233,22 @@ final class OperationsModel: ObservableObject {
             let menu = try decoder.decode(ServiceCatalogDTO.self, from: record.catalogData)
             guard menu.isValid else { throw URLError(.cannotParseResponse) }
             self.catalog = menu
+            if let data = record.offlineEntitlementData, let scope = record.staffScope,
+               let grant = try? decoder.decode(OfflineEntitlementDTO.self, from: data),
+               let origin = EndpointValidation.origin(endpoint),
+               OfflineEntitlementVerifier.verify(grant, origin: origin, staffScope: scope) != nil {
+                staffScope = scope
+                offlineEntitlement = grant
+                offlineHistoryAvailable = true
+            } else if record.offlineEntitlementData != nil {
+                record.offlineEntitlementData = nil
+                record.archiveHistoryRevision = nil
+                if let scope = record.staffScope {
+                    for row in try context.fetch(FetchDescriptor<CachedArchivedJob>())
+                        where row.endpoint == endpoint && row.staffScope == scope { context.delete(row) }
+                }
+                try context.save()
+            }
         } catch { self.error = "Saved operations could not be loaded: \(error.localizedDescription)" }
     }
 
@@ -212,6 +262,8 @@ final class OperationsModel: ObservableObject {
                 if record.staffScope != nil || record.archiveHistoryData != nil || record.savedAt != .distantPast {
                     record.staffScope = nil
                     record.archiveHistoryData = nil
+                    record.offlineEntitlementData = nil
+                    record.archiveHistoryRevision = nil
                     record.arrivalsData = emptyList
                     record.jobsData = emptyList
                     record.summaryData = Data("{}".utf8)
@@ -237,6 +289,24 @@ final class OperationsModel: ObservableObject {
             changed = true
         }
         if changed { try context.save() }
+    }
+
+    func purgeExpiredOfflineHistory(context: ModelContext, at date: Date) {
+        guard !signedIn, let staffScope, !canReadSavedHistory(at: date) else { return }
+        do {
+            for row in try context.fetch(FetchDescriptor<CachedArchivedJob>())
+                where row.endpoint == endpoint && row.staffScope == staffScope { context.delete(row) }
+            if let record = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first(where: {
+                $0.endpoint == endpoint && $0.staffScope == staffScope
+            }) {
+                record.offlineEntitlementData = nil
+                record.archiveHistoryRevision = nil
+            }
+            try context.save()
+        } catch { self.error = "Expired offline history could not be removed: \(error.localizedDescription)" }
+        self.staffScope = nil
+        offlineEntitlement = nil
+        offlineHistoryAvailable = false
     }
 
     private func restoreStaffSnapshot(context: ModelContext) throws {
@@ -395,6 +465,8 @@ final class OperationsModel: ObservableObject {
         token = nil
         sessionExpiry = nil
         staffScope = nil
+        offlineEntitlement = nil
+        offlineHistoryAvailable = false
         role = nil
         arrivals = []
         jobs = []
@@ -445,6 +517,9 @@ final class OperationsModel: ObservableObject {
         guard let url = URL(string: endpoint + path) else { throw URLError(.badURL) }
         var request = URLRequest(url: url)
         request.timeoutInterval = 8
+        if let origin = EndpointValidation.origin(endpoint) {
+            request.setValue(origin, forHTTPHeaderField: "X-SparkleWash-Client-Origin")
+        }
         if authenticated {
             guard let token else { throw URLError(.userAuthenticationRequired) }
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -494,15 +569,22 @@ struct OperationsView: View {
                             catalogIntro
                             if GoogleClientSettings.current != nil { signInSection }
                         }
-                        if let summary = model.summary {
-                            summarySection(summary)
-                            NavigationLink {
-                                CompletedHistoryView(model: model)
-                            } label: {
-                                Label("Completed job history", systemImage: "clock.arrow.circlepath")
+                        if model.offlineHistoryAvailable && !model.signedIn {
+                            NavigationLink { CompletedHistoryView(model: model) } label: {
+                                Label("Completed job history · Offline", systemImage: "clock.arrow.circlepath")
                                     .frame(minHeight: 44)
                             }
                             .buttonStyle(.bordered)
+                        }
+                        if let summary = model.summary {
+                            summarySection(summary)
+                            if model.signedIn {
+                                NavigationLink { CompletedHistoryView(model: model) } label: {
+                                    Label("Completed job history", systemImage: "clock.arrow.circlepath")
+                                        .frame(minHeight: 44)
+                                }
+                                .buttonStyle(.bordered)
+                            }
                             workboardSection("Arrivals to review") { arrivalsSection }
                             workboardSection("Jobs") { jobsSection }
                             employeeSection
@@ -905,6 +987,7 @@ private struct CompletedHistoryView: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 15)) { timeline in
+            Group {
             if model.canReadSavedHistory(at: timeline.date) {
                 let archived = archive.flatMap { timeline.date.timeIntervalSince($0.syncedAt) < 86_400 ? $0 : nil }
                 let archivedIds = Set(archived?.jobs.map(\.id) ?? [])
@@ -946,6 +1029,13 @@ private struct CompletedHistoryView: View {
                 ContentUnavailableView("History unavailable", systemImage: "lock",
                     description: Text("Connect and sign in to refresh your saved jobs."))
             }
+            }
+            .onChange(of: timeline.date) { _, date in
+                model.purgeExpiredOfflineHistory(context: context, at: date)
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { model.purgeExpiredOfflineHistory(context: context, at: .now) }
         }
         .navigationTitle("Completed history")
         .task(id: scenePhase) {
@@ -957,6 +1047,7 @@ private struct CompletedHistoryView: View {
 
     private func syncArchive() async {
         guard !isSyncing, model.canReadSavedHistory(at: .now) else { return }
+        guard model.signedIn else { return }
         isSyncing = true
         defer { isSyncing = false }
         do {

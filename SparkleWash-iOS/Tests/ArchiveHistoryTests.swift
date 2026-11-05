@@ -1,9 +1,30 @@
 import Foundation
 import SwiftData
 import XCTest
+import CryptoKit
 @testable import SparkleWash
 
 final class ArchiveHistoryTests: XCTestCase {
+    func testOfflineGrantBindsOriginStaffScopeAndExpiry() throws {
+        let origin = "https://api.example.test"
+        let revision = String(repeating: "d", count: 64)
+        let grant = try Self.makeGrant(origin: origin, tenant: "site", subject: "staff", role: "viewer", revision: revision)
+        let scope = try JSONEncoder().encode(["site", "staff", "viewer"])
+
+        XCTAssertNotNil(OfflineEntitlementVerifier.verify(grant, origin: origin, staffScope: scope))
+        XCTAssertNil(OfflineEntitlementVerifier.verify(grant, origin: "https://other.example.test", staffScope: scope))
+        XCTAssertNil(OfflineEntitlementVerifier.verify(grant, origin: origin,
+            staffScope: try JSONEncoder().encode(["other-site", "staff", "viewer"])))
+        XCTAssertNil(OfflineEntitlementVerifier.verify(grant, origin: origin, staffScope: scope,
+            at: .now.addingTimeInterval(86_401)))
+
+        var pieces = grant.token.split(separator: ".").map(String.init)
+        pieces[2] = String(pieces[2].dropLast()) + (pieces[2].last == "A" ? "B" : "A")
+        let tampered = OfflineEntitlementDTO(token: pieces.joined(separator: "."), publicKey: grant.publicKey,
+            keyId: grant.keyId, revision: grant.revision)
+        XCTAssertNil(OfflineEntitlementVerifier.verify(tampered, origin: origin, staffScope: scope))
+    }
+
     @MainActor
     func testRestorePurgesExpiredStaffSnapshotsAndArchivePayloads() throws {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -51,6 +72,8 @@ final class ArchiveHistoryTests: XCTestCase {
         let secondBatch = String(repeating: "b", count: 64)
         let expiry = ISO8601DateFormatter().string(from: Date().addingTimeInterval(3600))
         let endpoint = "http://localhost:8080"
+        let revision = String(repeating: "c", count: 64)
+        let grant = try Self.makeGrant(origin: endpoint, tenant: "site", subject: "staff", role: "viewer", revision: revision)
         var tenantID = "site"
         var withdrawBatch = false
         var offsets: [String] = []
@@ -74,18 +97,17 @@ final class ArchiveHistoryTests: XCTestCase {
                     """.utf8)
             case "/api/history/archive":
                 XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-session")
+                XCTAssertEqual(request.value(forHTTPHeaderField: "X-SparkleWash-Client-Origin"), endpoint)
                 let cursor = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
                     .first(where: { $0.name == "after" })?.value
                 discoveryCursors.append(cursor ?? "")
                 if cursor == nil {
-                    data = Data("""
-                        {"batches":["\(batch)"],"nextAfter":"\(batch)"}
-                        """.utf8)
+                    data = try JSONEncoder().encode(ArchiveIndex(batches: [batch], nextAfter: batch,
+                        revision: revision, offlineEntitlement: grant))
                 } else {
                     XCTAssertEqual(cursor, batch)
-                    data = Data("""
-                        {"batches":["\(secondBatch)"],"nextAfter":null}
-                        """.utf8)
+                    data = try JSONEncoder().encode(ArchiveIndex(batches: [secondBatch], nextAfter: nil,
+                        revision: revision, offlineEntitlement: grant))
                 }
             case "/api/history/archive/\(secondBatch)":
                 data = Data("""
@@ -146,6 +168,12 @@ final class ArchiveHistoryTests: XCTestCase {
         XCTAssertTrue(savedRows.allSatisfy { $0.endpoint == endpoint && !$0.staffScope.isEmpty })
         let reopened = try ModelContainer(for: CachedOperationsSnapshot.self, CachedArchivedJob.self, configurations: configuration)
         XCTAssertEqual(try model.savedArchiveHistory(context: reopened.mainContext)?.jobs.map(\.id), ["job-1", "job-0"])
+        let coldLaunch = OperationsModel()
+        coldLaunch.restore(context: reopened.mainContext, endpoint: endpoint)
+        XCTAssertFalse(coldLaunch.signedIn)
+        XCTAssertTrue(coldLaunch.offlineHistoryAvailable)
+        XCTAssertEqual(try coldLaunch.savedArchiveHistory(context: reopened.mainContext)?.jobs.map(\.id), ["job-1", "job-0"])
+        XCTAssertFalse(coldLaunch.canReadSavedHistory(at: .now.addingTimeInterval(86_401)))
 
         withdrawBatch = true
         do {
@@ -167,5 +195,29 @@ final class ArchiveHistoryTests: XCTestCase {
         model.signOut(context: context)
         XCTAssertTrue(try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).isEmpty,
                       "Sign-out must remove the endpoint's saved operational and archive data.")
+    }
+
+    private struct ArchiveIndex: Encodable {
+        let batches: [String]
+        let nextAfter: String?
+        let revision: String
+        let offlineEntitlement: OfflineEntitlementDTO
+    }
+
+    private static func makeGrant(origin: String, tenant: String, subject: String, role: String,
+                                  revision: String, now: Date = .now) throws -> OfflineEntitlementDTO {
+        let key = P256.Signing.PrivateKey()
+        let publicKey = key.publicKey.rawRepresentation
+        let keyId = SHA256.hash(data: publicKey).prefix(8).map { String(format: "%02x", $0) }.joined()
+        let header = try JSONSerialization.data(withJSONObject: ["alg": "ES256", "typ": "JWT", "kid": keyId], options: [.sortedKeys])
+        let issuedAt = Int64(now.timeIntervalSince1970)
+        let claims = try JSONSerialization.data(withJSONObject: ["iss": origin, "tenant": tenant, "sub": subject,
+            "role": role, "revision": revision, "iat": issuedAt, "exp": issuedAt + 86_400], options: [.sortedKeys])
+        func encode(_ value: Data) -> String { value.base64EncodedString().replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "") }
+        let signingInput = encode(header) + "." + encode(claims)
+        let signature = try key.signature(for: Data(signingInput.utf8))
+        return OfflineEntitlementDTO(token: signingInput + "." + encode(signature.rawRepresentation),
+            publicKey: publicKey.base64EncodedString(), keyId: keyId, revision: revision)
     }
 }

@@ -8,7 +8,8 @@ public static class Program
 {
     private const long MaxDemoUploadBytes = 524288;
 
-    public static WebApplication BuildApp(string[] args, IGoogleIdentityVerifier? identityVerifier = null)
+    public static WebApplication BuildApp(string[] args, IGoogleIdentityVerifier? identityVerifier = null,
+        string? offlineSigningPrivateKey = null)
     {
         var builder = WebApplication.CreateBuilder(args);
         var dataRoot = Path.Combine(builder.Environment.ContentRootPath, "data");
@@ -37,6 +38,8 @@ public static class Program
         var maxTenants = int.TryParse(builder.Configuration["SPARKLEWASH_MAX_TENANTS"], out var configuredMaxTenants) ? configuredMaxTenants : 500;
         var usePostgresDirectory = builder.Configuration.GetValue<bool>("SPARKLEWASH_POSTGRES_DIRECTORY");
         var sessionConnection = builder.Configuration["SPARKLEWASH_SESSION_POSTGRES"];
+        var offlineEntitlementIssuer = OfflineEntitlementIssuer.FromPem(offlineSigningPrivateKey ??
+            builder.Configuration["SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY"]);
         if (usePostgresDirectory && string.IsNullOrWhiteSpace(sessionConnection))
             throw new InvalidOperationException("PostgreSQL directory requires SPARKLEWASH_SESSION_POSTGRES.");
         TenantDirectory? jsonDirectory = usePostgresDirectory ? null : new TenantDirectory(Path.Combine(tenantsDirectory, "directory.json"),
@@ -358,16 +361,28 @@ public static class Program
             if (session is null) return Results.Unauthorized();
             if ((after is not null && !ArchivedJobReader.ValidBatch(after)) || limit is < 1 or > 100)
                 return Results.BadRequest(new { error = "Invalid archive page" });
+            if (offlineEntitlementIssuer is null)
+                return Results.Json(new { error = "Offline history signing is not configured" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+
+            var origin = OfflineEntitlementIssuer.NormalizeOrigin(context.Request.Headers["X-SparkleWash-Client-Origin"].ToString());
+            if (origin is null) return Results.BadRequest(new { error = "A secure API origin is required for offline history" });
 
             var pageSize = limit ?? 20;
             try
             {
                 var batches = string.IsNullOrWhiteSpace(archiveDirectory) ? [] :
                     ArchivedJobReader.ListBatches(archiveDirectory, session.TenantId, after, pageSize + 1);
+                var revision = string.IsNullOrWhiteSpace(archiveDirectory) ?
+                    ArchivedJobReader.Revision([]) :
+                    ArchivedJobReader.Revision(archiveDirectory, session.TenantId);
+                var entitlement = offlineEntitlementIssuer.Issue(origin, session.TenantId, session.Subject,
+                    session.Role, revision, DateTimeOffset.UtcNow);
                 return Results.Json(new
                 {
                     batches = batches.Take(pageSize),
-                    nextAfter = batches.Length > pageSize ? batches[pageSize - 1] : null
+                    nextAfter = batches.Length > pageSize ? batches[pageSize - 1] : null,
+                    revision,
+                    offlineEntitlement = entitlement
                 });
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException)

@@ -15,7 +15,7 @@ Captured the same catalog in dark appearance at
 Captured the iPad Pro 13 catalog in light and dark appearances at
 `docs/reviews/2026-11-05-visual-smoke/ipad-pro-13-light-catalog.png` and
 `docs/reviews/2026-11-05-visual-smoke/ipad-pro-13-dark-catalog.png`.
-Re-ran `make ios-build` and `make ios-test` after adding per-job archive rows.
+Re-ran `make ios-test` after implementing signed offline history entitlements.
 
 ## Findings
 
@@ -39,9 +39,13 @@ Re-ran `make ios-build` and `make ios-test` after adding per-job archive rows.
   endpoint and tenant/subject/role scope, stable job ID, source batch, and sync
   time. The prior blob migrates on read. Discovery is still capped at 100
   batches and 1,000 jobs, and the client buffers the current archive before
-  replacing the rows. Cold-launch offline reading requires a live staff token
-  and has no signed short-lived entitlement. This remains an expiring local
-  cache, not an independently durable local Neon archive.
+  replacing the rows. The archive index issues a 24-hour ES256 entitlement
+  bound to origin, tenant, staff subject, role, and archive revision. SwiftData
+  persists and verifies it after model-level cold restoration, enabling
+  read-only history without restoring a bearer token. The API still reads
+  file-backed archives; Neon export, COS restore, resumable cursors, and
+  tombstones remain incomplete. IBM needs a protected P-256 signing key before
+  the feature can run there.
 - Default secondary text measured 3.29:1 against a light card surface in the
   earlier capture. Operations secondary copy now uses semantic primary color
   at 0.72 opacity; refreshed light and dark captures look legible. A full pixel
@@ -53,9 +57,9 @@ Re-ran `make ios-build` and `make ios-test` after adding per-job archive rows.
 ## Verification
 
 - `make ios-build` — passed.
-- `make ios-test` — passed all 7 simulator tests on November 5 after the
-  contrast adjustment, including disk-backed
-  per-job persistence, migration from the former archive blob, expiry cleanup,
+- `make ios-test` — passed all 8 simulator tests on November 5, including
+  disk-backed cold restoration, grant signature/scope/expiry validation,
+  tamper rejection, migration from the former archive blob, expiry cleanup,
   and withdrawn-batch handling.
 - iPhone 17 Pro simulator, iOS 27, live catalog backed by the local API — light
   and dark appearance captures reviewed and saved; this does not cover
@@ -74,8 +78,10 @@ Re-ran `make ios-build` and `make ios-test` after adding per-job archive rows.
    cap and persist each bounded page transactionally in the existing
    tenant/account-scoped SwiftData rows. Keep operational snapshot freshness
    separate.
-3. Add signed offline entitlements and propagate revocation and deletion
-   markers before claiming cold-launch offline history.
+3. Complete signed offline entitlement operations with trusted key bootstrap
+   and rotation, selective revocation and deletion markers, expiry cleanup,
+   and a full app termination/relaunch acceptance run before claiming
+   production cold-launch offline history.
 4. Only advertise long-term local archive after encrypted object export,
    checksum verification, isolated restore, file protection, backup exclusion,
    bounded storage, and deletion propagation have been verified.

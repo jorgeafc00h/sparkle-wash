@@ -110,6 +110,13 @@ settings; when `NEON_RUNTIME_CONNECTION_STRING` is present it is stored as
 `SPARKLEWASH_SESSION_POSTGRES`. Leave the variable empty to keep that connection
 out of Code Engine. Keep staff and device credentials in Code Engine secrets.
 
+The workflow also requires `IBM_CE_OFFLINE_SIGNING_SECRET` and the
+`SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY` environment secret for 24-hour signed
+offline history grants. Generate a dedicated P-256 key with
+`openssl ecparam -name prime256v1 -genkey -noout -out offline-history-key.pem`
+and store its PEM contents only in the protected GitHub Environment. Never
+commit the private key.
+
 Run `deploy/ibm/deploy-demo.sh` with `IBM_CE_APP`, `IBM_CE_REGISTRY_SECRET`, and
 `IMAGE_REF` set. The script uses port 8080, liveness and readiness probes, and
 zero to one instances. Use disposable data on this profile because a scale

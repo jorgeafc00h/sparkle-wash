@@ -134,6 +134,7 @@ public class ArrivalWorkflowTests
             await File.WriteAllBytesAsync(Path.Combine(other.FullName, filename), bytes);
             await using var app = await Start(directory);
             using var client = new HttpClient { BaseAddress = new Uri(app.Urls.First()) };
+            client.DefaultRequestHeaders.Add("X-SparkleWash-Client-Origin", client.BaseAddress.ToString().TrimEnd('/'));
             const string index = "/api/history/archive";
             var route = index + "/" + batch;
             (await client.GetAsync(index)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -143,9 +144,17 @@ public class ArrivalWorkflowTests
             using var loginJson = JsonDocument.Parse(await login.Content.ReadAsStringAsync());
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
                 loginJson.RootElement.GetProperty("sessionToken").GetString());
+            client.DefaultRequestHeaders.Remove("X-SparkleWash-Client-Origin");
+            client.DefaultRequestHeaders.Add("X-SparkleWash-Client-Origin", "http://example.com");
+            (await client.GetAsync(index)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            client.DefaultRequestHeaders.Remove("X-SparkleWash-Client-Origin");
+            client.DefaultRequestHeaders.Add("X-SparkleWash-Client-Origin", client.BaseAddress.ToString().TrimEnd('/'));
             (await client.GetAsync(route)).StatusCode.Should().Be(HttpStatusCode.NotFound);
-            using (var hidden = JsonDocument.Parse(await client.GetStringAsync(index)))
-                hidden.RootElement.GetProperty("batches").GetArrayLength().Should().Be(0);
+            using var hidden = JsonDocument.Parse(await client.GetStringAsync(index));
+            hidden.RootElement.GetProperty("batches").GetArrayLength().Should().Be(0);
+            var grant = hidden.RootElement.GetProperty("offlineEntitlement");
+            grant.GetProperty("revision").GetString().Should().Be(hidden.RootElement.GetProperty("revision").GetString());
+            VerifyOfflineEntitlement(grant);
             var path = Path.Combine(current.FullName, filename);
             await File.WriteAllBytesAsync(path, bytes);
             using (var listed = JsonDocument.Parse(await client.GetStringAsync(index)))
@@ -178,6 +187,8 @@ public class ArrivalWorkflowTests
 
     private static async Task<WebApplication> Start(string directory)
     {
+        using var signingKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var privateKey = signingKey.ExportECPrivateKeyPem();
         var app = CarwashApi.Program.BuildApp(["--urls", "http://127.0.0.1:0", "--SPARKLEWASH_INGEST_KEY", "device-secret",
             "--SPARKLEWASH_ARCHIVE_DIR", Path.Combine(directory, "archive"),
             "--SPARKLEWASH_ARRIVALS_FILE", Path.Combine(directory, "arrivals.json"),
@@ -186,8 +197,34 @@ public class ArrivalWorkflowTests
             "--SPARKLEWASH_DATA_FILE", Path.Combine(directory, "stations.json"),
             "--SPARKLEWASH_PHOTO_DIR", Path.Combine(directory, "photos"),
             "--SPARKLEWASH_GOOGLE_CLIENT_ID", "sparklewash-test-client",
-            "--SPARKLEWASH_STAFF_ROLES", "123456=operator"], new VerifiedTestIdentity());
+            "--SPARKLEWASH_STAFF_ROLES", "123456=operator"], new VerifiedTestIdentity(), privateKey);
         await app.StartAsync();
         return app;
+    }
+
+    private static void VerifyOfflineEntitlement(JsonElement grant)
+    {
+        var token = grant.GetProperty("token").GetString()!;
+        var parts = token.Split('.');
+        parts.Should().HaveCount(3);
+        static byte[] Decode(string value) => Convert.FromBase64String(value.Replace('-', '+').Replace('_', '/')
+            .PadRight(value.Length + (4 - value.Length % 4) % 4, '='));
+        using var header = JsonDocument.Parse(Decode(parts[0]));
+        header.RootElement.GetProperty("alg").GetString().Should().Be("ES256");
+        header.RootElement.GetProperty("kid").GetString().Should().Be(grant.GetProperty("keyId").GetString());
+        using var claims = JsonDocument.Parse(Decode(parts[1]));
+        claims.RootElement.GetProperty("iss").GetString().Should().StartWith("http://127.0.0.1:");
+        claims.RootElement.GetProperty("tenant").GetString().Should().Be("default");
+        claims.RootElement.GetProperty("sub").GetString().Should().Be("123456");
+        claims.RootElement.GetProperty("role").GetString().Should().Be("operator");
+        var publicKey = Convert.FromBase64String(grant.GetProperty("publicKey").GetString()!);
+        publicKey.Should().HaveCount(65);
+        using var verifier = ECDsa.Create(new ECParameters
+        {
+            Curve = ECCurve.NamedCurves.nistP256,
+            Q = new ECPoint { X = publicKey[1..33], Y = publicKey[33..65] }
+        });
+        verifier.VerifyData(System.Text.Encoding.ASCII.GetBytes(parts[0] + "." + parts[1]), Decode(parts[2]),
+            HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation).Should().BeTrue();
     }
 }

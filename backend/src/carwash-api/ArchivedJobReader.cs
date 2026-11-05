@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace CarwashApi;
@@ -35,6 +36,15 @@ internal static class ArchivedJobReader
             return [];
         }
     }
+
+    internal static string Revision(string root, string tenant)
+    {
+        var batches = ListBatches(root, tenant, null, int.MaxValue);
+        return Revision(batches);
+    }
+
+    internal static string Revision(string[] batches) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', batches))));
 
     private static bool ValidTenant(string tenant) =>
         !string.IsNullOrEmpty(tenant) && tenant.All(char.IsAsciiLetterOrDigit);

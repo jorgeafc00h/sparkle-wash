@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import CryptoKit
 
 enum OperationsDate {
     static func parse(_ text: String) -> Date? {
@@ -120,11 +121,75 @@ struct SavedArchiveHistory: Codable, Sendable {
     let syncedAt: Date
 }
 
+struct OfflineEntitlementDTO: Codable, Sendable {
+    let token: String
+    let publicKey: String
+    let keyId: String
+    let revision: String
+}
+
+private struct OfflineEntitlementHeader: Decodable {
+    let alg: String
+    let typ: String
+    let kid: String
+}
+
+struct OfflineEntitlementClaims: Decodable, Sendable {
+    let iss: String
+    let tenant: String
+    let sub: String
+    let role: String
+    let revision: String
+    let iat: Int64
+    let exp: Int64
+}
+
+enum OfflineEntitlementVerifier {
+    static func verify(_ grant: OfflineEntitlementDTO, origin: String, staffScope: Data,
+                       at date: Date = .now) -> OfflineEntitlementClaims? {
+        let segments = grant.token.split(separator: ".", omittingEmptySubsequences: false)
+        guard segments.count == 3,
+              let headerData = decodeBase64URL(String(segments[0])),
+              let claimsData = decodeBase64URL(String(segments[1])),
+              let signatureData = decodeBase64URL(String(segments[2])),
+              let header = try? JSONDecoder().decode(OfflineEntitlementHeader.self, from: headerData),
+              header.alg == "ES256", header.typ == "JWT", header.kid == grant.keyId,
+              let publicKeyData = Data(base64Encoded: grant.publicKey),
+              keyId(for: publicKeyData) == grant.keyId,
+              let publicKey = try? P256.Signing.PublicKey(rawRepresentation: publicKeyData),
+              let signature = try? P256.Signing.ECDSASignature(rawRepresentation: signatureData),
+              let claims = try? JSONDecoder().decode(OfflineEntitlementClaims.self, from: claimsData),
+              publicKey.isValidSignature(signature, for: Data("\(segments[0]).\(segments[1])".utf8)),
+              claims.iss == origin, claims.revision == grant.revision,
+              ["viewer", "operator", "admin"].contains(claims.role),
+              let scope = try? JSONDecoder().decode([String].self, from: staffScope), scope.count == 3,
+              scope[0] == claims.tenant, scope[1] == claims.sub, scope[2] == claims.role else { return nil }
+
+        let now = Int64(date.timeIntervalSince1970)
+        guard claims.iat <= now + 300, claims.exp > now, claims.exp > claims.iat,
+              claims.exp - claims.iat <= 86_400 else { return nil }
+        return claims
+    }
+
+    private static func decodeBase64URL(_ value: String) -> Data? {
+        var base64 = value.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        let remainder = base64.count % 4
+        if remainder != 0 { base64 += String(repeating: "=", count: 4 - remainder) }
+        return Data(base64Encoded: base64)
+    }
+
+    private static func keyId(for publicKey: Data) -> String {
+        SHA256.hash(data: publicKey).prefix(8).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
 @Model
 final class CachedOperationsSnapshot {
     @Attribute(.unique) var endpoint: String
     var staffScope: Data?
     var archiveHistoryData: Data?
+    var offlineEntitlementData: Data?
+    var archiveHistoryRevision: String?
     var arrivalsData: Data
     var jobsData: Data
     var summaryData: Data
@@ -143,6 +208,8 @@ final class CachedOperationsSnapshot {
         self.inventoryData = inventoryData
         self.catalogData = catalogData
         self.savedAt = savedAt
+        self.offlineEntitlementData = nil
+        self.archiveHistoryRevision = nil
     }
 }
 
