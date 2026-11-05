@@ -602,7 +602,7 @@ struct OperationsView: View {
                 .accessibilityAddTraits(.isHeader)
             Text("Compare detailing packages and see prices for your vehicle.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.primary.opacity(0.72))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
@@ -620,7 +620,7 @@ struct OperationsView: View {
                 .accessibilityLabel("Sign in with Google for SparkleWash staff")
             } else {
                 Text("Staff sign-in is unavailable on this device.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.primary.opacity(0.72))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -661,7 +661,7 @@ struct OperationsView: View {
     }
 
     private func metric(_ label: String, _ value: Int) -> some View {
-        VStack(alignment: .leading, spacing: 6) { Text(label).font(.subheadline).foregroundStyle(.secondary); Text(value.formatted()).font(.title).bold() }
+        VStack(alignment: .leading, spacing: 6) { Text(label).font(.subheadline).foregroundStyle(Color.primary.opacity(0.72)); Text(value.formatted()).font(.title).bold() }
             .frame(maxWidth: .infinity, alignment: .leading).padding()
             .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
             .accessibilityElement(children: .combine)
@@ -684,7 +684,7 @@ struct OperationsView: View {
         VStack(alignment: .leading, spacing: 12) {
             let linkedArrivals = Set(model.jobs.map(\.arrivalId))
             let pending = model.arrivals.filter { !linkedArrivals.contains($0.id) }
-            if pending.isEmpty { Text("No arrivals waiting for a job.").foregroundStyle(.secondary) }
+            if pending.isEmpty { Text("No arrivals waiting for a job.").foregroundStyle(Color.primary.opacity(0.72)) }
             ForEach(pending) { arrival in
                 NavigationLink {
                     ArrivalReviewView(model: model, arrival: arrival, endpoint: endpoint)
@@ -692,7 +692,7 @@ struct OperationsView: View {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(arrival.confirmedPlate ?? arrival.plateCandidate ?? "Unreadable plate").font(.headline)
                         Text("Camera \(arrival.cameraId) · \(arrival.confirmedPlate == nil ? "Needs review" : "Confirmed")")
-                            .font(.subheadline).foregroundStyle(.secondary)
+                            .font(.subheadline).foregroundStyle(Color.primary.opacity(0.72))
                         if let confidence = arrival.confidence { Text("Candidate confidence \(Int(confidence * 100))%") }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding()
@@ -706,7 +706,7 @@ struct OperationsView: View {
 
     private var jobsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if model.jobs.isEmpty { Text("No vehicle jobs yet.").foregroundStyle(.secondary) }
+            if model.jobs.isEmpty { Text("No vehicle jobs yet.").foregroundStyle(Color.primary.opacity(0.72)) }
             ForEach(model.jobs) { job in
                 NavigationLink {
                     let detail = JobDetailView(model: model, job: job, endpoint: endpoint)
@@ -729,7 +729,7 @@ struct OperationsView: View {
                             }
                         }
                         Text("\(job.packageName) · $\(job.priceUsd.formatted()) · \(job.vehicleClass.uppercased())")
-                            .font(.subheadline).foregroundStyle(.secondary)
+                            .font(.subheadline).foregroundStyle(Color.primary.opacity(0.72))
                         Text("Time on site \(job.elapsedSeconds / 60) min · \(job.assignments.count) assigned")
                             .font(.subheadline)
                     }
@@ -762,7 +762,7 @@ struct OperationsView: View {
     private var employeeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Employees").font(.title2).fontWeight(.semibold)
-            if model.employees.isEmpty { Text("No employees added.").foregroundStyle(.secondary) }
+            if model.employees.isEmpty { Text("No employees added.").foregroundStyle(Color.primary.opacity(0.72)) }
             ForEach(model.employees) { employee in
                 LabeledContent(employee.name, value: employee.active ? "Active" : "Inactive")
                     .padding().background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
@@ -773,7 +773,7 @@ struct OperationsView: View {
     private var inventorySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Resources and stock").font(.title2).fontWeight(.semibold)
-            if model.inventory.isEmpty { Text("No compounds or supplies added.").foregroundStyle(.secondary) }
+            if model.inventory.isEmpty { Text("No compounds or supplies added.").foregroundStyle(Color.primary.opacity(0.72)) }
             ForEach(model.inventory) { stock in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(stock.item.name).font(.headline)
@@ -794,7 +794,7 @@ struct OperationsView: View {
                     ForEach(catalog.packages) { package in
                         VStack(alignment: .leading, spacing: 10) {
                             Text(package.name).font(.title3.weight(.semibold))
-                            Text(package.subtitle).font(.subheadline).foregroundStyle(.secondary)
+                            Text(package.subtitle).font(.subheadline).foregroundStyle(Color.primary.opacity(0.72))
                             Divider()
                             ForEach(catalog.vehicleClasses, id: \.id) { vehicle in
                                 if let price = package.price(for: vehicle.id) {
@@ -828,7 +828,7 @@ struct OperationsView: View {
                 ProgressView("Loading service menu…")
             } else {
                 Text("The service menu is unavailable. Use Refresh to try again.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.primary.opacity(0.72))
             }
         }
     }
@@ -874,7 +874,7 @@ private struct ArrivalReviewView: View {
                 }
                 if let package = model.catalog?.packages.first(where: { $0.id == packageId }), let price = package.price(for: vehicleClass) {
                     Text("Suggested \(package.name) · $\(price). Confirm choice before opening.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(Color.primary.opacity(0.72))
                 }
             }
             if model.canOperate {
@@ -920,10 +920,10 @@ private struct CompletedHistoryView: View {
                                 .font(.subheadline)
                         }
                         if isSyncing { ProgressView("Syncing archive…") }
-                        if let syncError { Text(syncError).font(.footnote).foregroundStyle(.secondary) }
+                        if let syncError { Text(syncError).font(.footnote).foregroundStyle(Color.primary.opacity(0.72)) }
                     }
                     Section("Completed jobs") {
-                        if completed.isEmpty { Text("No recent completed jobs").foregroundStyle(.secondary) }
+                        if completed.isEmpty { Text("No recent completed jobs").foregroundStyle(Color.primary.opacity(0.72)) }
                         ForEach(completed) { job in
                             historyRow(job.plate, package: job.packageName, date: job.completedAt.flatMap(OperationsDate.parse))
                         }
@@ -931,13 +931,13 @@ private struct CompletedHistoryView: View {
                     Section("Archive") {
                         if let archived {
                             Text("Saved \(archived.syncedAt.formatted(date: .abbreviated, time: .shortened))")
-                                .font(.footnote).foregroundStyle(.secondary)
-                            if archived.jobs.isEmpty { Text("No archived jobs").foregroundStyle(.secondary) }
+                                .font(.footnote).foregroundStyle(Color.primary.opacity(0.72))
+                            if archived.jobs.isEmpty { Text("No archived jobs").foregroundStyle(Color.primary.opacity(0.72)) }
                             ForEach(archived.jobs) { job in
                                 historyRow(job.plate, package: job.packageName, date: job.completedDate)
                             }
                         } else if !isSyncing {
-                            Text("No saved archive").foregroundStyle(.secondary)
+                            Text("No saved archive").foregroundStyle(Color.primary.opacity(0.72))
                         }
                     }
                 }
@@ -975,7 +975,7 @@ private struct CompletedHistoryView: View {
     private func historyRow(_ plate: String, package: String, date: Date?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(plate).font(.headline)
-            Text(package).foregroundStyle(.secondary)
+            Text(package).foregroundStyle(Color.primary.opacity(0.72))
             if let date { Text(date, format: .dateTime.month().day().hour().minute()).font(.caption) }
         }
         .accessibilityElement(children: .combine)
@@ -1001,7 +1001,7 @@ private struct JobDetailView: View {
             }
             Section("Service checklist") { ForEach(currentJob.services, id: \.self) { service in Text(service) } }
             Section("Employees") {
-                if currentJob.assignments.isEmpty { Text("Unassigned").foregroundStyle(.secondary) }
+                if currentJob.assignments.isEmpty { Text("Unassigned").foregroundStyle(Color.primary.opacity(0.72)) }
                 ForEach(currentJob.assignments, id: \.employeeId) { employee in Text(employee.employeeName) }
                 if model.canOperate && currentJob.status != "completed" && currentJob.status != "cancelled" {
                     Picker("Assign employee", selection: $selectedEmployee) {

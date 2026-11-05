@@ -4,7 +4,7 @@ Pricing checked November 5, 2026. Amounts are USD estimates for a single site an
 
 ## Hosting decision
 
-Start with **IBM Code Engine and Neon Free** for a short, disposable demo, as requested. Code Engine can stay within its grants at low billed runtime and request counts; validate whether the API fits the 0.125 vCPU / 0.25 GB smallest allocation before relying on the lower estimate. At a regular 240-hour month, Azure Container Apps Consumption is cheaper in this estimate, so compare measured usage before making a longer-running pilot decision. Neither platform is a durable production profile until operational records, staff sessions, and photos have independent persistence. Measure latency from the site in El Salvador and use the nearest compatible Neon region. Keep the image portable and run one instance initially to bound spend. [Neon regions](https://neon.com/docs/introduction/regions), [Azure billing](https://learn.microsoft.com/en-us/azure/container-apps/billing), [IBM billing](https://cloud.ibm.com/docs/codeengine?topic=codeengine-pricing)
+Start with **IBM Code Engine and Neon Free** for a short, disposable demo, as requested. Validate whether the API fits the 0.125 vCPU / 0.25 GB smallest allocation before relying on the lower estimate: at 240 active hours, that IBM profile is about $0.43 versus about $1.08 for Azure Container Apps Consumption at its modeled 0.25 vCPU / 0.5 GiB size. IBM's larger 0.25 / 0.5 profile is about $4.91 for the same workload. Compare measured usage and memory before making a longer-running pilot decision. Neither platform is a durable production profile until operational records, staff sessions, and photos have independent persistence. Measure latency from the site in El Salvador and use the nearest compatible Neon region. Keep the image portable and run one instance initially to bound spend. [Neon regions](https://neon.com/docs/introduction/regions), [Azure billing](https://learn.microsoft.com/en-us/azure/container-apps/billing), [IBM billing](https://cloud.ibm.com/docs/codeengine?topic=codeengine-pricing)
 
 | Meter | Azure Container Apps Consumption, East US 2 | IBM Code Engine |
 | --- | --- | --- |
@@ -22,11 +22,14 @@ credential, so the near-zero pilot estimate can use a repository with no
 incremental registry charge if one is available. [Azure Container Registry pricing](https://azure.microsoft.com/en-us/pricing/details/container-registry/) · [Azure retail price API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices)
 
 The pilot uses GitHub Container Registry. GitHub currently lists container
-image storage and bandwidth as free. Both Azure and IBM can pull the same Linux AMD64 image by digest using a
-dedicated read-only package token. The pinned Azure pilot digest is recorded
+image storage and bandwidth as free. Both Azure and IBM can pull the same Linux AMD64 image by digest. Public GHCR images need no pull token; private images need a dedicated read-only package token. The pinned Azure pilot digest is recorded
 in `deploy/azure/ghcr-demo.bicepparam`. The IBM workflow builds and pushes its
 own digest, while `deploy/ibm/deploy-demo.sh` can deploy an existing digest.
-For this public repository, standard GitHub-hosted runners are free. Actions artifacts are still a separate, metered storage product (GitHub Free includes 500 MB of shared artifact/Packages storage for private-repository usage); do not upload duplicate Docker tarballs. GHCR container image storage and transfer are currently free. [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions), [included usage](https://docs.github.com/en/billing/reference/product-usage-included), [GitHub Packages billing](https://docs.github.com/en/billing/concepts/product-billing/github-packages)
+For the IBM workflow, first publish the package and change its GHCR visibility
+to public manually; only then set `GHCR_PUBLIC=true`. The repository being
+public does not make a GHCR package public. The workflow checks an anonymous
+pull before skipping private registry credentials.
+For this public repository, standard GitHub-hosted runners are free. Actions artifacts use a separate storage allowance; avoid uploading duplicate Docker tarballs. GHCR container image storage and transfer are currently free. [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions), [included usage](https://docs.github.com/en/billing/reference/product-usage-included), [GitHub Packages billing](https://docs.github.com/en/billing/concepts/product-billing/github-packages)
 
 Azure rates came from its retail API filtered by service and East US 2. Confirm IBM rates for the selected location and account in its estimator. IBM requires a Pay-as-you-Go account for Code Engine. [Azure pricing](https://azure.microsoft.com/en-us/pricing/details/container-apps/), [Azure retail price API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices), [IBM price example](https://cloud.ibm.com/docs/account?topic=account-sample), [IBM supported sizes](https://cloud.ibm.com/docs/codeengine?topic=codeengine-mem-cpu-combo), [IBM setup](https://cloud.ibm.com/docs/codeengine?topic=codeengine-deploy-app-tutorial)
 

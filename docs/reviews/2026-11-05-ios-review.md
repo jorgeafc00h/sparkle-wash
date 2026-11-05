@@ -4,7 +4,7 @@
 
 Reviewed the active SwiftUI target declared by `SparkleWash-iOS/project.yml`,
 `OperationsView.swift`, `OperationsModels.swift`, SwiftData archive tests, and
-the November 4 public-catalog simulator capture. Applied the UI/UX Pro Max
+the November 5 public-catalog simulator captures. Applied the UI/UX Pro Max
 SwiftUI and native pre-delivery guidance, then checked Apple's current SwiftUI,
 SwiftData, and accessibility references. On November 5, launched the app on an
 iPhone 17 Pro simulator against a local API backed by isolated temporary JSON
@@ -42,16 +42,19 @@ Re-ran `make ios-build` and `make ios-test` after adding per-job archive rows.
   replacing the rows. Cold-launch offline reading requires a live staff token
   and has no signed short-lived entitlement. This remains an expiring local
   cache, not an independently durable local Neon archive.
-- VoiceOver focus through pinned headers, largest Dynamic Type, light-mode
-  contrast, signed-in iPhone/iPad layouts, and Reduce Motion need runtime
-  acceptance. `simctl` captured the public screens, but interactive signed-in
-  Simulator testing is not configured because staff OAuth credentials are
-  absent.
+- Default secondary text measured 3.29:1 against a light card surface in the
+  earlier capture. Operations secondary copy now uses semantic primary color
+  at 0.72 opacity; refreshed light and dark captures look legible. A full pixel
+  contrast audit across surfaces and Dynamic Type sizes remains open. VoiceOver
+  focus through pinned headers, largest Dynamic Type, signed-in iPhone/iPad
+  layouts, and Reduce Motion also need runtime acceptance. Interactive
+  sign-in testing is not configured because staff OAuth credentials are absent.
 
 ## Verification
 
 - `make ios-build` — passed.
-- `make ios-test` — passed all 7 simulator tests, including disk-backed
+- `make ios-test` — passed all 7 simulator tests on November 5 after the
+  contrast adjustment, including disk-backed
   per-job persistence, migration from the former archive blob, expiry cleanup,
   and withdrawn-batch handling.
 - iPhone 17 Pro simulator, iOS 27, live catalog backed by the local API — light
