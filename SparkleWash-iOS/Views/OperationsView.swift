@@ -53,10 +53,17 @@ final class OperationsModel: ObservableObject {
     func savedArchiveHistory(context: ModelContext) throws -> SavedArchiveHistory? {
         try purgeExpiredLocalData(context: context)
         guard canReadSavedHistory(at: .now), let staffScope else { return nil }
+        guard let snapshot = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first(where: {
+            $0.endpoint == endpoint && $0.staffScope == staffScope
+        }) else { return nil }
         let rows = try context.fetch(FetchDescriptor<CachedArchivedJob>()).filter {
             $0.endpoint == endpoint && $0.staffScope == staffScope
         }
         if !rows.isEmpty {
+            guard let revision = snapshot.archiveHistoryRevision,
+                  let grantData = snapshot.offlineEntitlementData,
+                  let grant = try? JSONDecoder().decode(OfflineEntitlementDTO.self, from: grantData),
+                  grant.revision == revision else { return nil }
             guard let syncedAt = rows.map(\.syncedAt).max(), Date().timeIntervalSince(syncedAt) < 86_400 else {
                 return nil
             }
@@ -64,11 +71,17 @@ final class OperationsModel: ObservableObject {
                 ($0.completedDate ?? .distantPast, $0.id) > ($1.completedDate ?? .distantPast, $1.id)
             }, syncedAt: syncedAt)
         }
+        if let revision = snapshot.archiveHistoryRevision,
+           let grantData = snapshot.offlineEntitlementData,
+           let grant = try? JSONDecoder().decode(OfflineEntitlementDTO.self, from: grantData),
+           grant.revision == revision,
+           let syncedAt = snapshot.archiveHistorySyncedAt,
+           Date().timeIntervalSince(syncedAt) < 86_400 {
+            return SavedArchiveHistory(jobs: [], syncedAt: syncedAt)
+        }
 
         // Move the earlier single-blob cache into individual SwiftData rows.
-        guard let snapshot = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first(where: {
-            $0.endpoint == endpoint && $0.staffScope == staffScope
-        }), let data = snapshot.archiveHistoryData else { return nil }
+        guard let data = snapshot.archiveHistoryData else { return nil }
         let legacy = try JSONDecoder().decode(SavedArchiveHistory.self, from: data)
         guard Date().timeIntervalSince(legacy.syncedAt) < 86_400 else { return nil }
         for job in legacy.jobs {
@@ -99,19 +112,29 @@ final class OperationsModel: ObservableObject {
         }
         let origin = endpoint
         guard let canonicalOrigin = EndpointValidation.origin(origin) else { throw URLError(.badURL) }
+        guard let record = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first(where: {
+            $0.endpoint == origin && $0.staffScope == staffScope
+        }) else { throw URLError(.cannotWriteToFile) }
         func checkScope() throws {
             guard !Task.isCancelled, self.endpoint == origin, self.token == token,
                   self.staffScope == staffScope, canReadSavedHistory(at: .now) else { throw CancellationError() }
         }
 
+        func clearRowsAndGrant() throws {
+            clearArchiveState(record)
+            for row in try context.fetch(FetchDescriptor<CachedArchivedJob>())
+                where row.endpoint == origin && row.staffScope == staffScope { context.delete(row) }
+            offlineEntitlement = nil
+            offlineHistoryAvailable = false
+        }
+
         let decoder = JSONDecoder()
         do {
-            var batches: [String] = []
-            var cursor: String?
+            var pageCursor = record.archiveSyncAfter
+            var latestEntitlement: OfflineEntitlementDTO?
             var archiveRevision: String?
-            var entitlement: OfflineEntitlementDTO?
-            repeat {
-                let query = cursor.map { "&after=\($0)" } ?? ""
+            while true {
+                let query = pageCursor.map { "&after=\($0)" } ?? ""
                 let data = try await request("/api/history/archive?limit=20" + query, endpoint: origin)
                 try checkScope()
                 let index = try decoder.decode(Index.self, from: data)
@@ -129,85 +152,137 @@ final class OperationsModel: ObservableObject {
                 trustedOfflineSigningKey = signingKey
                 if let archiveRevision, archiveRevision != index.revision { throw ArchiveSyncError.archiveChanged }
                 archiveRevision = index.revision
-                entitlement = index.offlineEntitlement
+                latestEntitlement = index.offlineEntitlement
                 guard index.batches.count <= 20 else { throw URLError(.cannotParseResponse) }
+                var previousBatch = pageCursor ?? ""
                 for batch in index.batches {
                     guard batch.utf8.count == 64,
                           batch.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
-                          batch > (batches.last ?? "") else { throw URLError(.cannotParseResponse) }
-                    batches.append(batch)
+                          batch > previousBatch else { throw URLError(.cannotParseResponse) }
+                    previousBatch = batch
                 }
-                guard batches.count <= 100 else { throw URLError(.dataLengthExceedsMaximum) }
                 if let next = index.nextAfter {
                     guard !index.batches.isEmpty, next == index.batches.last else {
                         throw URLError(.cannotParseResponse)
                     }
                 }
-                cursor = index.nextAfter
-            } while cursor != nil
-
-            var jobs: [String: (job: ArchivedJobDTO, batch: String)] = [:]
-            var downloadedCount = 0
-            for batch in batches {
-                var offset = 0
-                while true {
-                    let data: Data
-                    do {
-                        data = try await request("/api/history/archive/\(batch)?limit=100&offset=\(offset)", endpoint: origin)
-                    } catch let error as URLError where error.code == .resourceUnavailable {
-                        try checkScope()
-                        if let record = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first(where: {
-                            $0.endpoint == origin && $0.staffScope == staffScope
-                        }) {
-                            record.archiveHistoryData = nil
-                            record.offlineEntitlementData = nil
-                            record.archiveHistoryRevision = nil
-                        }
-                        for row in try context.fetch(FetchDescriptor<CachedArchivedJob>())
-                            where row.endpoint == origin && row.staffScope == staffScope { context.delete(row) }
-                        try context.save()
-                        offlineEntitlement = nil
-                        offlineHistoryAvailable = false
-                        throw ArchiveSyncError.batchWithdrawn
+                if record.archiveHistoryRevision == index.revision && record.archiveSyncRevision == nil {
+                    record.offlineEntitlementData = try JSONEncoder().encode(index.offlineEntitlement)
+                    record.archiveHistorySyncedAt = .now
+                    for row in try context.fetch(FetchDescriptor<CachedArchivedJob>())
+                        where row.endpoint == origin && row.staffScope == staffScope { row.syncedAt = .now }
+                    try context.save()
+                    offlineEntitlement = index.offlineEntitlement
+                    offlineHistoryAvailable = true
+                    let rows = try context.fetch(FetchDescriptor<CachedArchivedJob>()).filter {
+                        $0.endpoint == origin && $0.staffScope == staffScope
                     }
-                    try checkScope()
-                    let page = try decoder.decode(Page.self, from: data)
-                    downloadedCount += page.jobs.count
-                    guard downloadedCount <= 1_000 else { throw URLError(.dataLengthExceedsMaximum) }
-                    guard page.batch == batch, page.jobs.count <= 100 else { throw URLError(.cannotParseResponse) }
-                    for job in page.jobs {
-                        guard !job.id.isEmpty, !job.plate.isEmpty, !job.packageName.isEmpty, job.completedDate != nil else {
-                            throw URLError(.cannotParseResponse)
-                        }
-                        jobs[job.id] = (job, batch)
-                    }
-                    guard let next = page.nextOffset else { break }
-                    guard !page.jobs.isEmpty, next == offset + page.jobs.count else { throw URLError(.cannotParseResponse) }
-                    offset = next
+                    return SavedArchiveHistory(jobs: rows.map(\.dto).sorted {
+                        ($0.completedDate ?? .distantPast, $0.id) > ($1.completedDate ?? .distantPast, $1.id)
+                    }, syncedAt: rows.map(\.syncedAt).max() ?? .now)
                 }
+                if record.archiveSyncRevision != index.revision {
+                    let mustRestartFromFirstBatch = pageCursor != nil
+                    try clearRowsAndGrant()
+                    record.archiveSyncRevision = index.revision
+                    record.archiveSyncAfter = nil
+                    record.archiveSyncBatch = nil
+                    record.archiveSyncOffset = 0
+                    try context.save()
+                    if mustRestartFromFirstBatch { throw ArchiveSyncError.archiveChanged }
+                }
+
+                let checkpointAfter = pageCursor
+                let checkpointBatch = record.archiveSyncAfter == checkpointAfter ? record.archiveSyncBatch : nil
+                for batch in index.batches {
+                    if let checkpointBatch, batch < checkpointBatch { continue }
+                    if let checkpointBatch, batch == checkpointBatch, record.archiveSyncOffset == nil { continue }
+                    if checkpointBatch != batch {
+                        record.archiveSyncAfter = checkpointAfter
+                        record.archiveSyncBatch = batch
+                        record.archiveSyncOffset = 0
+                        try context.save()
+                    }
+                    while true {
+                        let offset = record.archiveSyncOffset ?? 0
+                        let pageData: Data
+                        do {
+                            pageData = try await request("/api/history/archive/\(batch)?limit=100&offset=\(offset)", endpoint: origin)
+                        } catch let error as URLError where error.code == .resourceUnavailable {
+                            try checkScope()
+                            try clearRowsAndGrant()
+                            record.archiveSyncRevision = nil
+                            record.archiveSyncAfter = nil
+                            record.archiveSyncBatch = nil
+                            record.archiveSyncOffset = nil
+                            try context.save()
+                            throw ArchiveSyncError.batchWithdrawn
+                        }
+                        try checkScope()
+                        let page = try decoder.decode(Page.self, from: pageData)
+                        guard page.batch == batch, page.jobs.count <= 100 else { throw URLError(.cannotParseResponse) }
+                        for job in page.jobs {
+                            guard !job.id.isEmpty, !job.plate.isEmpty, !job.packageName.isEmpty, job.completedDate != nil else {
+                                throw URLError(.cannotParseResponse)
+                            }
+                            let key = CachedArchivedJob.makeKey(endpoint: origin, staffScope: staffScope, jobID: job.id)
+                            var rowQuery = FetchDescriptor<CachedArchivedJob>(predicate: #Predicate { $0.key == key })
+                            rowQuery.fetchLimit = 1
+                            if let existing = try context.fetch(rowQuery).first {
+                                existing.batch = batch
+                                existing.plate = job.plate
+                                existing.packageName = job.packageName
+                                existing.completedAt = job.completedAt
+                                existing.syncedAt = .now
+                            } else {
+                                context.insert(CachedArchivedJob(endpoint: origin, staffScope: staffScope,
+                                    batch: batch, job: job, syncedAt: .now))
+                            }
+                        }
+                        if let next = page.nextOffset {
+                            guard !page.jobs.isEmpty, next == offset + page.jobs.count else {
+                                throw URLError(.cannotParseResponse)
+                            }
+                            record.archiveSyncOffset = next
+                        } else {
+                            record.archiveSyncOffset = nil
+                        }
+                        try context.save()
+                        guard page.nextOffset != nil else { break }
+                    }
+                }
+
+                if !index.batches.isEmpty {
+                    record.archiveSyncAfter = index.batches.last
+                    record.archiveSyncBatch = nil
+                    record.archiveSyncOffset = 0
+                    try context.save()
+                    pageCursor = record.archiveSyncAfter
+                    continue
+                }
+                guard index.nextAfter == nil else { throw URLError(.cannotParseResponse) }
+                break
             }
             try checkScope()
-            let syncedAt = Date.now
-            let history = SavedArchiveHistory(jobs: jobs.values.map(\.job).sorted {
-                ($0.completedDate ?? .distantPast, $0.id) > ($1.completedDate ?? .distantPast, $1.id)
-            }, syncedAt: syncedAt)
-            guard let record = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first(where: {
-                $0.endpoint == origin && $0.staffScope == staffScope
-            }) else { throw URLError(.cannotWriteToFile) }
-            for oldRow in try context.fetch(FetchDescriptor<CachedArchivedJob>())
-                where oldRow.endpoint == origin && oldRow.staffScope == staffScope { context.delete(oldRow) }
-            for item in jobs.values {
-                context.insert(CachedArchivedJob(endpoint: origin, staffScope: staffScope, batch: item.batch,
-                                                 job: item.job, syncedAt: syncedAt))
-            }
+            guard let entitlement = latestEntitlement, let archiveRevision,
+                  record.archiveSyncRevision == archiveRevision else { throw URLError(.cannotParseResponse) }
             record.archiveHistoryData = nil
-            guard let entitlement, let archiveRevision else { throw URLError(.cannotParseResponse) }
             record.offlineEntitlementData = try JSONEncoder().encode(entitlement)
             record.archiveHistoryRevision = archiveRevision
+            record.archiveHistorySyncedAt = .now
+            record.archiveSyncRevision = nil
+            record.archiveSyncAfter = nil
+            record.archiveSyncBatch = nil
+            record.archiveSyncOffset = nil
             try context.save()
             offlineEntitlement = entitlement
             offlineHistoryAvailable = true
-            return history
+            let rows = try context.fetch(FetchDescriptor<CachedArchivedJob>()).filter {
+                $0.endpoint == origin && $0.staffScope == staffScope
+            }
+            return SavedArchiveHistory(jobs: rows.map(\.dto).sorted {
+                ($0.completedDate ?? .distantPast, $0.id) > ($1.completedDate ?? .distantPast, $1.id)
+            }, syncedAt: rows.map(\.syncedAt).max() ?? .now)
         } catch {
             if (error as? URLError)?.code == .userAuthenticationRequired,
                self.endpoint == origin, self.token == token {
@@ -264,8 +339,7 @@ final class OperationsModel: ObservableObject {
                     try clearUntrustedArchive(record, scope: scope, context: context)
                 }
             } else if record.offlineEntitlementData != nil {
-                record.offlineEntitlementData = nil
-                record.archiveHistoryRevision = nil
+                clearArchiveState(record)
                 if let scope = record.staffScope {
                     for row in try context.fetch(FetchDescriptor<CachedArchivedJob>())
                         where row.endpoint == endpoint && row.staffScope == scope { context.delete(row) }
@@ -276,11 +350,21 @@ final class OperationsModel: ObservableObject {
     }
 
     private func clearUntrustedArchive(_ record: CachedOperationsSnapshot, scope: Data, context: ModelContext) throws {
-        record.offlineEntitlementData = nil
-        record.archiveHistoryRevision = nil
+        clearArchiveState(record)
         for row in try context.fetch(FetchDescriptor<CachedArchivedJob>())
             where row.endpoint == endpoint && row.staffScope == scope { context.delete(row) }
         try context.save()
+    }
+
+    private func clearArchiveState(_ record: CachedOperationsSnapshot) {
+        record.archiveHistoryData = nil
+        record.offlineEntitlementData = nil
+        record.archiveHistoryRevision = nil
+        record.archiveHistorySyncedAt = nil
+        record.archiveSyncRevision = nil
+        record.archiveSyncAfter = nil
+        record.archiveSyncBatch = nil
+        record.archiveSyncOffset = nil
     }
 
     private func purgeExpiredLocalData(context: ModelContext, now: Date = .now) throws {
@@ -295,6 +379,11 @@ final class OperationsModel: ObservableObject {
                     record.archiveHistoryData = nil
                     record.offlineEntitlementData = nil
                     record.archiveHistoryRevision = nil
+                    record.archiveHistorySyncedAt = nil
+                    record.archiveSyncRevision = nil
+                    record.archiveSyncAfter = nil
+                    record.archiveSyncBatch = nil
+                    record.archiveSyncOffset = nil
                     record.arrivalsData = emptyList
                     record.jobsData = emptyList
                     record.summaryData = Data("{}".utf8)
@@ -303,7 +392,6 @@ final class OperationsModel: ObservableObject {
                     record.savedAt = .distantPast
                     changed = true
                 }
-                for row in archivedRows where row.endpoint == record.endpoint { context.delete(row); changed = true }
                 continue
             }
 
@@ -311,6 +399,7 @@ final class OperationsModel: ObservableObject {
             guard let archive = try? JSONDecoder().decode(SavedArchiveHistory.self, from: archivedData),
                   now.timeIntervalSince(archive.syncedAt) < 86_400 else {
                 record.archiveHistoryData = nil
+                record.archiveHistorySyncedAt = nil
                 changed = true
                 continue
             }
@@ -330,8 +419,7 @@ final class OperationsModel: ObservableObject {
             if let record = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first(where: {
                 $0.endpoint == endpoint && $0.staffScope == staffScope
             }) {
-                record.offlineEntitlementData = nil
-                record.archiveHistoryRevision = nil
+                clearArchiveState(record)
             }
             try context.save()
         } catch { self.error = "Expired offline history could not be removed: \(error.localizedDescription)" }
@@ -408,7 +496,7 @@ final class OperationsModel: ObservableObject {
             do {
                 if let record = try context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first(where: { $0.endpoint == endpoint }) {
                     if record.staffScope != staffScope {
-                        record.archiveHistoryData = nil
+                        clearArchiveState(record)
                         for row in try context.fetch(FetchDescriptor<CachedArchivedJob>())
                             where row.endpoint == endpoint { context.delete(row) }
                     }
@@ -813,7 +901,7 @@ struct OperationsView: View {
                     .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Review arrival \(arrival.plateCandidate ?? "unreadable plate")")
+                .accessibilityLabel(arrivalAccessibilityLabel(arrival))
             }
         }
     }
@@ -852,9 +940,33 @@ struct OperationsView: View {
                 }
                 .matchedTransitionSource(id: job.id, in: jobNavigation)
                 .buttonStyle(.plain)
-                .accessibilityLabel("Job \(job.plate), \(job.status), \(job.elapsedSeconds / 60) minutes on site")
+                .accessibilityLabel(jobAccessibilityLabel(job))
             }
         }
+    }
+
+    private func arrivalAccessibilityLabel(_ arrival: ArrivalDTO) -> String {
+        let plate = arrival.confirmedPlate ?? arrival.plateCandidate ?? "unreadable plate"
+        let reviewState = arrival.confirmedPlate == nil ? "Needs staff review" : "Plate confirmed"
+        let confidence = arrival.confidence.map { "Candidate confidence \(Int(($0 * 100).rounded())) percent" }
+        return ["Review arrival for \(plate)", "Camera \(arrival.cameraId)", reviewState, confidence]
+            .compactMap { $0 }
+            .joined(separator: ". ")
+    }
+
+    private func jobAccessibilityLabel(_ job: JobDTO) -> String {
+        let status = switch job.status {
+        case "arrived": "Arrived"
+        case "queued": "Queued"
+        case "in_progress": "In progress"
+        case "completed": "Completed"
+        case "cancelled": "Cancelled"
+        default: job.status.replacingOccurrences(of: "_", with: " ")
+        }
+        let assignment = job.assignments.isEmpty
+            ? "No staff assigned"
+            : "Assigned to " + job.assignments.map(\.employeeName).joined(separator: ", ")
+        return "Job for \(job.plate). \(status). \(job.packageName), \(job.vehicleClass). \(job.priceUsd.formatted(.currency(code: "USD"))). \(job.elapsedSeconds / 60) minutes on site. \(assignment)."
     }
 
     private func jobStatus(_ status: String) -> some View {

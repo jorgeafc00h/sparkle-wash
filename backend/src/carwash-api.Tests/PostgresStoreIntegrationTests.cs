@@ -2,7 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Builder;
 using CarwashApi;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
@@ -104,6 +111,91 @@ public sealed class PostgresStoreIntegrationTests
             Assert.Single(consumption, result => result.Status == StockActionStatus.Insufficient);
             Assert.Equal(1, Assert.Single(await operationsA.ItemsAsync()).OnHand);
             Assert.Empty(await new PostgresOperationsStore(new PostgresWorkflowDatabase(dataSource, tenantB)).ItemsAsync());
+
+            var archiveReader = new PostgresArchiveReader(dataSource);
+            Assert.Equal(0, (await archiveReader.GetIndexAsync(tenantA)).JobCount);
+            Assert.Equal(JobActionStatus.Created, (await jobsA.TransitionAsync(job.Id, "completed", "complete-1", "staff-1")).Status);
+            var archiveIndex = await archiveReader.GetIndexAsync(tenantA);
+            Assert.Equal(1, archiveIndex.JobCount);
+            Assert.Matches("^[a-f0-9]{64}$", archiveIndex.Revision);
+            var archivePage = Assert.IsType<ArchivedJobPage>(await archiveReader.ReadAsync(tenantA, archiveIndex.Revision, 0, 10));
+            var archived = Assert.Single(archivePage.Jobs);
+            Assert.Equal(job.Id, archived.Id);
+            Assert.Equal(job.Plate, archived.Plate);
+            Assert.Null(archivePage.NextOffset);
+            Assert.Equal(0, (await archiveReader.GetIndexAsync(tenantB)).JobCount);
+            Assert.Null(await archiveReader.ReadAsync(tenantB, archiveIndex.Revision, 0, 10));
+
+            await using (var changeArchivedJob = new NpgsqlCommand(
+                "UPDATE sparklewash.jobs SET plate = 'CHANGED' WHERE tenant_id = $1 AND id = $2", admin))
+            {
+                changeArchivedJob.Parameters.AddWithValue(tenantA);
+                changeArchivedJob.Parameters.AddWithValue(job.Id);
+                await changeArchivedJob.ExecuteNonQueryAsync();
+            }
+            Assert.NotEqual(archiveIndex.Revision, (await archiveReader.GetIndexAsync(tenantA)).Revision);
+            Assert.Null(await archiveReader.ReadAsync(tenantA, archiveIndex.Revision, 0, 10));
+
+            await using (var addArchiveStaff = new NpgsqlCommand("""
+                INSERT INTO sparklewash.memberships (tenant_id, subject, role, added_at, added_by)
+                VALUES ($1, '123456789', 'admin', now(), 'integration-test')
+                """, admin))
+            {
+                addArchiveStaff.Parameters.AddWithValue(tenantA);
+                await addArchiveStaff.ExecuteNonQueryAsync();
+            }
+            using var signingKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var apiDirectory = Path.Combine(directory, "archive-api");
+            Directory.CreateDirectory(apiDirectory);
+            await using (var app = Program.BuildApp([
+                "--urls", "http://127.0.0.1:0",
+                "--environment", "Development",
+                "--SPARKLEWASH_SESSION_POSTGRES", runtimeBuilder.ConnectionString,
+                "--SPARKLEWASH_POSTGRES_DIRECTORY", "true",
+                "--SPARKLEWASH_POSTGRES_WORKFLOW", "true",
+                "--SPARKLEWASH_GOOGLE_CLIENT_ID", "integration-test-client",
+                "--SPARKLEWASH_TENANTS_DIR", Path.Combine(apiDirectory, "tenants"),
+                "--SPARKLEWASH_PHOTO_DIR", Path.Combine(apiDirectory, "photos")
+            ], new IntegrationIdentityVerifier(), signingKey.ExportECPrivateKeyPem()))
+            {
+                await app.StartAsync();
+                using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
+                client.DefaultRequestHeaders.Add("X-SparkleWash-Client-Origin", client.BaseAddress.ToString().TrimEnd('/'));
+                Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/readyz")).StatusCode);
+                using var apiLogin = await client.PostAsJsonAsync("/api/auth/google", new { idToken = "integration-test-token" });
+                Assert.Equal(HttpStatusCode.OK, apiLogin.StatusCode);
+                using var loginBody = JsonDocument.Parse(await apiLogin.Content.ReadAsStringAsync());
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+                    loginBody.RootElement.GetProperty("sessionToken").GetString());
+
+                using var indexResponse = JsonDocument.Parse(await client.GetStringAsync("/api/history/archive"));
+                var indexRevision = indexResponse.RootElement.GetProperty("revision").GetString();
+                Assert.Equal(indexRevision, indexResponse.RootElement.GetProperty("batches")[0].GetString());
+                Assert.Equal(indexRevision, indexResponse.RootElement.GetProperty("offlineEntitlement").GetProperty("revision").GetString());
+
+                using var pageResponse = JsonDocument.Parse(await client.GetStringAsync($"/api/history/archive/{indexRevision}?limit=10"));
+                Assert.Equal(job.Id, pageResponse.RootElement.GetProperty("jobs")[0].GetProperty("id").GetString());
+                Assert.Equal("CHANGED", pageResponse.RootElement.GetProperty("jobs")[0].GetProperty("plate").GetString());
+            }
+
+            var tenantARevisionBeforeMove = (await archiveReader.GetIndexAsync(tenantA)).Revision;
+            var tenantBRevisionBeforeMove = (await archiveReader.GetIndexAsync(tenantB)).Revision;
+            await using (var moveArchivedJob = new NpgsqlCommand(
+                "UPDATE sparklewash.jobs SET tenant_id = $1 WHERE tenant_id = $2 AND id = $3", admin))
+            {
+                moveArchivedJob.Parameters.AddWithValue(tenantB);
+                moveArchivedJob.Parameters.AddWithValue(tenantA);
+                moveArchivedJob.Parameters.AddWithValue(job.Id);
+                await moveArchivedJob.ExecuteNonQueryAsync();
+            }
+            var tenantAAfterMove = await archiveReader.GetIndexAsync(tenantA);
+            var tenantBAfterMove = await archiveReader.GetIndexAsync(tenantB);
+            Assert.NotEqual(tenantARevisionBeforeMove, tenantAAfterMove.Revision);
+            Assert.NotEqual(tenantBRevisionBeforeMove, tenantBAfterMove.Revision);
+            Assert.Equal(0, tenantAAfterMove.JobCount);
+            Assert.Equal(1, tenantBAfterMove.JobCount);
+            Assert.Null(await archiveReader.ReadAsync(tenantA, tenantARevisionBeforeMove, 0, 10));
+            Assert.NotNull(await archiveReader.ReadAsync(tenantB, tenantBAfterMove.Revision, 0, 10));
 
             var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             {

@@ -2,6 +2,11 @@
 set -euo pipefail
 
 image=${1:-sparklewash-api:local}
+image_user=$(docker image inspect "$image" --format '{{.Config.User}}')
+if [[ ! "$image_user" =~ ^[1-9][0-9]*$ ]]; then
+  echo "Expected a non-root numeric image user, got '$image_user'." >&2
+  exit 1
+fi
 volume=$(docker volume create)
 container=
 cleanup() {
@@ -23,6 +28,7 @@ start() {
 }
 
 start
+curl --fail --silent --show-error "$base_url/" | grep -F 'SparkleWash - Carwash Productivity Dashboard' >/dev/null
 curl --fail --silent --show-error "$base_url/readyz" | jq -e '.status == "ready"' >/dev/null
 curl --fail --silent --show-error "$base_url/api/packages" | jq -e '.packages | length == 4' >/dev/null
 status=$(curl --fail --silent --show-error -o /dev/null -w '%{http_code}' \

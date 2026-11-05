@@ -37,9 +37,12 @@ Re-ran `make ios-test` after implementing signed offline history entitlements.
   pass, but a landscape capture is still needed to validate the layout.
 - Completed-history rows now persist individually in `CachedArchivedJob`, with
   endpoint and tenant/subject/role scope, stable job ID, source batch, and sync
-  time. The prior blob migrates on read. Discovery is still capped at 100
-  batches and 1,000 jobs, and the client buffers the current archive before
-  replacing the rows. The archive index issues a 24-hour ES256 entitlement
+  time. The prior blob migrates on read. Sync downloads bounded pages, saves a
+  page and its next offset together, resumes after reopening the disk-backed
+  store, and keeps partial rows inaccessible until the full revision commits.
+  There is no fixed total-job cap, but each page currently performs one
+  SwiftData lookup per row and the local cache has no aggregate row or byte
+  budget. The archive index issues a 24-hour ES256 entitlement
   bound to origin, tenant, staff subject, role, and archive revision. SwiftData
   persists it; the corresponding public key is pinned per API origin in the
   device-only Keychain during authenticated HTTPS sync. Cold restore requires
@@ -47,9 +50,10 @@ Re-ran `make ios-test` after implementing signed offline history entitlements.
   key rotation. Tests reject a self-signed replacement and exercise rotation
   using an injected key store; a temporarily unavailable key store preserves
   the cache for a later retry. Real Keychain behavior remains unverified on a
-  signed device build. The API still reads file-backed archives; Neon export,
-  COS restore, resumable cursors, and tombstones remain incomplete. IBM needs a
-  protected P-256 signing key before the feature can run there.
+  signed device build. The API can page completed jobs from PostgreSQL after
+  migration 003 and its runtime grant are applied; Neon export, COS restore,
+  and selective tombstones remain incomplete. IBM needs a protected P-256
+  signing key before the feature can run there.
 - Default secondary text measured 3.29:1 against a light card surface in the
   earlier capture. Operations secondary copy now uses semantic primary color
   at 0.72 opacity; refreshed light and dark captures look legible. A full pixel
@@ -65,7 +69,8 @@ Re-ran `make ios-test` after implementing signed offline history entitlements.
   disk-backed cold restoration, grant signature/scope/expiry validation,
   tamper and self-signed key replacement rejection, key rotation through the
   injected key store, temporary key-store failure preservation, migration from
-  the former archive blob, expiry cleanup, and withdrawn-batch handling.
+  the former archive blob, expiry cleanup, withdrawn-batch handling, and
+  interrupted page sync followed by disk-backed store reopen and resume.
 - iPhone 17 Pro simulator, iOS 27, live catalog backed by the local API — light
   and dark appearance captures reviewed and saved; this does not cover
   signed-in workboard behavior or prove theme contrast at largest Dynamic Type.
@@ -73,23 +78,47 @@ Re-ran `make ios-test` after implementing signed offline history entitlements.
   and dark portrait captures reviewed and saved. Landscape and signed-in
   workboard acceptance remain outstanding.
 
+## Follow-up fix — November 5, 2026
+
+The follow-up audit found that expiry cleanup removed all cached archive rows
+for an endpoint when one staff snapshot expired. Cleanup now relies on each
+archive row's own 24-hour `syncedAt` expiry, preserving a still-valid row for
+another staff scope at the same endpoint. The regression case is covered by
+`testRestorePurgesExpiredStaffSnapshotsAndArchivePayloads`. Both the source
+project and synchronized deployment mirror passed all 8 simulator tests on
+iPhone 17 Pro / iOS 27.2.
+
+## Neon history reader — November 5, 2026
+
+The API now serves tenant-scoped completed-job pages from PostgreSQL when the
+PostgreSQL workflow flag is enabled. Migration 003 advances a per-tenant
+revision when displayed completed-job data changes; the page endpoint reads a
+repeatable-read snapshot and rejects stale batch identifiers. Local PostgreSQL
+18 integration coverage verified migration, runtime SELECT-only access to the
+revision counter, cross-tenant isolation, stale-page rejection, readiness, and
+the authorized HTTP index/page flow. Migration 003 and its runtime SELECT-only
+grant have since been applied to Neon `main` and the grant was verified. The
+API has not been connected to that database, and the COS export is not an API
+read source yet. Keep the PostgreSQL feature flags off until cutover and import
+acceptance are complete.
+
 ## Next implementation steps
 
 1. Capture the signed-in workboard in phone portrait/landscape and iPad
    landscape, then exercise pinned headers with VoiceOver and large
    Dynamic Type in light/dark appearances and Reduce Motion.
-2. Replace the server's file-only archive source with Neon-backed stable
-   revisions, resumable cursors, and tombstones. Remove the 100-batch/1,000-job
-   cap and persist each bounded page transactionally in the existing
-   tenant/account-scoped SwiftData rows. Keep operational snapshot freshness
-   separate.
-3. Complete signed offline entitlement operations with on-device Keychain
-   persistence validation, selective revocation and deletion markers, expiry
-   cleanup, and a full app termination/relaunch acceptance run before claiming
-   production cold-launch offline history.
+2. Reduce per-page SwiftData query overhead, define and enforce a local row/byte
+   budget without silently losing archive records, and decide whether completed
+   rows need to remain usable beyond the 24-hour entitlement window.
+3. Add selective deletion/revocation markers and test tenant-wide changes that
+   affect a downloaded archive. Run a signed-device force-quit/relaunch test
+   with real Keychain persistence; the current reopen test reconstructs the
+   SwiftData container in the simulator process.
 4. Only advertise long-term local archive after encrypted object export,
    checksum verification, isolated restore, file protection, backup exclusion,
-   bounded storage, and deletion propagation have been verified.
+   storage policy, and deletion propagation have been verified. Neon `main`
+   now has migration 003 and the runtime SELECT grant; enable hosted PostgreSQL
+   reads only after operational-store cutover and import/restore acceptance.
 
 ## References
 

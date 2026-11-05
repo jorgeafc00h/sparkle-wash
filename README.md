@@ -31,7 +31,16 @@ make ios-test
 SPARKLEWASH_INGEST_KEY=choose-a-local-secret dotnet run --project backend/src/carwash-api --urls http://localhost:8080
 ```
 
-Stores use JSON files under the API content root's `data/` directory by default. `SPARKLEWASH_ARRIVALS_FILE`, `SPARKLEWASH_JOBS_FILE`, `SPARKLEWASH_OPERATIONS_FILE`, and `SPARKLEWASH_DATA_FILE` can point to absolute writable paths. Use private keys and isolated data files for development. For the web app, run `npm run dev --prefix frontend`; Vite proxies `/api` to port 8080. Its production build goes to `backend/static/wwwroot`.
+The GitHub deployment repository is the nested `backend/` directory. Before
+publishing a container from its GitHub Actions workflow, run
+`make sync-deployment-frontend` from this workspace to copy the active web app
+into `backend/frontend/`; then include that copy with the deployment changes.
+The active SwiftUI project is also rooted in this workspace. Run
+`make sync-deployment-ios` to mirror it into `backend/SparkleWash-iOS/`; the
+GitHub iOS workflow builds that mirror while the separate `ios/SparkleKit`
+package tests remain in place.
+
+Stores use JSON files under the API content root's `data/` directory by default. `SPARKLEWASH_ARRIVALS_FILE`, `SPARKLEWASH_JOBS_FILE`, `SPARKLEWASH_OPERATIONS_FILE`, and `SPARKLEWASH_DATA_FILE` can point to absolute writable paths. Use private keys and isolated data files for development. For the web app, run `npm run dev --prefix frontend`; Vite proxies `/api` to port 8080. Its production build goes to `frontend/dist` and the Docker image copies it into the API's static web root.
 
 Staff routes require a configured Google client ID and staff allowlist on the API. The web build reads `VITE_GOOGLE_CLIENT_ID`; iOS reads the three `SPARKLEWASH_GOOGLE_*` build settings in `project.yml` (iOS client ID, server client ID, reversed URL scheme). When these values are absent, the apps still show the public package catalog, and staff operations remain unavailable. The iOS simulator's `localhost` endpoint points to a local API on the same Mac; change it in Settings for another host.
 
@@ -47,6 +56,7 @@ Staff routes require a configured Google client ID and staff allowlist on the AP
 - `POST /api/arrivals/observations`: keyed camera event ingestion with bounded JPEG evidence, retry deduplication, and a plate candidate that requires staff review. Staff can list, confirm, and retrieve arrival evidence.
 - `/api/jobs`: staff-controlled job creation, status transitions, employee assignments, immutable service/price snapshot, server-derived elapsed time, and whole-carwash summary.
 - `/api/employees` and `/api/inventory/items`: employee records and stock with idempotent movements, reservations, consumption, and reorder indicators.
+- `/api/history/archive`: authorized, bounded pages of completed jobs. JSON mode reads tenant archive files; the PostgreSQL workflow reads completed rows from Neon with a per-tenant revision token and rejects stale pages.
 - `/api/auth/google`: Google ID-token verification and staff session roles. `/api/payments/n1co/webhook` has a signed webhook inbox; job payment reconciliation and receipts are pending.
 - Legacy `/api/metrics`, station telemetry/washes, station photos, and station WebSocket routes remain. Demo readings and `/api/upload` acknowledgment are not live operations.
 
@@ -66,13 +76,13 @@ To check the packaged API and volume persistence with disposable data, run
 `docker build -t sparklewash-api:local .` followed by
 `scripts/smoke-container.sh` (requires `jq`). CI runs the same check on Linux AMD64.
 
-The image runs the active .NET API as a non-root user on port 8080. Compose stores
-the JSON files and photos in the `api-data` volume. Build and deploy the web
-console separately and configure its origin through `SPARKLEWASH_CORS_ORIGINS`
-if routing requests across origins. Set `VITE_API_ORIGIN` at build time to the
-HTTPS origin of the API, for example `https://api.example.com`. Leave it empty
-when the web host forwards `/api` to the backend on the same origin. Register
-the web origin in the Google OAuth client's authorized JavaScript origins.
+The image runs the active .NET API and React workboard on one origin as a non-root user on port 8080. Compose stores
+the JSON files and photos in the `api-data` volume. The single-origin setup uses
+relative `/api` requests and does not need cross-origin settings. Set the
+non-secret `VITE_GOOGLE_CLIENT_ID` Docker build argument to enable Google sign-in;
+configure the matching API client ID and staff allowlist as runtime secrets.
+Register the deployed origin in the Google OAuth client's authorized JavaScript
+origins.
 
 For a cloud demo, use an AMD64 image, HTTPS ingress targeting port 8080, and
 `/healthz` for liveness. Use `/readyz` for readiness. It checks package loading,
@@ -108,7 +118,15 @@ the optional `IBM_CE_RUNTIME_SECRET` GitHub Environment variable to have the
 workflow create or update a Code Engine generic secret from protected runtime
 settings; when `NEON_RUNTIME_CONNECTION_STRING` is present it is stored as
 `SPARKLEWASH_SESSION_POSTGRES`. Leave the variable empty to keep that connection
-out of Code Engine. Keep staff and device credentials in Code Engine secrets.
+out of Code Engine. The `SPARKLEWASH_POSTGRES_*` environment variables control
+the relational stores; they default to `false`, are validated for dependency
+order, and require both the Neon secret and `IBM_CE_RUNTIME_SECRET` when enabled.
+The IBM workflow requires the public `VITE_GOOGLE_CLIENT_ID` repository
+variable, `IBM_CE_APP_CONFIG_SECRET`, and protected multiline
+`SPARKLEWASH_APP_CONFIG_ENV` secret to sync Google sign-in, staff roles, CORS,
+and device settings into a Code Engine generic secret. Preflight verifies that
+the server and web client IDs match and that a staff-role allowlist exists.
+Keep staff and device credentials out of the image and repository.
 
 The workflow also requires `IBM_CE_OFFLINE_SIGNING_SECRET` and the
 `SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY` environment secret for 24-hour signed
@@ -164,6 +182,13 @@ az deployment sub what-if --location eastus2 \
 The template adds `rg-sparklewash-demo` by default and deploys the same
 Consumption app into it. Set `resourceGroupName` to use another dedicated
 name. Review the preview before provisioning.
+
+On November 5, 2026, both Bicep templates compiled with Bicep CLI 0.48.1 and
+the subscription `what-if` preview returned the expected three resources:
+resource group, Consumption environment, and container app. That preview used
+Microsoft's public sample image, so it validates the ARM configuration only;
+the SparkleWash GHCR digest still needs to be published and deployed before
+cloud smoke testing.
 
 [Azure deployment preview](https://learn.microsoft.com/en-us/azure/azure-resource-manager/templates/deploy-what-if)
 

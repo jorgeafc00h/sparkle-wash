@@ -74,6 +74,8 @@ public static class Program
             builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(corsOrigins)
                 .WithHeaders("Authorization", "Content-Type", "Idempotency-Key", "X-SparkleWash-Device-Key").WithMethods("GET", "POST", "PUT", "DELETE")));
         var app = builder.Build();
+        app.UseDefaultFiles();
+        app.UseStaticFiles();
         var sessionDatabase = app.Services.GetService<NpgsqlDataSource>();
         TenantDirectory directory = usePostgresDirectory
             ? new PostgresTenantDirectory(sessionDatabase!, maxTenants)
@@ -105,6 +107,7 @@ public static class Program
         if (corsOrigins.Length > 0) app.UseCors();
         app.UseWebSockets();
         var archiveDirectory = builder.Configuration["SPARKLEWASH_ARCHIVE_DIR"];
+        var postgresArchiveReader = usePostgresWorkflow ? new PostgresArchiveReader(sessionDatabase!) : null;
         var ingestionKey = builder.Configuration["SPARKLEWASH_INGEST_KEY"];
         var streamKey = builder.Configuration["SPARKLEWASH_STREAM_KEY"];
         var n1coWebhookSecret = builder.Configuration["SPARKLEWASH_N1CO_WEBHOOK_SECRET"];
@@ -144,7 +147,9 @@ public static class Program
                            AND to_regclass('sparklewash.items') IS NOT NULL
                            AND to_regclass('sparklewash.movements') IS NOT NULL
                            AND to_regclass('sparklewash.reservations') IS NOT NULL
+                           AND (NOT $1 OR to_regclass('sparklewash.archive_revisions') IS NOT NULL)
                         """, connection);
+                    command.Parameters.AddWithValue(usePostgresWorkflow);
                     if (await command.ExecuteScalarAsync(timeout.Token) is not true)
                         return Results.Json(new { status = "not-ready" }, statusCode: StatusCodes.Status503ServiceUnavailable);
                 }
@@ -370,11 +375,23 @@ public static class Program
             var pageSize = limit ?? 20;
             try
             {
-                var batches = string.IsNullOrWhiteSpace(archiveDirectory) ? [] :
-                    ArchivedJobReader.ListBatches(archiveDirectory, session.TenantId, after, pageSize + 1);
-                var revision = string.IsNullOrWhiteSpace(archiveDirectory) ?
-                    ArchivedJobReader.Revision([]) :
-                    ArchivedJobReader.Revision(archiveDirectory, session.TenantId);
+                string[] batches;
+                string revision;
+                if (postgresArchiveReader is not null)
+                {
+                    var index = await postgresArchiveReader.GetIndexAsync(session.TenantId, context.RequestAborted);
+                    revision = index.Revision;
+                    batches = index.JobCount > 0 && !string.Equals(after, revision, StringComparison.Ordinal)
+                        ? [revision] : [];
+                }
+                else
+                {
+                    batches = string.IsNullOrWhiteSpace(archiveDirectory) ? [] :
+                        ArchivedJobReader.ListBatches(archiveDirectory, session.TenantId, after, pageSize + 1);
+                    revision = string.IsNullOrWhiteSpace(archiveDirectory) ?
+                        ArchivedJobReader.Revision([]) :
+                        ArchivedJobReader.Revision(archiveDirectory, session.TenantId);
+                }
                 var entitlement = offlineEntitlementIssuer.Issue(origin, session.TenantId, session.Subject,
                     session.Role, revision, DateTimeOffset.UtcNow);
                 return Results.Json(new
@@ -385,7 +402,7 @@ public static class Program
                     offlineEntitlement = entitlement
                 });
             }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or NpgsqlException)
             {
                 return Results.Json(new { error = "Archive unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable);
             }
@@ -397,15 +414,20 @@ public static class Program
             if (session is null) return Results.Unauthorized();
             if (!ArchivedJobReader.ValidBatch(batch) || offset is < 0 || limit is < 1 or > 100)
                 return Results.BadRequest(new { error = "Invalid archive page" });
-            if (string.IsNullOrWhiteSpace(archiveDirectory)) return Results.NotFound();
-
             try
             {
-                var page = await ArchivedJobReader.ReadAsync(archiveDirectory, session.TenantId, batch,
-                    offset ?? 0, limit ?? 50, context.RequestAborted);
+                ArchivedJobPage? page;
+                if (postgresArchiveReader is not null)
+                    page = await postgresArchiveReader.ReadAsync(session.TenantId, batch, offset ?? 0,
+                        limit ?? 50, context.RequestAborted);
+                else if (string.IsNullOrWhiteSpace(archiveDirectory))
+                    return Results.NotFound();
+                else
+                    page = await ArchivedJobReader.ReadAsync(archiveDirectory, session.TenantId, batch,
+                        offset ?? 0, limit ?? 50, context.RequestAborted);
                 return page is null ? Results.NotFound() : Results.Json(page);
             }
-            catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException)
+            catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or NpgsqlException)
             {
                 return Results.Json(new { error = "Archive unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable);
             }

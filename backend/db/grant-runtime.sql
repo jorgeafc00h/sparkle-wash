@@ -8,3 +8,4 @@ GRANT SELECT, INSERT, UPDATE ON sparklewash.devices, sparklewash.arrivals, spark
     sparklewash.employees, sparklewash.items TO sparklewash_runtime;
 GRANT SELECT, INSERT ON sparklewash.movements TO sparklewash_runtime;
 GRANT SELECT, INSERT, UPDATE ON sparklewash.reservations TO sparklewash_runtime;
+GRANT SELECT ON sparklewash.archive_revisions TO sparklewash_runtime;

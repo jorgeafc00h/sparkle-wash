@@ -249,6 +249,13 @@ final class CachedOperationsSnapshot {
     var archiveHistoryData: Data?
     var offlineEntitlementData: Data?
     var archiveHistoryRevision: String?
+    var archiveHistorySyncedAt: Date?
+    // These optional fields make an interrupted archive download resumable.
+    // `archiveHistoryRevision` remains nil until the complete revision is verified.
+    var archiveSyncRevision: String?
+    var archiveSyncAfter: String?
+    var archiveSyncBatch: String?
+    var archiveSyncOffset: Int?
     var arrivalsData: Data
     var jobsData: Data
     var summaryData: Data
@@ -269,6 +276,11 @@ final class CachedOperationsSnapshot {
         self.savedAt = savedAt
         self.offlineEntitlementData = nil
         self.archiveHistoryRevision = nil
+        self.archiveHistorySyncedAt = nil
+        self.archiveSyncRevision = nil
+        self.archiveSyncAfter = nil
+        self.archiveSyncBatch = nil
+        self.archiveSyncOffset = nil
     }
 }
 

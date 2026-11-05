@@ -12,6 +12,20 @@ fi
 if [[ -n "${IBM_CE_RUNTIME_SECRET:-}" ]]; then
   app_args+=(--env-from-secret "$IBM_CE_RUNTIME_SECRET")
 fi
+if [[ -n "${IBM_CE_APP_CONFIG_SECRET:-}" ]]; then
+  app_args+=(--env-from-secret "$IBM_CE_APP_CONFIG_SECRET")
+fi
+: "${IBM_CE_OFFLINE_SIGNING_SECRET:?Set the Code Engine generic secret containing SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY}"
+app_args+=(--env-from-secret "$IBM_CE_OFFLINE_SIGNING_SECRET")
+
+for setting in SPARKLEWASH_POSTGRES_DIRECTORY SPARKLEWASH_POSTGRES_DEVICES SPARKLEWASH_POSTGRES_WORKFLOW SPARKLEWASH_POSTGRES_INVENTORY; do
+  value=${!setting:-false}
+  if [[ "$value" != 'true' && "$value" != 'false' ]]; then
+    echo "$setting must be true or false." >&2
+    exit 2
+  fi
+  app_args+=(--env "$setting=$value")
+done
 
 if [[ ! "$IMAGE_REF" =~ ^[^[:space:]@]+@sha256:[a-f0-9]{64}$ ]]; then
   echo 'IMAGE_REF must be a registry image reference pinned to a SHA-256 digest.' >&2

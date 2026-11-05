@@ -1,41 +1,85 @@
-# Web dashboard
+# Web operations workboard
 
 ## Purpose
-Specify the mounted React 18 dashboard in frontend/src/App.tsx. Unrouted admin, payment and experimental spec UIs are not supported features.
+
+Specify the mounted React operations page in `frontend/src/main.tsx` and
+`frontend/src/OperationsApp.tsx`. The previous station dashboard remains an
+unmounted compatibility experiment and is not the landing page.
 
 ## Requirements
 
-### Requirement: Validated polling and connection feedback
-The dashboard SHALL poll `/api/metrics` and `/api/metrics/alerts` every three seconds with non-overlapping requests, an eight-second timeout, and cancellation on unmount. It SHALL validate snapshots and alerts, label demo data, and expose loading, error, empty and stale states.
+### Requirement: Public service catalog
 
-#### Scenario: API returns an invalid nested station array
-- **WHEN** an API response contains an array of arrays instead of station objects
-- **THEN** the dashboard rejects it and retains any last valid snapshot with a visible refresh error
+The signed-out page SHALL load and validate the service-package catalog from
+`GET /api/packages`, show package descriptions, included services, vehicle
+classes, and prices, and show a visible error when the catalog cannot be loaded.
+When a public Google OAuth web client ID is configured, it SHALL show the
+Google sign-in button; otherwise it SHALL explain that sign-in is not
+configured.
 
-### Requirement: Persisted snapshot fallback
-The dashboard SHALL save successfully validated station and alert snapshots to localStorage when storage is available. On startup it SHALL restore that snapshot as stale until a new request succeeds. Failed polling SHALL retain the saved timestamp and data.
+#### Scenario: Visitor views the menu
 
-#### Scenario: Network is unavailable after a successful refresh
-- **WHEN** the next API request fails
-- **THEN** previous readings remain visible and are marked as saved data, without claiming to be connected
+- **WHEN** the package catalog is available
+- **THEN** the page shows the four service packages with their vehicle-class
+  prices and included services without requiring staff sign-in
 
-### Requirement: Accessible shared readings and layout
-The dashboard SHALL display status, pressure and soap values with units and textual threshold states. Pressure below 45 SHALL warn, 45 through 60 SHALL be good, and above 60 SHALL be danger. Soap below 35 SHALL be danger, 35 through 55 SHALL warn, and above 55 SHALL be good. Layout SHALL reflow to one column on small phones, with labeled controls and visible keyboard focus.
+#### Scenario: Visitor needs staff operations
 
-#### Scenario: Read boundary values without color perception
-- **WHEN** pressure is 60 psi and soap is 55 dm
-- **THEN** the UI labels pressure good and soap warning in text as well as visual styling
+- **WHEN** no Google client ID is configured
+- **THEN** the public catalog remains available and the page explains that
+  staff sign-in is not configured
 
-### Requirement: Offline application shell
-Production builds SHALL register a syntactically valid JavaScript service worker and serve a manifest. The worker SHALL cache the shell and visited same-origin assets, while excluding API requests and non-GET operations. API snapshot freshness SHALL be managed by the dashboard.
+### Requirement: Authenticated operations workboard
 
-#### Scenario: Reopen a previously loaded dashboard offline
-- **WHEN** the service worker has activated and cached the visited build assets
-- **THEN** the dashboard shell and last locally saved snapshot can be displayed with a stale status
+After Google identity verification and a successful staff session exchange,
+the page SHALL fetch arrivals, jobs, job summary, employees, and inventory from
+the API and validate each response. It SHALL show whole-carwash waiting, active,
+and completed-today totals, arrivals awaiting review, job status and elapsed
+time, assignments, employees, and available inventory. It SHALL refresh after
+each completed fetch, using a 15-second foreground interval and a 60-second
+interval while the document is hidden. Refresh errors SHALL retain the last
+successful workboard and state its last update time.
 
-### Requirement: Refresh activity provenance
-The dashboard SHALL show up to twenty local refresh entries and explicitly identify them as refresh history, not sensor events.
+#### Scenario: Staff session loads operations
 
-#### Scenario: Poll succeeds
-- **WHEN** the API snapshot is refreshed
-- **THEN** the latest local activity entry records the time and station count
+- **WHEN** an authorized staff member signs in
+- **THEN** the page shows the validated arrivals, jobs, totals, employees, and
+  stock from the authenticated API routes
+
+#### Scenario: Session expires
+
+- **WHEN** any workboard route returns HTTP 401
+- **THEN** the page clears the expired session and asks the staff member to sign
+  in again
+
+### Requirement: Role-checked job actions
+
+Only operator and admin sessions SHALL be offered job mutations. An operator
+SHALL be able to confirm an arrival and open its selected package job, advance a
+job through queued, in-progress, and completed states, and assign an active
+employee not already assigned. Mutations SHALL use idempotency keys and show
+action errors. Viewer sessions SHALL remain read-only.
+
+#### Scenario: Operator opens a job from an arrival
+
+- **WHEN** an operator confirms a plate and submits a vehicle class and package
+- **THEN** the page confirms the arrival and creates its job using an
+  idempotency key
+
+#### Scenario: Viewer opens the same workboard
+
+- **WHEN** a viewer signs in
+- **THEN** operational data is visible but job mutation controls are absent
+
+### Requirement: Honest feature status
+
+The mounted page SHALL NOT describe demo station metrics as live job counts,
+the legacy `/api/upload` acknowledgment as photo storage, or employee and
+inventory summaries as full management workflows. Missing catalog, sign-in,
+refresh, and action states SHALL be visible in context.
+
+#### Scenario: Station endpoints return demo samples
+
+- **WHEN** the compatibility station endpoints provide demo readings
+- **THEN** the operations page does not present those readings as carwash job
+  activity

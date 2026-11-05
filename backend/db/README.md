@@ -1,10 +1,14 @@
 # PostgreSQL cutover
 
-The active API has optional PostgreSQL stores. The initial schema migration is
-`migrations/001_core.sql`; it creates the `sparklewash` schema, all tables used
-by the tenant/session/device/workflow/inventory stores, indexes, and the legacy
-`default` tenant row. `scripts/db-migrate.sh` applies unapplied numbered
-migrations transactionally and records them in `sparklewash.schema_migrations`.
+The active API has optional PostgreSQL stores. `migrations/001_core.sql`
+creates the `sparklewash` schema, tables used by the tenant/session/device/
+workflow/inventory stores, indexes, and the legacy `default` tenant row.
+`migrations/003_archive_revisions.sql` adds a per-tenant completed-history
+revision counter and an index for bounded history pages. A trigger advances the
+counter when a completed job is added, removed, or changes displayed fields.
+This migration does not copy rows to IBM COS or enable retention deletion.
+`scripts/db-migrate.sh` applies unapplied numbered migrations transactionally
+and records them in `sparklewash.schema_migrations`.
 It reads the connection URL from `SPARKLEWASH_MIGRATION_DATABASE_URL`, writes a
 temporary mode-0600 libpq password file, and removes it on exit.
 
@@ -24,15 +28,21 @@ duplicate the consolidated baseline and are not part of the active chain.
 
 ## Validation and remaining cutover
 
-The initial migration has been applied to an isolated local PostgreSQL 17
+The initial migrations have been applied to an isolated local PostgreSQL 17
 instance, an ephemeral Neon PostgreSQL 18 validation branch, and the default
-Neon `main` branch. Migrations `001_core` and
-`002_immutable_arrival_evidence` are applied on `main`. The runtime role was verified to
+Neon `main` branch. Migrations `001_core`,
+`002_immutable_arrival_evidence`, and `003_archive_revisions` are applied on
+`main`; the runtime SELECT grant on `archive_revisions` was applied and
+verified. The runtime role was verified to
 have no elevated attributes or role memberships; it can perform allowed DML,
 cannot read `schema_migrations`, and cannot create tables. The GitHub `ibm-demo`
-environment contains `NEON_RUNTIME_CONNECTION_STRING`. The value has not been
-read back from GitHub, and it has not been copied into Code Engine or used by
-the API. PostgreSQL feature flags remain off.
+environment stores `NEON_RUNTIME_CONNECTION_STRING` as a secret, and its
+runtime password was rotated. A local production-mode API check against Neon
+passed `/readyz` with directory and archive flags enabled; the secret has not
+been copied into Code Engine. PostgreSQL feature flags remain off in cloud.
+Local PostgreSQL 18 integration
+tests now exercise the archive revision trigger, tenant-scoped pages,
+stale-revision rejection and the authorized HTTP route.
 
 Before a pilot:
 

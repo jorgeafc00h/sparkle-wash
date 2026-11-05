@@ -1,4 +1,4 @@
-.PHONY: setup build test verify ios-project ios-build ios-test specs
+.PHONY: setup build test verify ios-project ios-build ios-test specs sync-deployment-frontend sync-deployment-ios
 setup:
 	npm ci --prefix frontend
 	dotnet restore backend/carwash.sln
@@ -12,6 +12,10 @@ test:
 specs:
 	openspec validate --all --strict --no-interactive
 verify: specs build test
+sync-deployment-frontend:
+	rsync -a --delete --exclude node_modules --exclude dist --exclude build frontend/ backend/frontend/
+sync-deployment-ios:
+	rsync -a --delete --exclude .build --exclude SparkleWash.xcodeproj SparkleWash-iOS/ backend/SparkleWash-iOS/
 ios-project:
 	xcodegen generate --spec SparkleWash-iOS/project.yml
 ios-build: ios-project

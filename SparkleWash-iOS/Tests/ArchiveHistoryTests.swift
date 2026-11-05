@@ -48,6 +48,12 @@ final class ArchiveHistoryTests: XCTestCase {
             inventoryData: Data("[]".utf8), catalogData: Data("CATALOG".utf8), savedAt: .now.addingTimeInterval(-172_800))
         expired.staffScope = Data("staff-scope".utf8)
         expired.archiveHistoryData = oldHistory
+        let expiredArchiveRow = CachedArchivedJob(endpoint: expired.endpoint, staffScope: Data("staff-scope".utf8),
+            batch: "old-batch", job: ArchivedJobDTO(id: "expired-row", plate: "OLD", packageName: "Quick",
+                completedAt: "2026-01-01T00:00:00Z"), syncedAt: .now.addingTimeInterval(-172_800))
+        let otherStaffArchiveRow = CachedArchivedJob(endpoint: expired.endpoint, staffScope: Data("other-staff".utf8),
+            batch: "new-batch", job: ArchivedJobDTO(id: "other-staff-row", plate: "NEW", packageName: "Plus",
+                completedAt: "2026-01-02T00:00:00Z"), syncedAt: .now)
         let active = CachedOperationsSnapshot(endpoint: "https://active.example", arrivalsData: Data("ACTIVE".utf8),
             jobsData: Data("ACTIVE".utf8), summaryData: Data("{}".utf8), employeesData: Data("[]".utf8),
             inventoryData: Data("[]".utf8), catalogData: Data("CATALOG".utf8), savedAt: .now)
@@ -55,6 +61,8 @@ final class ArchiveHistoryTests: XCTestCase {
         active.archiveHistoryData = oldHistory
         context.insert(expired)
         context.insert(active)
+        context.insert(expiredArchiveRow)
+        context.insert(otherStaffArchiveRow)
         try context.save()
 
         let model = OperationsModel()
@@ -67,6 +75,10 @@ final class ArchiveHistoryTests: XCTestCase {
         XCTAssertEqual(expiredAfterCleanup.arrivalsData, Data("[]".utf8))
         XCTAssertEqual(expiredAfterCleanup.jobsData, Data("[]".utf8))
         XCTAssertEqual(expiredAfterCleanup.catalogData, Data("CATALOG".utf8))
+        let remainingArchiveRows = try context.fetch(FetchDescriptor<CachedArchivedJob>())
+        XCTAssertFalse(remainingArchiveRows.contains { $0.jobID == "expired-row" })
+        XCTAssertTrue(remainingArchiveRows.contains { $0.jobID == "other-staff-row" },
+            "Expiring one staff snapshot must not remove another staff scope's still-valid archive row.")
 
         let activeAfterCleanup = try XCTUnwrap(records.first { $0.endpoint == "https://active.example" })
         XCTAssertNotNil(activeAfterCleanup.staffScope)
@@ -82,10 +94,11 @@ final class ArchiveHistoryTests: XCTestCase {
         let secondBatch = String(repeating: "b", count: 64)
         let expiry = ISO8601DateFormatter().string(from: Date().addingTimeInterval(3600))
         let endpoint = "http://localhost:8080"
-        let revision = String(repeating: "c", count: 64)
+        var revision = String(repeating: "c", count: 64)
         var grant = try Self.makeGrant(origin: endpoint, tenant: "site", subject: "staff", role: "viewer", revision: revision)
         var tenantID = "site"
         var withdrawBatch = false
+        var failSecondPageOnce = true
         var offsets: [String] = []
         var discoveryCursors: [String] = []
         let keyStore = MemoryOfflineEntitlementKeyStore()
@@ -115,9 +128,12 @@ final class ArchiveHistoryTests: XCTestCase {
                 if cursor == nil {
                     data = try JSONEncoder().encode(ArchiveIndex(batches: [batch], nextAfter: batch,
                         revision: revision, offlineEntitlement: grant))
-                } else {
+                } else if cursor == batch {
                     XCTAssertEqual(cursor, batch)
                     data = try JSONEncoder().encode(ArchiveIndex(batches: [secondBatch], nextAfter: nil,
+                        revision: revision, offlineEntitlement: grant))
+                } else {
+                    data = try JSONEncoder().encode(ArchiveIndex(batches: [], nextAfter: nil,
                         revision: revision, offlineEntitlement: grant))
                 }
             case "/api/history/archive/\(secondBatch)":
@@ -129,6 +145,10 @@ final class ArchiveHistoryTests: XCTestCase {
                 let offset = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
                     .first(where: { $0.name == "offset" })?.value ?? ""
                 offsets.append(offset)
+                if offset == "1" && failSecondPageOnce {
+                    failSecondPageOnce = false
+                    throw URLError(.timedOut)
+                }
                 if withdrawBatch {
                     status = 404
                     data = Data()
@@ -155,7 +175,7 @@ final class ArchiveHistoryTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: storeDirectory) }
         let configuration = ModelConfiguration(url: storeDirectory.appendingPathComponent("Archive.store"))
         let container = try ModelContainer(for: CachedOperationsSnapshot.self, CachedArchivedJob.self, configurations: configuration)
-        let context = container.mainContext
+        var context = container.mainContext
         model.restore(context: context, endpoint: endpoint)
         await model.exchangeGoogleToken("provider-credential", context: context, endpoint: endpoint)
         XCTAssertTrue(model.canReadSavedHistory(at: .now))
@@ -170,9 +190,26 @@ final class ArchiveHistoryTests: XCTestCase {
         XCTAssertNil(snapshot.archiveHistoryData, "Reading an earlier cache should migrate it to individual rows.")
         XCTAssertEqual(try context.fetch(FetchDescriptor<CachedArchivedJob>()).map(\.jobID), ["legacy-job"])
 
+        do {
+            _ = try await model.syncArchiveHistory(context: context)
+            XCTFail("Expected the interrupted page request to fail")
+        } catch let error as URLError { XCTAssertEqual(error.code, .timedOut) }
+        XCTAssertNil(try model.savedArchiveHistory(context: context), "Staged rows must not be visible as complete history.")
+        let interrupted = try XCTUnwrap(context.fetch(FetchDescriptor<CachedOperationsSnapshot>()).first)
+        XCTAssertEqual(interrupted.archiveSyncOffset, 1, "The next page offset must be saved with the first page.")
+        XCTAssertNil(interrupted.archiveHistoryRevision, "A partial sync must not receive an offline entitlement.")
+
+        let interruptedStore = try ModelContainer(for: CachedOperationsSnapshot.self, CachedArchivedJob.self,
+            configurations: configuration)
+        context = interruptedStore.mainContext
+        model.restore(context: context, endpoint: endpoint)
+        await model.exchangeGoogleToken("provider-credential", context: context, endpoint: endpoint)
+        XCTAssertNil(try model.savedArchiveHistory(context: context),
+            "A cold reopen must keep partially downloaded rows inaccessible until the revision completes.")
+
         let downloaded = try await model.syncArchiveHistory(context: context)
-        XCTAssertEqual(discoveryCursors, ["", batch])
-        XCTAssertEqual(offsets, ["0", "1"])
+        XCTAssertEqual(discoveryCursors, ["", "", batch, secondBatch])
+        XCTAssertEqual(offsets, ["0", "1", "1"])
         XCTAssertEqual(downloaded.jobs.map(\.id), ["job-1", "job-0"])
         let savedRows = try context.fetch(FetchDescriptor<CachedArchivedJob>())
         XCTAssertEqual(savedRows.map(\.jobID).sorted(), ["job-0", "job-1"])
@@ -201,6 +238,8 @@ final class ArchiveHistoryTests: XCTestCase {
         keyStore.failReads = false
 
         withdrawBatch = true
+        revision = String(repeating: "e", count: 64)
+        grant = try Self.makeGrant(origin: endpoint, tenant: "site", subject: "staff", role: "viewer", revision: revision)
         do {
             _ = try await model.syncArchiveHistory(context: context)
             XCTFail("Expected a withdrawn batch to invalidate saved history")

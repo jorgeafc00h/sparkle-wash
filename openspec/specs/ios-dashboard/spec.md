@@ -26,6 +26,19 @@ The app SHALL persist successful snapshots in SwiftData, keyed by API endpoint, 
 - **WHEN** an endpoint with no saved snapshot is selected
 - **THEN** the app does not display another endpoint's cached stations
 
+### Requirement: Tenant-scoped completed job history
+When the PostgreSQL workflow is enabled, the API SHALL expose completed job history from the authenticated tenant through the archive index and bounded pages. The index SHALL include a tenant-specific revision and a batch identifier. A page SHALL contain at most 100 jobs and SHALL be ordered by completion time and stable job ID. If the completed history changes between index and page requests, the old batch SHALL be rejected so the client can discard and rebuild that snapshot. The runtime role SHALL not be able to change revision counters or delete job rows. The file-backed archive remains the source when PostgreSQL workflow is disabled.
+
+#### Scenario: Read completed history from PostgreSQL
+- **GIVEN** the PostgreSQL workflow is enabled and a staff session is scoped to a tenant with completed jobs
+- **WHEN** the client requests the archive index and a page for its batch
+- **THEN** the API returns only that tenant's completed jobs in bounded order with a matching revision
+
+#### Scenario: Completed history changes during paging
+- **GIVEN** a client has an archive batch revision
+- **WHEN** a completed job is added, removed, or changes a displayed field before the page request
+- **THEN** the old batch is rejected and the client must fetch a fresh index
+
 ### Requirement: Adaptive accessible layout
 The app SHALL use Dynamic Type and semantic system colors. On regular-width windows at least 900 points wide and below accessibility text sizes it SHALL show station cards alongside alerts and refresh history. Otherwise it SHALL stack sections vertically. Controls SHALL be labeled and at least 44 points, and readings SHALL have spoken values and text states.
 

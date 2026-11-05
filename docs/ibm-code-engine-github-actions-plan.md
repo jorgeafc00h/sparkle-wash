@@ -27,7 +27,7 @@ The table also shows the 0.125 vCPU / 0.25 GB IBM option.
 
 | Monthly profile | Replica activity | API requests | Azure Container Apps | IBM Code Engine | Neon |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Short demo | 60 hours | 30,000 | $0 compute and requests | $0 compute and requests | $0 at 15 CU-hours if active only during those hours |
+| Short demo | 60 hours | 72,000 | $0 compute and requests | $0 compute and requests | $0 at 15 CU-hours if active only during those hours |
 | Regular shifts | 240 hours | 288,000 | about $1.08 compute; requests remain in grant | about $4.91 total at 0.25/0.5, or $0.43 at 0.125/0.25 | $0 at 60 CU-hours on Free |
 | Always active | 720 hours | 864,000 | about $14.04 active-rate compute; requests remain in grant | about $23.12 total at 0.25/0.5, or $9.69 at 0.125/0.25 | about $19.43 on Launch at 180 CU-hours and 1 GB |
 
@@ -63,6 +63,9 @@ approval if environment reviewers are available:
 | `IBM_REGION` | Variable | IBM Cloud region, for example `us-south` |
 | `IBM_RESOURCE_GROUP` | Variable | IBM Cloud resource group name |
 | `IBM_CE_PROJECT` | Variable | Code Engine project name (created on first deploy if missing) |
+| `VITE_GOOGLE_CLIENT_ID` | Variable | Public Google OAuth web client ID embedded in the workboard bundle |
+| `IBM_CE_APP_CONFIG_SECRET` | Variable | Required name for the Code Engine generic secret containing runtime sign-in settings |
+| `SPARKLEWASH_APP_CONFIG_ENV` | Secret | Multiline settings including the matching `SPARKLEWASH_GOOGLE_CLIENT_ID` and `SPARKLEWASH_STAFF_ROLES` allowlist |
 | `IBM_CLOUD_API_KEY` | Secret | IBM Cloud API key scoped to deployment operations |
 | `SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY` | Secret | Required PEM-encoded ECDSA P-256 private key; signs 24-hour offline history grants |
 | `NEON_RUNTIME_CONNECTION_STRING` | Secret | Restricted runtime login with `SSL Mode=VerifyFull`; optional until database cutover |
@@ -112,32 +115,27 @@ logs. When `IBM_CE_RUNTIME_SECRET` is nonempty, the workflow copies
 `NEON_RUNTIME_CONNECTION_STRING` from the protected GitHub Environment secret
 to a Code Engine generic secret key named `SPARKLEWASH_SESSION_POSTGRES`, then
 attaches that secret with `--env-from-secret`. Leave `IBM_CE_RUNTIME_SECRET`
-empty to keep the database connection out of Code Engine. At minimum, include the
-Google client ID and staff-role allowlist for staff sign-in. To enable durable
+empty to keep the database connection out of Code Engine. PostgreSQL store
+flags are passed as Code Engine app environment values and default to `false`;
+the workflow checks their dependency order and requires this runtime secret if
+any flag is enabled. The workflow requires `VITE_GOOGLE_CLIENT_ID`,
+`IBM_CE_APP_CONFIG_SECRET`, and a multiline `SPARKLEWASH_APP_CONFIG_ENV` secret
+containing `KEY=VALUE` lines. Preflight confirms the runtime Google client ID
+matches the public client ID embedded in the web bundle and that a staff-role
+allowlist is present. To enable durable
 PostgreSQL-backed stores, include `SPARKLEWASH_SESSION_POSTGRES` with
 `SSL Mode=VerifyFull`, plus `SPARKLEWASH_POSTGRES_DIRECTORY=true`,
 `SPARKLEWASH_POSTGRES_DEVICES=true`, `SPARKLEWASH_POSTGRES_WORKFLOW=true`, and
 `SPARKLEWASH_POSTGRES_INVENTORY=true`. Include `SPARKLEWASH_INGEST_KEY` if a
-camera will send observations. The current application uses file-backed JSON by default, in-memory
-staff sessions, and file-backed photos. PostgreSQL migrations `001_core` and
-`002_immutable_arrival_evidence` plus the least-privilege DML grants are checked
-in and were applied to an ephemeral Neon branch and default `main`. The runtime
-role was checked for least privilege, and an attempted evidence rewrite was
-rejected by the database trigger.
-The GitHub `ibm-demo` Environment now has `NEON_RUNTIME_CONNECTION_STRING`,
-but the value has not been read back or copied into Code Engine. Do not set
-the PostgreSQL flags until all stores are integration-tested and the migrations,
-role separation, import and restore are rehearsed. Code Engine scale-to-zero or
+camera will send observations. The current application uses file-backed JSON by default, in-memory staff sessions, and file-backed photos. PostgreSQL migrations `001_core`, `002_immutable_arrival_evidence`, and `003_archive_revisions` plus the least-privilege runtime grants are checked in and applied to Neon `main`. The archive revision grant was verified to allow SELECT but not UPDATE; an attempted evidence rewrite was rejected by the database trigger. The GitHub `ibm-demo` environment now stores the rotated `NEON_RUNTIME_CONNECTION_STRING` and dedicated P-256 signing key as secrets, and has `IBM_CE_OFFLINE_SIGNING_SECRET` set. A local production-mode API passed `/readyz` against Neon with directory and archive flags on. The Neon secret has not been copied into Code Engine. Do not set PostgreSQL flags in cloud until all stores are integration-tested and import and restore are rehearsed. Code Engine scale-to-zero or
 a new revision can lose the default file-backed state. Use this profile only
 for disposable demo data until PostgreSQL, staff sessions, and durable
 photo/object storage have been configured and rehearsed. Neon is independent
 of IBM's compute grant.
 
-Offline history also requires `SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY` and
-`IBM_CE_OFFLINE_SIGNING_SECRET`. Generate a dedicated key locally with
-`openssl ecparam -name prime256v1 -genkey -noout -out offline-history-key.pem`.
-Store the PEM contents only as the protected GitHub Environment secret; do not
-commit the private key. The deploy workflow syncs it to a Code Engine generic
+Offline history requires `SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY` and
+`IBM_CE_OFFLINE_SIGNING_SECRET`; both are now configured in the `ibm-demo`
+GitHub environment. The deploy workflow syncs the protected P-256 key to a Code Engine generic
 secret and mounts it as `SPARKLEWASH_OFFLINE_SIGNING_PRIVATE_KEY`. The API
 returns only the corresponding public key over the authenticated HTTPS archive
 index. Grants are bound to origin, tenant, staff subject, role, and archive
@@ -155,12 +153,12 @@ development.
   workflow validate anonymous image access. The workflow push token and private
   Code Engine pull token are separate.
 - A Neon Free project named `sparklewash` is provisioned in `aws-us-east-1` at
-0.25 CU. Its default `main` branch has migrations `001_core` and
-`002_immutable_arrival_evidence`, plus the restricted
+0.25 CU. Its default `main` branch has migrations `001_core`,
+`002_immutable_arrival_evidence`, and `003_archive_revisions`, plus the restricted
   runtime role, but the API is not yet using it. Verify the connection stored
   in GitHub and have the workflow sync it only when `IBM_CE_RUNTIME_SECRET` is
-  set. Keep PostgreSQL flags off until store integration tests and migration,
-  role separation, import and restore are rehearsed.
+  set. Keep PostgreSQL flags off until store integration tests, role separation,
+  import and restore are rehearsed.
 - Keep photo evidence out of the Neon database. Select an object-storage
   target and rehearse export, checksum verification and restore before any
   automated retention purge.
@@ -263,6 +261,9 @@ Code Engine project until database, sessions and durable photo storage are ready
 - [IBM Code Engine pricing](https://cloud.ibm.com/docs/codeengine?topic=codeengine-pricing)
 - [IBM Code Engine sizing](https://cloud.ibm.com/docs/codeengine?topic=codeengine-mem-cpu-combo)
 - [IBM deploy and scale apps](https://cloud.ibm.com/docs/codeengine?topic=codeengine-deploy-app-tutorial)
+- [IBM Code Engine CLI reference](https://cloud.ibm.com/docs/codeengine?topic=codeengine-cli)
+- [IBM Code Engine secrets](https://cloud.ibm.com/docs/codeengine?topic=codeengine-secret)
+- [IBM liveness and readiness probes](https://cloud.ibm.com/docs/codeengine?topic=codeengine-app-probes)
 - [IBM Code Engine price example](https://cloud.ibm.com/docs/account?topic=account-sample)
 - [GitHub Packages billing](https://docs.github.com/en/billing/concepts/product-billing/github-packages)
 - [Neon pricing](https://neon.com/pricing)
