@@ -75,8 +75,10 @@ when the web host forwards `/api` to the backend on the same origin. Register
 the web origin in the Google OAuth client's authorized JavaScript origins.
 
 For a cloud demo, use an AMD64 image, HTTPS ingress targeting port 8080, and
-`/healthz` for liveness. Use `/readyz` for readiness. It checks package loading and
-write access to the configured storage directories. Verify staff access separately. Configure secrets through the cloud platform. To keep JSON
+`/healthz` for liveness. Use `/readyz` for readiness. It checks package loading,
+write access to configured storage directories, and the required core tables
+when a PostgreSQL connection is configured. Verify staff access separately.
+Configure secrets through the cloud platform. To keep JSON
 data, mount durable storage at `/app/data` with write permission for the runtime
 user and prevent overlapping writers, including during upgrades. Use disposable
 data if running on temporary storage. The current file stores and in-memory staff
@@ -96,9 +98,11 @@ Select the IBM account, region, and Code Engine project with the IBM Cloud CLI,
 then configure the existing demo application and its registry pull secret. The
 deployment script explicitly requests 0.125 vCPU and 0.25 GB by default; raise
 `IBM_CE_CPU` or `IBM_CE_MEMORY` only when a measured workload requires it. Set
-the optional `IBM_CE_RUNTIME_SECRET` GitHub Environment variable to an existing
-Code Engine generic secret to attach staff, device, and PostgreSQL settings.
-Keep staff and device credentials in Code Engine secrets.
+the optional `IBM_CE_RUNTIME_SECRET` GitHub Environment variable to have the
+workflow create or update a Code Engine generic secret from protected runtime
+settings; when `NEON_RUNTIME_CONNECTION_STRING` is present it is stored as
+`SPARKLEWASH_SESSION_POSTGRES`. Leave the variable empty to keep that connection
+out of Code Engine. Keep staff and device credentials in Code Engine secrets.
 
 Run `deploy/ibm/deploy-demo.sh` with `IBM_CE_APP`, `IBM_CE_REGISTRY_SECRET`, and
 `IMAGE_REF` set. The script uses port 8080, liveness and readiness probes, and
