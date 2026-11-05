@@ -58,7 +58,7 @@ approval if environment reviewers are available:
 | `IBM_CE_REGISTRY_SECRET` | Variable | Name for the Code Engine GHCR pull secret |
 | `IBM_CE_CPU` | Variable | Optional supported CPU size; defaults to `0.125` |
 | `IBM_CE_MEMORY` | Variable | Optional supported memory size; defaults to `0.25G` |
-| `IBM_CE_RUNTIME_SECRET` | Variable | Optional name of an existing Code Engine generic secret with API runtime settings |
+| `IBM_CE_RUNTIME_SECRET` | Variable | Optional name for the workflow-managed Code Engine generic secret; leave empty until runtime DB injection is wanted |
 | `IBM_REGION` | Variable | IBM Cloud region, for example `us-south` |
 | `IBM_RESOURCE_GROUP` | Variable | IBM Cloud resource group name |
 | `IBM_CE_PROJECT` | Variable | Code Engine project name (created on first deploy if missing) |
