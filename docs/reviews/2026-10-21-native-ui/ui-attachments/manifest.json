@@ -1,0 +1,35 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "E5CC2328-DEB1-467A-B743-A7CD8C7F698D",
+        "deviceName" : "iPhone 17 Pro Max",
+        "exportedFileName" : "3AF45F05-DC0C-45FB-B49F-A856858B1B96.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "03-package-details_0_D5C4B44B-DA27-4F94-9E2B-CA0899BD7BC4.png",
+        "timestamp" : 1792625636.68
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "E5CC2328-DEB1-467A-B743-A7CD8C7F698D",
+        "deviceName" : "iPhone 17 Pro Max",
+        "exportedFileName" : "990D6CBF-39FA-46F6-A36D-F0ED6883F82F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "02-packages-car_0_67F99328-0CE5-42B8-8534-767C078AF054.png",
+        "timestamp" : 1792625630.003
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "E5CC2328-DEB1-467A-B743-A7CD8C7F698D",
+        "deviceName" : "iPhone 17 Pro Max",
+        "exportedFileName" : "AE15E549-EF87-4AEF-84AA-F7BE4CA4BB0A.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "01-overview_0_0E39FA7A-5995-439E-96B0-FA04F499A324.png",
+        "timestamp" : 1792625626.968
+      }
+    ],
+    "testIdentifier" : "OperationsUITests/testPublicPackagesAndWorkspaceNavigation()",
+    "testIdentifierURL" : "test://com.apple.xcode/SparkleWash/SparkleWashUITests/OperationsUITests/testPublicPackagesAndWorkspaceNavigation"
+  }
+]

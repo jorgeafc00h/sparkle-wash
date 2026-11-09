@@ -1,0 +1,14 @@
+**
+!backend/
+!backend/src/
+!backend/src/carwash-api/
+!backend/src/carwash-api/*.cs
+!backend/src/carwash-api/WebApi.csproj
+!backend/contracts/
+!backend/contracts/v1/
+!backend/contracts/v1/service-packages.json
+!frontend/
+!frontend/**
+frontend/node_modules/
+frontend/dist/
+frontend/build/

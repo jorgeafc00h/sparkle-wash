@@ -1,0 +1,139 @@
+project: SparkleWash
+version: "2.1"
+approval: never
+
+---
+
+# Complete Platform & Data Strategy — OpenSpec 2.1
+
+## Summary
+
+Update the carwash app main features to be oriented toward job tracking using ESP32 camera data (plate + model), with a productivity dashboard tracking jobs per day and employee activity. The web and Swift/iOS apps register jobs from plate extraction via YOLO, and the backend provides a REST API for aggregating job statistics, summaries, and historical records.
+
+Changes are non-breaking and additive to the current `api-spec.openapi.yaml` contract (which already defines `/api/metrics` for real-time station telemetry).
+
+---
+
+## Scope of Work
+
+### 1. New API Endpoints (Web App) — Minimal API Controller
+
+Add endpoints under a new `JobsController` in `backend/src/carwash-api/WebApi/Controllers/JobsController.cs`:
+
+- `GET /api/jobs/stats` — aggregate job statistics across the selected time window (today, yesterday, last 7 days, all-time). Returns the total number of completed jobs grouped by category (`basic`, `ceramic`, `premium`, `express`) and the sum of revenue per category. Also returns a per-employee breakdown: employee name (from the plate-to-employee mapping stored in Redis) vs. count and revenue.
+- `GET /api/jobs/summary/{date?}` — date-range summary for a specific date (default: today). Returns total jobs, revenue grouped by job category, top 3 employees by count, and an overall utilization metric.
+- `GET /api/jobs/history` — historical job records with pagination, ordered by completion time descending. Each record contains plate number, model, detected color, category, employee name (resolved from Redis via plate-to-employee mapping), and completion duration (milliseconds).
+
+### 2. Swift/iOS App Tab 2 — Job History List
+
+Implement a `JobHistoryView` (SwiftUI) tab that shows:
+- A segmented picker (`JobsSegmented` struct) with options "All", "Today", "Yesterday", "Last 7 days".
+- For each selection, call an `@AppTask` that resolves the selected range into a `.Loading(.indeterminate)` state, then queries `/api/jobs/stats?range=today` (or similar). On `.Finished`, feed the payload into a `LazyVStack` of job cards.
+- Each card shows: car plate, model, color, category icon, and duration (converted to minutes/seconds).
+
+### 3. Swift/iOS App Tab 3 — Productivity Dashboard
+
+Implement a `ProductivityDashboardView` tab that presents summary KPIs:
+- Total jobs today, revenue, average job duration.
+- A small pie chart (via an embedded `ChartJS` or a `CanvasLayer`) of revenue share per category.
+- A horizontal scroll list showing the top 3 employees by count.
+
+### 4. Backend Data Model & Redis
+
+Add a `JobRecord` model in `backend/src/carwash-api/WebApi/Models/JobRecord.cs`:
+```csharp
+public record JobRecord {
+    public Guid Id { get; set; }
+    public string PlateNumber { get; set; } = "";
+    public string Model { get; set; } = "";
+    public string Color { get; set; } = "Unknown";
+    public string Category { get; set; } = "basic";  // | basic | ceramic | premium | express |
+    public string EmployeeName { get; set; } = "";   // resolved from Redis via plate-to-employee mapping
+    public long CompletionMs { get; set; }           // end timestamp - start timestamp
+    public DateTime CompletedAt { get; set; }
+}
+```
+
+Add an in-memory aggregate table and a single Redis key per date (`jobs:{date}") holding a JSON blob containing both a `countByCategory` map (string → int) and a `revenueByCategory` map (string → decimal). Keep this table volatile (in-memory only) to reduce write pressure.
+
+### 5. Plate-to-Employee Resolution
+
+When the ESP32 CAM uploads an image, the image metadata contains a plate number. The `.NET backend` resolves that plate number against the Redis `plate_to_employee` hash map (set in `SparkleWashApp.swift` via `UserDefaults.standard` or from a local JSON file) and attaches the resulting employee name to the `JobRecord`.
+
+### 6. OpenAPI Contract Updates
+
+Update `backend/api-spec.openapi.yaml`:
+```yaml
+paths:
+  /api/jobs/stats:
+    get:
+      summary: Aggregate job statistics (summary, history).
+      tags: [Jobs]
+      parameters:
+        - in: query
+          name: range
+          schema:
+            type: string
+            enum: [today, yesterday, last7days]
+          description: Time window filter for the current page. Defaults to 'today'.
+      responses:
+        200:
+          description: Jobs statistics grouped by category and employee.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsStats"
+
+  /api/jobs/summary/{date}:
+    get:
+      summary: Date-range job summary.
+      tags: [Jobs]
+      parameters:
+        - in: path
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: Jobs summary with counts, revenue, and top employees.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsSummary"
+
+  /api/jobs/history:
+    get:
+      summary: Historical job records with pagination.
+      description: Returns completed jobs ordered by completion time descending, limited to max 100 records. Supports filtering by category and date range via query params.
+      tags: [Jobs]
+      parameters:
+        - in: query
+          name: range
+          schema:
+            type: string
+            enum: [today, yesterday, last7days, all]
+          description: Time filter for results (defaults to 'today').
+        - in: query
+          name: category
+          schema:
+            type: string
+            enum: [basic, ceramic, premium, express]
+          description: Filter by a single job category.
+      responses:
+        200:
+          description: Paginated list of jobs with plate number, model, color, etc.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsHistoryPage"
+```
+
+---
+
+## Acceptance Criteria
+
+- The `.NET backend` compiles and exposes the new `/api/jobs/stats`, `/api/jobs/summary/{date}`, and `/api/jobs/history` endpoints.
+- Each endpoint returns a JSON document with the schema specified above.
+- The Swift iOS app compiles without errors in Xcode, builds for the simulator, and shows all three tabs: Dashboard, Job History, Employees, Settings.

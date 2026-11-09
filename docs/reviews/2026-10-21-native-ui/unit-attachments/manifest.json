@@ -1,0 +1,17 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3F8CE690-8852-4E97-9E47-EB9E7BCC7EA8",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "EEFCE34E-F1EB-44D6-B20E-B74224E9966A.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "04-staff-overview-contract-fixture_0_61268330-8337-4B38-BAF2-707CA21B1379.png",
+        "timestamp" : 1792625386.628
+      }
+    ],
+    "testIdentifier" : "OperationsModelTests/testStaffScreensRenderWithContractFixtures()",
+    "testIdentifierURL" : "test://com.apple.xcode/SparkleWash/SparkleWashTests/OperationsModelTests/testStaffScreensRenderWithContractFixtures"
+  }
+]
