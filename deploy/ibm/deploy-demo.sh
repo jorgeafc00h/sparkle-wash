@@ -43,9 +43,9 @@ ibmcloud ce application "$app_action" "${app_args[@]}" \
   --cpu "$IBM_CE_CPU" --memory "$IBM_CE_MEMORY" \
   --port 8080 --visibility public --min-scale 0 --max-scale 1 \
   --probe-live type=http --probe-live port=8080 --probe-live path=/healthz \
-  --probe-live initial-delay=30 --probe-live interval=10 --probe-live timeout=5 --probe-live failure-threshold=6 \
+  --probe-live initial-delay=10 --probe-live interval=10 --probe-live timeout=5 --probe-live failure-threshold=9 \
   --probe-ready type=http --probe-ready port=8080 --probe-ready path=/readyz \
-  --probe-ready initial-delay=15 --probe-ready interval=10 --probe-ready timeout=5 --probe-ready failure-threshold=6 \
+  --probe-ready initial-delay=10 --probe-ready interval=10 --probe-ready timeout=5 --probe-ready failure-threshold=9 \
   --wait
 
 ibmcloud ce application get --name "$IBM_CE_APP"
