@@ -86,6 +86,10 @@ jobs:
     needs: deploy-preflight
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # The web build reads VITE_GOOGLE_CLIENT_ID, which lives in this
+    # environment. Without it the variable is empty and the bundle ships
+    # with no Google sign-in button.
+    environment: ibm-demo
     outputs:
       digest: ${{ steps.image.outputs.digest }}
     permissions:
