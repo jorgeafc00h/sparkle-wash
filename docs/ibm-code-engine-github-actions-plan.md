@@ -246,15 +246,44 @@ branch, and the pull request validation workflow runs the current project
 checks. The deployment workflow only runs from `main`, so review and merge
 must happen before deployment can be dispatched.
 
-The `ibm-demo` GitHub Environment has been created with a branch policy for
-`main`; its IBM region, resource group, project, app variables and API key are
-not configured yet. The existing private GHCR package is unlinked, but the IBM workflow now targets a
-repository-scoped package using the Dockerfile source label. Verify that link
-after its first publish; a separate read-only GHCR pull token is required. The
-Neon project exists but is not wired to the API. No IBM deployment has been
-performed, and the IBM Cloud CLI/account resources are not configured locally. Configure the
-IBM settings after review, then deploy only to a disposable
-Code Engine project until database, sessions and durable photo storage are ready.
+## Deployment status (2026-11-10)
+
+The demo is deployed to IBM Code Engine project `sparklewash-demo` (us-south),
+app `sparklewash-api`, at
+`https://sparklewash-api.2gynijrhlpdl.us-south.codeengine.appdomain.cloud`.
+`/healthz` and `/readyz` return 200 and the workflow's endpoint check passes.
+Staff Google sign-in was verified end to end in a browser.
+
+What the first deploys taught us:
+
+- Code Engine's default probes (1s timeout, one failure, no initial delay) kill
+  a cold-starting .NET container on 0.125 vCPU, so revision 1 never became
+  ready. `deploy-demo.sh` now sets a 10s initial delay (the maximum Code Engine
+  allows), a 5s timeout and a failure threshold of 9 on both probes.
+- `build-publish` must run in the `ibm-demo` environment. Without it
+  `vars.VITE_GOOGLE_CLIENT_ID` is empty at build time and the web bundle ships
+  with no Google sign-in button.
+- Cold start after scale-to-zero measured 23 to 75 seconds on 0.125 vCPU
+  (33, 75, 60, 23). The image is about 99 MB, so the pull is not the cause. If
+  the demo will be shown to others, set `--min-scale 1` or raise CPU; both cost
+  money and are not applied.
+
+Current configuration:
+
+- `IBM_CLOUD_API_KEY` in `ibm-demo` belongs to the Service ID
+  `sparklewash-github-deploy`, which has only Code Engine Manager and Editor
+  plus Viewer on the `Default` resource group. No account-wide user key is
+  stored.
+- The GHCR package is public (`GHCR_PUBLIC=true`), so no pull secret is used.
+- The Google OAuth Web client lives in its own Google Cloud project. The
+  deployed URL and `http://localhost:5173` are authorized origins. The consent
+  screen is in testing mode, so each additional staff member must be added as a
+  test user and to the `SPARKLEWASH_STAFF_ROLES` allowlist.
+- The four `SPARKLEWASH_POSTGRES_*` flags are `false`. The Neon secret is stored
+  in the environment but not wired into Code Engine, so data is not persisted in
+  Neon yet. Do not enable the flags until all stores are integration-tested and
+  import and restore are rehearsed.
+- The `ibm-archive` environment and its COS bucket have not been created.
 
 ## Sources
 
