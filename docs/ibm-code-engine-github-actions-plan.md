@@ -264,9 +264,10 @@ What the first deploys taught us:
   `vars.VITE_GOOGLE_CLIENT_ID` is empty at build time and the web bundle ships
   with no Google sign-in button.
 - Cold start after scale-to-zero measured 23 to 75 seconds on 0.125 vCPU
-  (33, 75, 60, 23). The image is about 99 MB, so the pull is not the cause. If
-  the demo will be shown to others, set `--min-scale 1` or raise CPU; both cost
-  money and are not applied.
+  (33, 75, 60, 23). The image is about 99 MB, so the pull is not the cause.
+  `deploy-demo.sh` now keeps one instance warm (`IBM_CE_MIN_SCALE`, default 1),
+  which costs roughly $13 a month at Code Engine's published rates for
+  0.125 vCPU / 0.25 GB. Set `IBM_CE_MIN_SCALE=0` to return to scale-to-zero.
 
 Current configuration:
 

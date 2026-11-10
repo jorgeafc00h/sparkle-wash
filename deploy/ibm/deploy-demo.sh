@@ -5,6 +5,12 @@ set -euo pipefail
 : "${IMAGE_REF:?Set the published Linux AMD64 image reference by digest}"
 IBM_CE_CPU=${IBM_CE_CPU:-0.125}
 IBM_CE_MEMORY=${IBM_CE_MEMORY:-0.25G}
+# One warm instance avoids 25-75s cold starts on 0.125 vCPU. Set to 0 to scale to zero.
+IBM_CE_MIN_SCALE=${IBM_CE_MIN_SCALE:-1}
+if [[ ! "$IBM_CE_MIN_SCALE" =~ ^[01]$ ]]; then
+  echo 'IBM_CE_MIN_SCALE must be 0 or 1.' >&2
+  exit 2
+fi
 app_args=(--name "$IBM_CE_APP")
 if [[ -n "${IBM_CE_REGISTRY_SECRET:-}" ]]; then
   app_args+=(--registry-secret "$IBM_CE_REGISTRY_SECRET")
@@ -41,7 +47,7 @@ fi
 ibmcloud ce application "$app_action" "${app_args[@]}" \
   --image "$IMAGE_REF" \
   --cpu "$IBM_CE_CPU" --memory "$IBM_CE_MEMORY" \
-  --port 8080 --visibility public --min-scale 0 --max-scale 1 \
+  --port 8080 --visibility public --min-scale "$IBM_CE_MIN_SCALE" --max-scale 1 \
   --probe-live type=http --probe-live port=8080 --probe-live path=/healthz \
   --probe-live initial-delay=10 --probe-live interval=10 --probe-live timeout=5 --probe-live failure-threshold=9 \
   --probe-ready type=http --probe-ready port=8080 --probe-ready path=/readyz \
