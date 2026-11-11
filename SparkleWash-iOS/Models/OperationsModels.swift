@@ -33,6 +33,74 @@ struct JobAssignmentDTO: Codable, Sendable {
     let employeeName: String
 }
 
+/// A payment recorded by the desktop point of sale. Every field the API might omit is optional.
+struct JobPaymentDTO: Codable, Identifiable, Sendable {
+    let id: String
+    let method: String?
+    let amountUsd: Decimal
+    let ticketNumber: String?
+    let reference: String?
+    let recordedAt: String?
+    let actor: String?
+    let idempotencyKey: String?
+
+    var recordedDate: Date? { recordedAt.flatMap(OperationsDate.parse) }
+}
+
+/// Pure presentation logic for ticket/payment state, kept separate from SwiftUI so it can be unit tested.
+enum JobPaymentPresentation {
+    enum Kind: Equatable { case paid, partial, unpaid }
+    struct Chip: Equatable { let kind: Kind; let text: String }
+
+    static func money(_ value: Decimal) -> String { "$" + value.formatted(.number.precision(.fractionLength(2))) }
+
+    /// False for jobs from older APIs that know nothing about payments; the UI then shows no payment chip.
+    static func hasPaymentInfo(_ job: JobDTO) -> Bool { job.paymentStatus != nil || job.payments != nil }
+
+    static func kind(for job: JobDTO) -> Kind {
+        switch job.paymentStatus {
+        case "paid": return .paid
+        case "partial": return .partial
+        case "unpaid": return .unpaid
+        default:
+            // Older APIs omit paymentStatus; derive it only when payment data exists.
+            let paid = job.paidUsd ?? job.payments?.reduce(Decimal(0)) { $0 + $1.amountUsd } ?? 0
+            if paid <= 0 { return .unpaid }
+            return paid >= job.priceUsd ? .paid : .partial
+        }
+    }
+
+    static func chip(for job: JobDTO) -> Chip {
+        switch kind(for: job) {
+        case .paid: return Chip(kind: .paid, text: "Pagado")
+        case .partial:
+            let paid = job.paidUsd ?? job.payments?.reduce(Decimal(0)) { $0 + $1.amountUsd } ?? 0
+            return Chip(kind: .partial, text: "Pago parcial \(money(paid)) de \(money(job.priceUsd))")
+        case .unpaid: return Chip(kind: .unpaid, text: "Por cobrar")
+        }
+    }
+
+    static func methodLabel(_ method: String?) -> String {
+        switch method {
+        case "cash": "Efectivo"
+        case "card": "Tarjeta"
+        case "transfer": "Transferencia"
+        default: "Otro"
+        }
+    }
+
+    static func ticketLabel(_ job: JobDTO) -> String? {
+        job.ticketNumber.flatMap { $0.isEmpty ? nil : "Ticket \($0)" }
+    }
+
+    static var sourceBadge: String { "Caja" }
+
+    /// Completed or in-progress jobs that still need collecting (cancelled and not-yet-started jobs excluded).
+    static func receivableCount(_ jobs: [JobDTO]) -> Int {
+        jobs.filter { hasPaymentInfo($0) && ($0.status == "completed" || $0.status == "in_progress") && kind(for: $0) != .paid }.count
+    }
+}
+
 struct JobDTO: Codable, Identifiable, Sendable {
     let id: String
     let arrivalId: String
@@ -48,7 +116,17 @@ struct JobDTO: Codable, Identifiable, Sendable {
     let elapsedSeconds: Int
     let activeSeconds: Int?
     let assignments: [JobAssignmentDTO]
+    // Added by the desktop point of sale. Older API deployments omit all of these.
+    let source: String?
+    let ticketNumber: String?
+    let customerName: String?
+    let note: String?
+    let payments: [JobPaymentDTO]?
+    let paidUsd: Decimal?
+    let paymentStatus: String?
+    let paidAt: String?
 
+    var isDesktopPos: Bool { source == "desktop-pos" }
     var arrivalDate: Date? { OperationsDate.parse(arrivalAt) }
     var isValid: Bool {
         !id.isEmpty && !arrivalId.isEmpty && !plate.isEmpty && !packageName.isEmpty &&

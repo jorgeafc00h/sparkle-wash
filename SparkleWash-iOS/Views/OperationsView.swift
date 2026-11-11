@@ -858,6 +858,10 @@ struct OperationsView: View {
                 metric("Waiting", summary.arrived + summary.queued)
                 metric("Completed today UTC", summary.completedTodayUtc)
                 metric("Average site minutes", (summary.averageCompletedSeconds ?? 0) / 60)
+                if model.jobs.contains(where: JobPaymentPresentation.hasPaymentInfo) {
+                    metric("Por cobrar", JobPaymentPresentation.receivableCount(model.jobs))
+                        .accessibilityIdentifier("receivable-count")
+                }
             }
         }
     }
@@ -934,6 +938,7 @@ struct OperationsView: View {
                             .font(.subheadline).foregroundStyle(Color.primary.opacity(0.72))
                         Text("Time on site \(job.elapsedSeconds / 60) min · \(job.assignments.count) assigned")
                             .font(.subheadline)
+                        JobPosInfoView(job: job)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding()
                     .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
@@ -966,7 +971,9 @@ struct OperationsView: View {
         let assignment = job.assignments.isEmpty
             ? "No staff assigned"
             : "Assigned to " + job.assignments.map(\.employeeName).joined(separator: ", ")
-        return "Job for \(job.plate). \(status). \(job.packageName), \(job.vehicleClass). \(job.priceUsd.formatted(.currency(code: "USD"))). \(job.elapsedSeconds / 60) minutes on site. \(assignment)."
+        let pos = [JobPaymentPresentation.ticketLabel(job), job.isDesktopPos ? JobPaymentPresentation.sourceBadge : nil,
+                   job.customerName, JobPaymentPresentation.hasPaymentInfo(job) ? JobPaymentPresentation.chip(for: job).text : nil].compactMap { $0 }.joined(separator: ", ")
+        return "Job for \(job.plate). \(pos). \(status). \(job.packageName), \(job.vehicleClass). \(job.priceUsd.formatted(.currency(code: "USD"))). \(job.elapsedSeconds / 60) minutes on site. \(assignment)."
     }
 
     private func jobStatus(_ status: String) -> some View {
@@ -1217,6 +1224,46 @@ private struct CompletedHistoryView: View {
     }
 }
 
+private struct PaymentChipView: View {
+    let chip: JobPaymentPresentation.Chip
+
+    var body: some View {
+        let tint: Color = switch chip.kind { case .paid: .green; case .partial: .orange; case .unpaid: .secondary }
+        Text(chip.text)
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .background(tint.opacity(0.15), in: Capsule())
+    }
+}
+
+/// Work-ticket number, source badge, customer, note and payment chip shown in job list rows.
+private struct JobPosInfoView: View {
+    let job: JobDTO
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                if let ticket = JobPaymentPresentation.ticketLabel(job) {
+                    Text(ticket).font(.subheadline.weight(.medium)).accessibilityIdentifier("job-ticket-number")
+                }
+                if job.isDesktopPos {
+                    Label(JobPaymentPresentation.sourceBadge, systemImage: "desktopcomputer")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(Color.indigo.opacity(0.15), in: Capsule())
+                }
+                if JobPaymentPresentation.hasPaymentInfo(job) {
+                    PaymentChipView(chip: JobPaymentPresentation.chip(for: job)).accessibilityIdentifier("job-payment-status")
+                }
+            }
+            if let name = job.customerName, !name.isEmpty { Text(name).font(.subheadline) }
+            if let note = job.note, !note.isEmpty {
+                Text(note).font(.caption).foregroundStyle(Color.primary.opacity(0.72)).lineLimit(2)
+            }
+        }
+    }
+}
+
 private struct JobDetailView: View {
     @Environment(\.modelContext) private var context
     @ObservedObject var model: OperationsModel
@@ -1233,6 +1280,36 @@ private struct JobDetailView: View {
                 LabeledContent("Time on site", value: "\(currentJob.elapsedSeconds / 60) min")
                 LabeledContent("Package", value: currentJob.packageName)
                 LabeledContent("Price", value: "$\(currentJob.priceUsd.formatted())")
+            }
+            Section("Ticket y cobro") {
+                if let ticket = currentJob.ticketNumber, !ticket.isEmpty {
+                    LabeledContent("Ticket de trabajo", value: ticket).accessibilityIdentifier("job-ticket-number")
+                }
+                if currentJob.isDesktopPos { LabeledContent("Origen", value: JobPaymentPresentation.sourceBadge) }
+                if let name = currentJob.customerName, !name.isEmpty { LabeledContent("Cliente", value: name) }
+                if let note = currentJob.note, !note.isEmpty { LabeledContent("Nota", value: note) }
+                if JobPaymentPresentation.hasPaymentInfo(currentJob) {
+                    LabeledContent("Pago") {
+                        PaymentChipView(chip: JobPaymentPresentation.chip(for: currentJob)).accessibilityIdentifier("job-payment-status")
+                    }
+                }
+                ForEach(currentJob.payments ?? []) { payment in
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text(JobPaymentPresentation.methodLabel(payment.method))
+                            Spacer()
+                            Text(JobPaymentPresentation.money(payment.amountUsd)).monospacedDigit().fontWeight(.semibold)
+                        }
+                        let detail = [payment.ticketNumber.map { "Venta \($0)" },
+                                      payment.recordedDate.map { $0.formatted(date: .abbreviated, time: .shortened) }]
+                            .compactMap { $0 }.joined(separator: " · ")
+                        if !detail.isEmpty {
+                            Text(detail).font(.caption).foregroundStyle(Color.primary.opacity(0.72))
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("job-payment-row")
+                }
             }
             Section("Service checklist") { ForEach(currentJob.services, id: \.self) { service in Text(service) } }
             Section("Employees") {
