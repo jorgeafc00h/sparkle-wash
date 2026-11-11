@@ -210,6 +210,19 @@ code { font-family: var(--mono); font-size: 0.85em; background: var(--kraft); pa
 .footer p { color: #cfe7e3; }
 .footer .small { margin-left: auto; font-size: 14px; }
 
+/* ---------- desktop download ---------- */
+.desktop { padding-top: 40px; }
+.desktop-card { display: flex; gap: 32px; align-items: flex-start; background: var(--paper-2); border-radius: 24px; padding: 40px; }
+.desktop-icon { flex-shrink: 0; width: 72px; height: 72px; border-radius: 20px; }
+.desktop-body h2 { font-size: clamp(30px, 3.6vw, 44px); }
+.desktop-lead { margin-top: 12px; font-size: 19px; color: var(--ink-2); max-width: 40em; }
+.desktop-list { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 10px; color: var(--ink-2); }
+.desktop-list li { display: flex; gap: 10px; align-items: flex-start; }
+.desktop-list svg { color: var(--teal); flex-shrink: 0; margin-top: 4px; }
+.desktop-req { margin-top: 18px; font-weight: 700; font-size: 15px; }
+.desktop-note { margin-top: 6px; font-size: 14.5px; color: var(--ink-2); max-width: 44em; }
+.desktop-note strong { color: var(--ink); }
+
 /* ---------- reveal ---------- */
 [data-reveal] { opacity: 0; translate: 0 28px; transition: opacity 700ms var(--ease), translate 700ms var(--ease); }
 [data-reveal].is-visible { opacity: 1; translate: 0 0; }
@@ -237,7 +250,8 @@ code { font-family: var(--mono); font-size: 0.85em; background: var(--kraft); pa
   .section { padding: 72px 0; }
   .steps, .split, .install-steps { grid-template-columns: 1fr; }
   .install-steps { gap: 26px; }
-  .cta-row .btn { width: 100%; }
+  .cta-row .btn { width: 100%; white-space: normal; text-align: center; }
+  .desktop-card { flex-direction: column; gap: 18px; padding: 26px 20px; }
   .board-wrap { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 10px 0; }
   .board { width: 62%; margin-bottom: 12px; }
   .callout { position: static; font-size: 13px; padding: 7px 10px; }

@@ -23,7 +23,10 @@ upstream relay: set `SYNC_API_PROJECT_DIR="/Users/jorgeflores/github/FACTURAS SI
   `getPath('userData')`. Secure-storage service names are `SparkleWash*`; never read Facturas Simples paths, keychain items
   or storage. Google Drive folder/backup prefix are `SparkleWash`.
 - Updates are opt-in: never add the Facturas Simples blob (`sticongen.blob.core.windows.net/installer`). Only start
-  electron-updater when `SPARKLEWASH_UPDATE_URL` or a baked `publish` config (`app-update.yml`) exists.
+  electron-updater when `SPARKLEWASH_UPDATE_URL` or a baked `publish` config (`app-update.yml`) exists. The feed is the
+  repo's GitHub Releases (`https://github.com/jorgeafc00h/sparkle-wash/releases/latest/download`, generic provider).
+- Windows installers come from `.github/workflows/desktop-release.yml` (builds on every desktop change; publishes
+  `desktop-v<version>` from main only when that tag is new — bump `package.json` "version" to release).
 - Keep "Facturas Simples" only where it names the upstream invoicing service/backend, plan names, legal DTE text, and
   the PDF free-tier footer. App-facing names are "SparkleWash". UI text in Spanish.
 - Keep `electron/builder.config.json` `files` listing `electron/*.cjs` and runtime deps in `dependencies`.

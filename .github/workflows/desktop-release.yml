@@ -1,0 +1,144 @@
+name: SparkleWash Desktop — Windows build and release
+
+# Builds the Windows installer of backend/desktop on every change, and publishes it as a GitHub
+# Release (tag desktop-v<package.json version>) from main when that version is not out yet.
+# The landing page's "Descargar para Windows" button and the app's auto-updater both read
+# https://github.com/<repo>/releases/latest/download/… so a new release is picked up without
+# touching the site. Bump backend/desktop/package.json "version" to ship a new release.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/desktop/**"
+      - ".github/workflows/desktop-release.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/desktop/**"
+      - ".github/workflows/desktop-release.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a GitHub Release for this version (main only; skipped when the tag exists)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Build Windows installer
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: backend/desktop
+        shell: bash
+    env:
+      # Unsigned until a code-signing certificate exists (SmartScreen will warn on first run).
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/desktop/package-lock.json
+      - id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - run: npm ci
+      - name: Build the renderer
+        env:
+          # Baked into the bundle: the "SparkleWash Desktop" Google OAuth client (Desktop-type secrets are not
+          # confidential per Google, but stay out of git) and the carwash API the app talks to by default.
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.SPARKLEWASH_DESKTOP_GOOGLE_CLIENT_ID }}
+          VITE_GOOGLE_CLIENT_SECRET: ${{ secrets.SPARKLEWASH_DESKTOP_GOOGLE_CLIENT_SECRET }}
+          VITE_SPARKLEWASH_API_URL: ${{ vars.SPARKLEWASH_DESKTOP_API_URL }}
+        run: |
+          if [ -z "$VITE_GOOGLE_CLIENT_ID" ] || [ -z "$VITE_GOOGLE_CLIENT_SECRET" ]; then
+            echo "::warning::SPARKLEWASH_DESKTOP_GOOGLE_CLIENT_ID / _SECRET are not set: this build has no Google sign-in."
+          fi
+          npm run build
+      - name: Package (NSIS installer + zip, x64)
+        run: npx electron-builder --config electron/builder.config.json --win --x64 --publish never
+      - name: Verify the packaged app
+        run: node scripts/verify-packaged-app.cjs electron-dist/win-unpacked/resources/app.asar
+      - name: Stage the release files
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          out="$GITHUB_WORKSPACE/release"
+          mkdir -p "$out"
+          exe="electron-dist/SparkleWash-Setup-$VERSION.exe"
+          cp "$exe" "$exe.blockmap" electron-dist/latest.yml "$out/"
+          # Stable name for the landing page's download button.
+          cp "$exe" "$out/SparkleWash-Setup-latest.exe"
+          cp electron-dist/*-win.zip "$out/"
+          grep -q "version: $VERSION" "$out/latest.yml"
+          ls -la "$out"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sparklewash-desktop-windows
+          path: release/
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub Release
+    needs: windows
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: sparklewash-desktop-windows
+          path: release
+      - name: Create the release unless this version is already out
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.windows.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="desktop-v$VERSION"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::notice::$tag is already published. Bump backend/desktop/package.json \"version\" to ship a new release."
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          cat > notes.md <<EOF
+          SparkleWash para escritorio $VERSION (Windows 10/11, 64 bits).
+
+          - Instalador: \`SparkleWash-Setup-$VERSION.exe\` (también \`SparkleWash-Setup-latest.exe\`).
+          - Las instalaciones existentes se actualizan solas desde este release.
+          - El instalador todavía no está firmado: Windows SmartScreen puede pedir "Más información → Ejecutar de todas formas".
+
+          Commit: $GITHUB_SHA
+          EOF
+          gh release create "$tag" release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "SparkleWash Desktop $VERSION" --notes-file notes.md --latest
+          echo "created=true" >> "$GITHUB_OUTPUT"
+      - name: Check the public download links
+        if: steps.publish.outputs.created == 'true'
+        run: |
+          set -euo pipefail
+          base="https://github.com/$GITHUB_REPOSITORY/releases/latest/download"
+          for f in SparkleWash-Setup-latest.exe latest.yml; do
+            for attempt in 1 2 3 4 5 6; do
+              code=$(curl -sL -r 0-0 -o /dev/null -w '%{http_code}' "$base/$f") || code=000
+              [ "$code" = "200" ] || [ "$code" = "206" ] && break
+              sleep 10
+            done
+            echo "$code $base/$f"
+            [ "$code" = "200" ] || [ "$code" = "206" ]
+          done

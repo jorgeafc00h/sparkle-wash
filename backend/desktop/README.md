@@ -60,9 +60,19 @@ Solo las `VITE_*` llegan al renderer (se incluyen al compilar). Ver `.env.exampl
 
 ### Actualizaciones automáticas
 
-Opt-in. El actualizador solo arranca si hay un feed de SparkleWash: `SPARKLEWASH_UPDATE_URL` en tiempo de ejecución, o un
-`publish` horneado al empaquetar (`-c.publish.provider=generic -c.publish.url=<url>`, que genera `app-update.yml`).
-Sin feed la app lo registra en el log y no busca actualizaciones. Nunca apunta al feed de Facturas Simples.
+Opt-in. El actualizador solo arranca si hay un feed de SparkleWash: `SPARKLEWASH_UPDATE_URL` en tiempo de ejecución, o el
+`publish` horneado al empaquetar (`app-update.yml`). El feed oficial son los GitHub Releases del repositorio:
+`https://github.com/jorgeafc00h/sparkle-wash/releases/latest/download` (proveedor genérico). Nunca apunta al feed de
+Facturas Simples.
+
+### Instalador de Windows (GitHub Actions)
+
+`.github/workflows/desktop-release.yml` compila el instalador en `windows-latest` en cada cambio de `backend/desktop`
+(también en los PR) y, desde `main`, publica el release `desktop-v<versión>` con `SparkleWash-Setup-<versión>.exe`,
+su `.blockmap`, `latest.yml`, el zip y el alias estable `SparkleWash-Setup-latest.exe` (el botón "Descargar para Windows"
+de la página web). Para publicar una versión nueva, sube `"version"` en `package.json`; si el tag ya existe, el job no
+publica nada. Variables del repositorio: `SPARKLEWASH_DESKTOP_GOOGLE_CLIENT_ID`, `SPARKLEWASH_DESKTOP_API_URL`; secreto:
+`SPARKLEWASH_DESKTOP_GOOGLE_CLIENT_SECRET`. El instalador aún no está firmado (SmartScreen avisa en la primera ejecución).
 
 ### Aislamiento de datos
 

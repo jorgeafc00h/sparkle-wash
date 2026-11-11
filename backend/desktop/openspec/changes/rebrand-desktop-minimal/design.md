@@ -36,8 +36,11 @@ rings/borders; 50/100 tints.
 
 ## 3. Release channel
 
-- Container `sparklewash-installer` in storage account `sticongen` (public access: blob — files
-  readable, container not listable). Facturas Simples' `installer` container is never written.
+- Channel: the SparkleWash repo's **GitHub Releases** (`desktop-v<version>`), read through
+  `https://github.com/jorgeafc00h/sparkle-wash/releases/latest/download/<file>` by both the generic
+  updater feed and the landing page button. (The first plan used the `sticongen/sparklewash-installer`
+  blob container; the SparkleWash repo has no storage credentials, so releases replaced it.)
+  Facturas Simples' `installer` container is never written.
 - Files per release: `SparkleWash-Setup-<v>.exe` (+ blockmap), `SparkleWash-<v>-win.zip`,
   `SparkleWash-<v>-universal.dmg` / `-mac.zip` (+ blockmaps), `latest.yml`, `latest-mac.yml`,
   stable aliases `SparkleWash-Setup-latest.exe`, `SparkleWash-latest-mac.dmg` (no-cache).

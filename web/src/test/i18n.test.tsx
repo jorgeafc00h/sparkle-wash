@@ -9,7 +9,17 @@ import { en } from "../i18n/en";
 import { es } from "../i18n/es";
 import { LanguageSwitch } from "../components/ui";
 
-const catalog = catalogJson as Catalog;
+// The shared v1 contract carries Spanish text only; translations stay supported, so test them with a fixture.
+const catalog: Catalog = {
+  currency: "USD",
+  locale: "es",
+  vehicleClasses: [{ id: "suv", name: "Camioneta / SUV", translations: { en: { name: "SUV" } } }],
+  packages: [{
+    id: "essential", name: "Essential Spa", subtitle: "Limpieza + acabado", tagline: "Un paso más allá",
+    items: ["Todo lo de Quick", "Espuma activa"], prices: { suv: 18 },
+    translations: { en: { subtitle: "Clean + finish", tagline: "One step further", items: ["Everything in Quick", "Snow foam"] } },
+  }],
+} as Catalog;
 
 describe("i18n", () => {
   it("defaults to Spanish", () => {
@@ -39,7 +49,8 @@ describe("i18n", () => {
   });
 
   it("matches the posted price sheet", () => {
-    const prices = Object.fromEntries(catalog.packages.map((p) => [p.id, Object.values(p.prices)]));
+    // The real shared contract (backend/contracts mirrors it), not the translation fixture above.
+    const prices = Object.fromEntries(catalogJson.packages.map((p) => [p.id, Object.values(p.prices)]));
     expect(prices).toEqual({ quick: [10, 12, 14, 16], essential: [15, 18, 21, 24], renew: [25, 30, 35, 40], supreme: [35, 40, 45, 50] });
   });
 

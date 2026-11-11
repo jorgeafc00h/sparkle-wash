@@ -13,11 +13,14 @@
 - [x] 2.4 Delete 7 unreferenced images (12 MB)
 
 ## 3. Release channel 1.0.0
-- [x] 3.1 Container `sticongen/sparklewash-installer` (public access: blob)
-- [x] 3.2 `builder.config.json` `publish` (generic → container) → baked `app-update.yml`
+- [x] 3.1 Container `sticongen/sparklewash-installer` (public access: blob) — superseded: the channel is now the
+      repo's GitHub Releases (no storage credentials in the SparkleWash repo)
+- [x] 3.2 `builder.config.json` `publish` (generic → `github.com/jorgeafc00h/sparkle-wash/releases/latest/download`) → baked `app-update.yml`
 - [x] 3.3 `main.cjs`: macOS manual-download link from the baked feed
 - [ ] 3.4 Build mac (dmg + zip, universal) + Windows (nsis + zip, x64); `verify-packaged-app.cjs`
-- [ ] 3.5 Upload versioned files, `latest*.yml`, stable aliases; verify sha512 + download URLs
+      (Windows: `.github/workflows/desktop-release.yml` on `windows-latest`; macOS pending signing)
+- [ ] 3.5 Upload versioned files, `latest*.yml`, stable aliases; verify download URLs
+      (Windows: the workflow's release job publishes `desktop-v<version>` and checks the `latest/download` links)
 
 ## 4. Verify
 - [x] 4.1 `tsc --noEmit`, Jest
