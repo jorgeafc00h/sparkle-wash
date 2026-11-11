@@ -200,25 +200,35 @@ struct SettingsView: View {
     @State private var draft = ""
 
     var body: some View {
-        Form {
-            Section("API server") {
-                TextField("Server URL", text: $draft)
+        ScrollView {
+            VStack(alignment: .leading, spacing: SW.Space.md) {
+                Label("Servidor de la API", systemImage: "server.rack").font(.swSection).foregroundStyle(Color.swInk)
+                TextField("URL del servidor", text: $draft)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.URL)
-                    .accessibilityLabel("API server URL")
+                    .padding(SW.Space.md)
+                    .frame(minHeight: SW.minTouch)
+                    .background(Color.swBackground, in: RoundedRectangle(cornerRadius: SW.Radius.sm, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: SW.Radius.sm, style: .continuous).strokeBorder(Color.swBorder, lineWidth: 1.5))
+                    .accessibilityLabel("URL del servidor de la API")
                 if !draft.isEmpty && !EndpointValidation.isValid(draft) {
-                    Text("Enter an HTTP or HTTPS address without credentials, query, or fragment.")
-                        .foregroundStyle(.red)
+                    SWBanner(kind: .danger, text: "Ingresa una dirección HTTP o HTTPS sin credenciales, consulta ni fragmento.")
                 }
-                Text("The simulator can use localhost:8080. On a device, enter the server's reachable address.")
-                    .font(.footnote)
-                Button("Save server") { apiBaseUrl = draft.trimmingCharacters(in: .whitespacesAndNewlines); dismiss() }
+                Text("El simulador puede usar localhost:8080. En un dispositivo, ingresa la dirección del servidor que sea accesible.")
+                    .font(.swMeta).foregroundStyle(Color.swTextSecondary)
+                Button("Guardar servidor") { apiBaseUrl = draft.trimmingCharacters(in: .whitespacesAndNewlines); dismiss() }
+                    .buttonStyle(.swPrimary)
                     .disabled(!EndpointValidation.isValid(draft))
-                    .frame(minHeight: 44)
             }
+            .swCard()
+            .frame(maxWidth: 720)
+            .padding(SW.Space.lg)
+            .frame(maxWidth: .infinity)
         }
-        .navigationTitle("Settings")
+        .swScreenBackground()
+        .navigationTitle("Ajustes")
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear { draft = apiBaseUrl }
     }
 }

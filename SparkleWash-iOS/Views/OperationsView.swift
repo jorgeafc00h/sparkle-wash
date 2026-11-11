@@ -678,80 +678,98 @@ struct OperationsView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("apiBaseUrl") private var endpoint = "http://localhost:8080"
-    @StateObject private var model = OperationsModel()
+    @StateObject private var model = OperationsModel.forLaunch()
     @Namespace private var jobNavigation
+    @State private var demoDestination: String?
+    @State private var pendingCompletion: JobDTO?
+
+    private let jobColumns = [GridItem(.adaptive(minimum: 340), spacing: SW.Space.md, alignment: .top)]
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 16, pinnedViews: [.sectionHeaders]) {
-                        if !model.signedIn {
-                            catalogIntro
-                            if GoogleClientSettings.current != nil { signInSection }
-                        }
-                        if model.offlineHistoryAvailable && !model.signedIn {
-                            NavigationLink { CompletedHistoryView(model: model) } label: {
-                                Label("Completed job history · Offline", systemImage: "clock.arrow.circlepath")
-                                    .frame(minHeight: 44)
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                        if let summary = model.summary {
-                            summarySection(summary)
-                            if model.signedIn {
-                                NavigationLink { CompletedHistoryView(model: model) } label: {
-                                    Label("Completed job history", systemImage: "clock.arrow.circlepath")
-                                        .frame(minHeight: 44)
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                            workboardSection("Arrivals to review") { arrivalsSection }
-                            workboardSection("Jobs") { jobsSection }
-                            employeeSection
-                            inventorySection
-                        }
-                        packageSection
-                        if !model.signedIn && GoogleClientSettings.current == nil { signInSection }
+                LazyVStack(alignment: .leading, spacing: SW.Space.xl, pinnedViews: [.sectionHeaders]) {
+                    if !model.signedIn {
+                        catalogIntro
+                        if GoogleClientSettings.current != nil { signInSection }
                     }
-                    .frame(maxWidth: 1200, alignment: .leading)
-                    .padding(.horizontal)
-                    .padding(.bottom)
-                    .frame(maxWidth: .infinity)
+                    if model.offlineHistoryAvailable && !model.signedIn {
+                        historyLink("Historial de trabajos completados · Sin conexión")
+                    }
+                    if let summary = model.summary {
+                        if DemoSupport.scrollTarget == nil {
+                            summarySection(summary)
+                            if model.signedIn { historyLink("Historial de trabajos completados") }
+                            workboardSection("Llegadas por revisar", symbol: "camera.viewfinder", count: pendingArrivals.count) { arrivalsSection }
+                        }
+                        if DemoSupport.scrollTarget != "stock" {
+                            workboardSection("Trabajos", symbol: "car.side.fill", count: model.jobs.count) { jobsSection }
+                        }
+                        employeeSection
+                        inventorySection
+                    }
+                    packageSection
+                    if !model.signedIn && GoogleClientSettings.current == nil { signInSection }
+                }
+                .frame(maxWidth: SW.maxContentWidth, alignment: .leading)
+                .padding(.horizontal, SW.Space.lg)
+                .padding(.bottom, SW.Space.xl)
+                .frame(maxWidth: .infinity)
             }
+            .onChange(of: model.jobs.count) { _, count in
+                if count > 0, demoDestination == nil, let key = DemoSupport.openTarget { demoDestination = key }
+            }
+            .swScreenBackground()
             .safeAreaInset(edge: .top, spacing: 0) {
                 if model.signedIn || model.error != nil {
                     statusView
-                        .frame(maxWidth: 1200)
-                        .padding(.horizontal)
-                        .padding(.vertical, 6)
+                        .frame(maxWidth: SW.maxContentWidth)
+                        .padding(.horizontal, SW.Space.lg)
+                        .padding(.vertical, SW.Space.sm)
                         .frame(maxWidth: .infinity)
-                        .background(Color(.systemBackground))
+                        .background(Color.swBackground)
                 }
             }
             .animation(reduceMotion ? nil : .snappy(duration: 0.25),
                        value: model.jobs.map { "\($0.id):\($0.status)" })
-            .navigationTitle(model.signedIn ? "Workboard" : "SparkleWash")
+            .confirmationDialog("¿Completar este trabajo?", isPresented: Binding(
+                get: { pendingCompletion != nil }, set: { if !$0 { pendingCompletion = nil } }),
+                titleVisibility: .visible, presenting: pendingCompletion) { job in
+                Button("Completar \(job.plate)") {
+                    Task { await model.transition(job, to: "completed", context: context, endpoint: endpoint) }
+                }
+            } message: { job in
+                Text("El vehículo \(job.plate) pasará a Completado.")
+            }
+            .navigationDestination(item: $demoDestination) { key in demoDestinationView(key) }
+            .navigationTitle(model.signedIn ? "Tablero" : "SparkleWash")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if model.signedIn {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Sign out") { model.signOut(context: context) }
+                        Button("Salir") { model.signOut(context: context) }
+                            .accessibilityLabel("Cerrar sesión")
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Refresh", systemImage: "arrow.clockwise") { Task { await model.refresh(context: context, endpoint: endpoint) } }
-                        .frame(minWidth: 44, minHeight: 44)
+                    Button("Actualizar", systemImage: "arrow.clockwise") { Task { await model.refresh(context: context, endpoint: endpoint) } }
+                        .labelStyle(.iconOnly)
+                        .frame(minWidth: SW.minTouch, minHeight: SW.minTouch)
+                        .accessibilityLabel("Actualizar operaciones")
                         .disabled(model.isLoading)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink { SettingsView() } label: { Label("Settings", systemImage: "gearshape") }
-                        .frame(minWidth: 44, minHeight: 44)
+                    NavigationLink { SettingsView() } label: { Label("Ajustes", systemImage: "gearshape").labelStyle(.iconOnly) }
+                        .frame(minWidth: SW.minTouch, minHeight: SW.minTouch)
+                        .accessibilityLabel("Ajustes del servidor")
                 }
             }
             .task(id: RefreshScope(endpoint: endpoint, active: scenePhase == .active, signedIn: model.signedIn)) {
                 if model.endpoint != endpoint {
                     model.restore(context: context, endpoint: endpoint)
                 }
+                await model.demoSignInIfRequested(context: context, endpoint: endpoint)
+                
                 guard scenePhase == .active else { return }
                 var delay = 30
                 repeat {
@@ -764,6 +782,21 @@ struct OperationsView: View {
             }
         }
         .id(NavigationScope(endpoint: endpoint, session: model.navigationSession))
+        .tint(Color.swBrand)
+    }
+
+    @ViewBuilder
+    private func demoDestinationView(_ key: String) -> some View {
+        #if DEBUG
+        switch key {
+        case "job": if let job = model.jobs.first { JobDetailView(model: model, job: job, endpoint: endpoint) }
+        case "arrival": if let arrival = model.arrivals.first { ArrivalReviewView(model: model, arrival: arrival, endpoint: endpoint) }
+        case "history": CompletedHistoryView(model: model)
+        default: EmptyView()
+        }
+        #else
+        EmptyView()
+        #endif
     }
 
     private struct NavigationScope: Hashable {
@@ -777,57 +810,80 @@ struct OperationsView: View {
         let signedIn: Bool
     }
 
+    private var pendingArrivals: [ArrivalDTO] {
+        let linked = Set(model.jobs.map(\.arrivalId))
+        return model.arrivals.filter { !linked.contains($0.id) }
+    }
+
+    // MARK: Status banner
+
     private var statusView: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if model.isLoading { ProgressView("Refreshing operations") }
-            else if model.isStale { Text(model.savedAt == nil ? "Operations unavailable" : "Showing last synced operations").fontWeight(.semibold) }
-            else { Text("API checked \(model.savedAt?.formatted(date: .omitted, time: .shortened) ?? "")") }
-            if let error = model.error { Text(error).foregroundStyle(.red) }
+        VStack(alignment: .leading, spacing: SW.Space.sm) {
+            HStack(spacing: SW.Space.sm) {
+                if model.isLoading {
+                    ProgressView().controlSize(.small)
+                    Text("Actualizando operaciones…")
+                } else if model.isStale {
+                    Image(systemName: "wifi.slash").foregroundStyle(Color.swWarning).accessibilityHidden(true)
+                    Text(model.savedAt == nil ? "Operaciones no disponibles" : "Mostrando la última sincronización").fontWeight(.semibold)
+                } else {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.swSuccess).accessibilityHidden(true)
+                    Text("Actualizado \(model.savedAt?.formatted(date: .omitted, time: .shortened) ?? "")")
+                }
+                Spacer(minLength: 0)
+            }
+            .font(.swBody)
+            .contentTransition(.opacity)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.isStale)
+            if let error = model.error { SWBanner(kind: .danger, text: error) }
         }
-        .font(.subheadline)
-        .contentTransition(.opacity)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.isStale)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
     }
 
+    // MARK: Signed-out hero and sign-in
+
     private var catalogIntro: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.teal)
-                .accessibilityHidden(true)
-            Text("Car care, your way")
-                .font(.largeTitle.bold())
+        VStack(alignment: .leading, spacing: SW.Space.md) {
+            HStack(spacing: SW.Space.md) {
+                SWBrandMark(size: 52)
+                Text("SparkleWash").font(.system(.title3, design: .rounded, weight: .bold)).foregroundStyle(.white)
+            }
+            Text("Tu auto, como nuevo")
+                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                .foregroundStyle(.white)
                 .accessibilityAddTraits(.isHeader)
-            Text("Compare detailing packages and see prices for your vehicle.")
-                .font(.subheadline)
-                .foregroundStyle(Color.primary.opacity(0.72))
+            Text("Compara los paquetes de detallado y consulta el precio para tu vehículo.")
+                .font(.swBody)
+                .foregroundStyle(.white.opacity(0.92))
+            Label("Precios por tipo de vehículo", systemImage: "tag.fill")
+                .font(.swPill)
+                .foregroundStyle(Color.swOnCoral)
+                .padding(.horizontal, SW.Space.md).padding(.vertical, 6)
+                .background(Color.swCoral, in: Capsule())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(.teal.opacity(0.10), in: RoundedRectangle(cornerRadius: 20))
+        .padding(SW.Space.xl)
+        .background(LinearGradient(colors: [Color(0x13213A), Color(0x0F766E)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: SW.Radius.lg, style: .continuous))
+        .padding(.top, SW.Space.sm)
     }
 
     private var signInSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Staff access").font(.title2).fontWeight(.semibold)
+        VStack(alignment: .leading, spacing: SW.Space.md) {
+            Label("Acceso del personal", systemImage: "person.badge.key.fill").font(.swSection).foregroundStyle(Color.swInk)
             if let ids = GoogleClientSettings.current {
+                Text("Inicia sesión con tu cuenta de Google autorizada para ver el tablero de trabajo.")
+                    .font(.swBody).foregroundStyle(Color.swTextSecondary)
                 GoogleSignInButton {
                     Task { await signIn(ids) }
                 }
-                .frame(maxWidth: 260, minHeight: 44)
-                .accessibilityLabel("Sign in with Google for SparkleWash staff")
+                .frame(maxWidth: 320, minHeight: 48)
+                .accessibilityLabel("Iniciar sesión con Google como personal de SparkleWash")
             } else {
-                Text("Staff sign-in is unavailable on this device.")
-                    .foregroundStyle(Color.primary.opacity(0.72))
+                SWBanner(kind: .info, text: "El acceso del personal no está disponible en este dispositivo.", symbol: "lock.fill")
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+        .swCard()
     }
 
     private func signIn(_ ids: GoogleClientSettings) async {
@@ -850,218 +906,289 @@ struct OperationsView: View {
         }
     }
 
+    // MARK: Floor summary
+
     private func summarySection(_ summary: JobSummaryDTO) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Whole-carwash jobs").font(.title2).fontWeight(.semibold)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
-                metric("Active work", summary.inProgress)
-                metric("Waiting", summary.arrived + summary.queued)
-                metric("Completed today UTC", summary.completedTodayUtc)
-                metric("Average site minutes", (summary.averageCompletedSeconds ?? 0) / 60)
+        VStack(alignment: .leading, spacing: SW.Space.sm) {
+            SWSectionHeader(title: "Resumen del piso", symbol: "gauge.with.dots.needle.67percent")
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: SW.Space.md)], spacing: SW.Space.md) {
+                SWMetricTile(label: "En proceso", value: summary.inProgress.formatted(), symbol: "sparkles", tint: .swInfo)
+                SWMetricTile(label: "En espera", value: (summary.arrived + summary.queued).formatted(), symbol: "clock.fill", tint: .swWarning)
+                SWMetricTile(label: "Completados hoy (UTC)", value: summary.completedTodayUtc.formatted(), symbol: "checkmark.circle.fill", tint: .swSuccess)
+                SWMetricTile(label: "Promedio en sitio", value: SWFormat.duration(seconds: summary.averageCompletedSeconds ?? 0),
+                             symbol: "stopwatch.fill", tint: .swBrand)
                 if model.jobs.contains(where: JobPaymentPresentation.hasPaymentInfo) {
-                    metric("Por cobrar", JobPaymentPresentation.receivableCount(model.jobs))
+                    SWMetricTile(label: "Por cobrar", value: JobPaymentPresentation.receivableCount(model.jobs).formatted(),
+                                 symbol: "dollarsign.circle.fill", tint: .swAlert)
                         .accessibilityIdentifier("receivable-count")
                 }
             }
         }
     }
 
-    private func metric(_ label: String, _ value: Int) -> some View {
-        VStack(alignment: .leading, spacing: 6) { Text(label).font(.subheadline).foregroundStyle(Color.primary.opacity(0.72)); Text(value.formatted()).font(.title).bold() }
-            .frame(maxWidth: .infinity, alignment: .leading).padding()
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
-            .accessibilityElement(children: .combine)
+    private func historyLink(_ title: String) -> some View {
+        NavigationLink { CompletedHistoryView(model: model) } label: {
+            HStack(spacing: SW.Space.md) {
+                Image(systemName: "clock.arrow.circlepath").foregroundStyle(Color.swBrand).accessibilityHidden(true)
+                Text(title).font(.headline).multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Color.swTextSecondary).accessibilityHidden(true)
+            }
+            .frame(minHeight: SW.minTouch)
+            .swCard()
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
-    private func workboardSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func workboardSection<Content: View>(_ title: String, symbol: String, count: Int, @ViewBuilder content: () -> Content) -> some View {
         Section {
             content()
         } header: {
-            Text(title)
-                .font(.title2.weight(.semibold))
-                .accessibilityAddTraits(.isHeader)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 8)
-                .background(Color(.systemBackground))
+            SWSectionHeader(title: title, symbol: symbol, count: count)
+                .background(Color.swBackground)
         }
     }
+
+    // MARK: Arrivals
 
     private var arrivalsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            let linkedArrivals = Set(model.jobs.map(\.arrivalId))
-            let pending = model.arrivals.filter { !linkedArrivals.contains($0.id) }
-            if pending.isEmpty { Text("No arrivals waiting for a job.").foregroundStyle(Color.primary.opacity(0.72)) }
-            ForEach(pending) { arrival in
-                NavigationLink {
-                    ArrivalReviewView(model: model, arrival: arrival, endpoint: endpoint)
-                } label: {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(arrival.confirmedPlate ?? arrival.plateCandidate ?? "Unreadable plate").font(.headline)
-                        Text("Camera \(arrival.cameraId) · \(arrival.confirmedPlate == nil ? "Needs review" : "Confirmed")")
-                            .font(.subheadline).foregroundStyle(Color.primary.opacity(0.72))
-                        if let confidence = arrival.confidence { Text("Candidate confidence \(Int(confidence * 100))%") }
+        VStack(alignment: .leading, spacing: SW.Space.md) {
+            let pending = pendingArrivals
+            if pending.isEmpty {
+                SWEmptyState(symbol: "camera.viewfinder", title: "No hay llegadas esperando un trabajo")
+            }
+            LazyVGrid(columns: jobColumns, spacing: SW.Space.md) {
+                ForEach(pending) { arrival in
+                    NavigationLink {
+                        ArrivalReviewView(model: model, arrival: arrival, endpoint: endpoint)
+                    } label: {
+                        HStack(alignment: .center, spacing: SW.Space.md) {
+                            VStack(alignment: .leading, spacing: SW.Space.sm) {
+                                if let plate = arrival.confirmedPlate ?? arrival.plateCandidate {
+                                    SWPlate(plate: plate)
+                                } else {
+                                    Text("Placa ilegible").font(.swPlate).foregroundStyle(Color.swTextSecondary)
+                                }
+                                SWFlowLayout(spacing: SW.Space.sm) {
+                                    if arrival.confirmedPlate == nil {
+                                        SWChip(text: "Por revisar", symbol: "exclamationmark.triangle.fill", tint: .swWarning)
+                                    } else {
+                                        SWChip(text: "Confirmada", symbol: "checkmark.seal.fill", tint: .swSuccess)
+                                    }
+                                    if let confidence = arrival.confidence {
+                                        SWChip(text: "Confianza \(Int(confidence * 100)) %", symbol: "scope", tint: .swNeutral)
+                                    }
+                                }
+                                Label("Cámara \(arrival.cameraId)", systemImage: "camera.fill")
+                                    .font(.swMeta).foregroundStyle(Color.swTextSecondary)
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
+                                .foregroundStyle(Color.swTextSecondary).accessibilityHidden(true)
+                        }
+                        .frame(minHeight: SW.minTouch)
+                        .swCard(stripe: .swWarning)
+                        .contentShape(Rectangle())
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading).padding()
-                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(arrivalAccessibilityLabel(arrival))
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(arrivalAccessibilityLabel(arrival))
             }
         }
     }
 
+    // MARK: Job board
+
     private var jobsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if model.jobs.isEmpty { Text("No vehicle jobs yet.").foregroundStyle(Color.primary.opacity(0.72)) }
-            ForEach(model.jobs) { job in
-                NavigationLink {
-                    let detail = JobDetailView(model: model, job: job, endpoint: endpoint)
-                    if reduceMotion {
-                        detail
-                    } else {
-                        detail.navigationTransition(.zoom(sourceID: job.id, in: jobNavigation))
-                    }
-                } label: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ViewThatFits(in: .horizontal) {
-                            HStack {
-                                Text(job.plate).font(.headline).fixedSize()
-                                Spacer()
-                                jobStatus(job.status)
-                            }
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(job.plate).font(.headline)
-                                jobStatus(job.status)
-                            }
-                        }
-                        Text("\(job.packageName) · $\(job.priceUsd.formatted()) · \(job.vehicleClass.uppercased())")
-                            .font(.subheadline).foregroundStyle(Color.primary.opacity(0.72))
-                        Text("Time on site \(job.elapsedSeconds / 60) min · \(job.assignments.count) assigned")
-                            .font(.subheadline)
-                        JobPosInfoView(job: job)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading).padding()
-                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
-                }
-                .matchedTransitionSource(id: job.id, in: jobNavigation)
-                .buttonStyle(.plain)
-                .accessibilityLabel(jobAccessibilityLabel(job))
+        VStack(alignment: .leading, spacing: SW.Space.md) {
+                        if model.jobs.isEmpty {
+                SWEmptyState(symbol: "car.side", title: "Aún no hay trabajos de vehículos")
+            }
+            LazyVGrid(columns: jobColumns, spacing: SW.Space.md) {
+                ForEach(model.jobs) { job in jobCard(job) }
             }
         }
+    }
+
+    private func jobCard(_ job: JobDTO) -> some View {
+        let status = JobStatus(raw: job.status)
+        return VStack(alignment: .leading, spacing: SW.Space.md) {
+            NavigationLink {
+                let detail = JobDetailView(model: model, job: job, endpoint: endpoint)
+                if reduceMotion {
+                    detail
+                } else {
+                    detail.navigationTransition(.zoom(sourceID: job.id, in: jobNavigation))
+                }
+            } label: {
+                VStack(alignment: .leading, spacing: SW.Space.sm) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .center) {
+                            SWPlate(plate: job.plate).fixedSize()
+                            Spacer(minLength: SW.Space.sm)
+                            StatusPill(status: status)
+                        }
+                        VStack(alignment: .leading, spacing: SW.Space.sm) {
+                            SWPlate(plate: job.plate)
+                            StatusPill(status: status)
+                        }
+                    }
+                    Text("\(job.packageName) · \(SWFormat.vehicleClassName(job.vehicleClass))")
+                        .font(.swCardTitle)
+                    SWFlowLayout(spacing: SW.Space.md) {
+                        Label(SWFormat.duration(seconds: job.elapsedSeconds), systemImage: "stopwatch")
+                        Label(job.assignments.isEmpty ? "Sin asignar" : job.assignments.map(\.employeeName).joined(separator: ", "),
+                              systemImage: job.assignments.isEmpty ? "person.crop.circle.badge.questionmark" : "person.2.fill")
+                        Text(JobPaymentPresentation.money(job.priceUsd)).monospacedDigit().fontWeight(.semibold)
+                    }
+                    .font(.swBody)
+                    .foregroundStyle(Color.swTextSecondary)
+                    JobPosInfoView(job: job)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .matchedTransitionSource(id: job.id, in: jobNavigation)
+            .buttonStyle(.plain)
+            .accessibilityLabel(jobAccessibilityLabel(job))
+
+            if model.canOperate, let next = status.next {
+                Button {
+                    if next.status == "completed" {
+                        pendingCompletion = job
+                    } else {
+                        Task { await model.transition(job, to: next.status, context: context, endpoint: endpoint) }
+                    }
+                } label: {
+                    Label(next.title, systemImage: next.symbol)
+                }
+                .buttonStyle(SWButtonStyle(kind: next.status == "completed" ? .primary : .secondary))
+                .accessibilityLabel("\(next.title) para \(job.plate)")
+                .accessibilityIdentifier("job-next-action")
+            }
+        }
+        .swCard(stripe: status.tint)
     }
 
     private func arrivalAccessibilityLabel(_ arrival: ArrivalDTO) -> String {
-        let plate = arrival.confirmedPlate ?? arrival.plateCandidate ?? "unreadable plate"
-        let reviewState = arrival.confirmedPlate == nil ? "Needs staff review" : "Plate confirmed"
-        let confidence = arrival.confidence.map { "Candidate confidence \(Int(($0 * 100).rounded())) percent" }
-        return ["Review arrival for \(plate)", "Camera \(arrival.cameraId)", reviewState, confidence]
+        let plate = arrival.confirmedPlate ?? arrival.plateCandidate ?? "placa ilegible"
+        let reviewState = arrival.confirmedPlate == nil ? "Requiere revisión del personal" : "Placa confirmada"
+        let confidence = arrival.confidence.map { "Confianza del candidato \(Int(($0 * 100).rounded())) por ciento" }
+        return ["Revisar llegada de \(plate)", "Cámara \(arrival.cameraId)", reviewState, confidence]
             .compactMap { $0 }
             .joined(separator: ". ")
     }
 
     private func jobAccessibilityLabel(_ job: JobDTO) -> String {
-        let status = switch job.status {
-        case "arrived": "Arrived"
-        case "queued": "Queued"
-        case "in_progress": "In progress"
-        case "completed": "Completed"
-        case "cancelled": "Cancelled"
-        default: job.status.replacingOccurrences(of: "_", with: " ")
-        }
         let assignment = job.assignments.isEmpty
-            ? "No staff assigned"
-            : "Assigned to " + job.assignments.map(\.employeeName).joined(separator: ", ")
+            ? "Sin personal asignado"
+            : "Asignado a " + job.assignments.map(\.employeeName).joined(separator: ", ")
         let pos = [JobPaymentPresentation.ticketLabel(job), job.isDesktopPos ? JobPaymentPresentation.sourceBadge : nil,
                    job.customerName, JobPaymentPresentation.hasPaymentInfo(job) ? JobPaymentPresentation.chip(for: job).text : nil].compactMap { $0 }.joined(separator: ", ")
-        return "Job for \(job.plate). \(pos). \(status). \(job.packageName), \(job.vehicleClass). \(job.priceUsd.formatted(.currency(code: "USD"))). \(job.elapsedSeconds / 60) minutes on site. \(assignment)."
+        return "Trabajo de \(job.plate). \(pos). \(JobStatus(raw: job.status).label). \(job.packageName), \(SWFormat.vehicleClassName(job.vehicleClass)). \(job.priceUsd.formatted(.currency(code: "USD"))). \(SWFormat.duration(seconds: job.elapsedSeconds)) en sitio. \(assignment)."
     }
 
-    private func jobStatus(_ status: String) -> some View {
-        let appearance: (label: String, symbol: String, tint: Color) = switch status {
-        case "arrived": ("Arrived", "car", .secondary)
-        case "queued": ("Queued", "clock", .orange)
-        case "in_progress": ("In progress", "sparkles", .teal)
-        case "completed": ("Completed", "checkmark.circle", .green)
-        case "cancelled": ("Cancelled", "xmark.circle", .secondary)
-        default: (status.replacingOccurrences(of: "_", with: " "), "circle", .secondary)
-        }
-        return Label(appearance.label, systemImage: appearance.symbol)
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(appearance.tint.opacity(0.15), in: Capsule())
-    }
+    // MARK: Team and stock
 
     private var employeeSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Employees").font(.title2).fontWeight(.semibold)
-            if model.employees.isEmpty { Text("No employees added.").foregroundStyle(Color.primary.opacity(0.72)) }
-            ForEach(model.employees) { employee in
-                LabeledContent(employee.name, value: employee.active ? "Active" : "Inactive")
-                    .padding().background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+        VStack(alignment: .leading, spacing: SW.Space.sm) {
+            SWSectionHeader(title: "Empleados", symbol: "person.2.fill", count: model.employees.count)
+            if model.employees.isEmpty { SWEmptyState(symbol: "person.2", title: "Aún no hay empleados") }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: SW.Space.md, alignment: .top)], spacing: SW.Space.md) {
+                ForEach(model.employees) { employee in
+                    HStack(spacing: SW.Space.md) {
+                        Text(String(employee.name.split(separator: " ").prefix(2).compactMap(\.first)))
+                            .font(.system(.subheadline, design: .rounded, weight: .bold))
+                            .foregroundStyle(employee.active ? Color.swBrand : Color.swNeutral)
+                            .frame(width: 40, height: 40)
+                            .background((employee.active ? Color.swBrand : Color.swNeutral).opacity(0.14), in: Circle())
+                            .accessibilityHidden(true)
+                        Text(employee.name).font(.headline)
+                        Spacer(minLength: SW.Space.sm)
+                        SWChip(text: employee.active ? "Activo" : "Inactivo",
+                               symbol: employee.active ? "checkmark.circle.fill" : "pause.circle.fill",
+                               tint: employee.active ? .swSuccess : .swNeutral)
+                    }
+                    .frame(minHeight: SW.minTouch)
+                    .swCard(padding: SW.Space.md)
+                    .accessibilityElement(children: .combine)
+                }
             }
         }
     }
 
     private var inventorySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Resources and stock").font(.title2).fontWeight(.semibold)
-            if model.inventory.isEmpty { Text("No compounds or supplies added.").foregroundStyle(Color.primary.opacity(0.72)) }
-            ForEach(model.inventory) { stock in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(stock.item.name).font(.headline)
-                    Text("\(stock.available.formatted()) \(stock.item.unit) available · \(stock.reserved.formatted()) reserved")
-                    if stock.needsReorder { Text("Reorder needed").foregroundStyle(.orange).fontWeight(.semibold) }
+        VStack(alignment: .leading, spacing: SW.Space.sm) {
+            SWSectionHeader(title: "Recursos e inventario", symbol: "shippingbox.fill", count: model.inventory.count)
+            if model.inventory.isEmpty { SWEmptyState(symbol: "shippingbox", title: "Aún no hay compuestos ni insumos") }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: SW.Space.md, alignment: .top)], spacing: SW.Space.md) {
+                ForEach(model.inventory) { stock in
+                    VStack(alignment: .leading, spacing: SW.Space.sm) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(stock.item.name).font(.headline)
+                            Spacer(minLength: SW.Space.sm)
+                            if stock.needsReorder {
+                                SWChip(text: "Reordenar", symbol: "exclamationmark.triangle.fill", tint: .swAlert)
+                            }
+                        }
+                        Text("\(stock.available.formatted()) \(stock.item.unit) disponibles · \(stock.reserved.formatted()) reservados")
+                            .font(.swBody).foregroundStyle(Color.swTextSecondary)
+                    }
+                    .swCard(stripe: stock.needsReorder ? .swAlert : nil)
+                    .accessibilityElement(children: .combine)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading).padding()
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
             }
         }
     }
 
+    // MARK: Package catalog
+
     private var packageSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Detailing packages").font(.title2).fontWeight(.semibold)
+        VStack(alignment: .leading, spacing: SW.Space.sm) {
+            SWSectionHeader(title: "Paquetes de detallado", symbol: "sparkles")
             if let catalog = model.catalog {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: SW.Space.md, alignment: .top)], spacing: SW.Space.md) {
                     ForEach(catalog.packages) { package in
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(package.name).font(.title3.weight(.semibold))
-                            Text(package.subtitle).font(.subheadline).foregroundStyle(Color.primary.opacity(0.72))
+                        VStack(alignment: .leading, spacing: SW.Space.md) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(package.name).font(.title3.weight(.bold)).foregroundStyle(Color.swInk)
+                                Text(package.subtitle).font(.swBody).foregroundStyle(Color.swTextSecondary)
+                            }
+                            if let from = package.prices.values.min() {
+                                Text("Desde \(Decimal(from).formatted(.currency(code: catalog.currency).precision(.fractionLength(0))))")
+                                    .font(.swPill).foregroundStyle(Color.swBrand)
+                                    .padding(.horizontal, SW.Space.sm).padding(.vertical, 4)
+                                    .background(Color.swBrand.opacity(0.12), in: Capsule())
+                            }
                             Divider()
                             ForEach(catalog.vehicleClasses, id: \.id) { vehicle in
                                 if let price = package.price(for: vehicle.id) {
-                                    LabeledContent(vehicle.name) {
-                                        Text(price, format: .currency(code: catalog.currency).precision(.fractionLength(0)))
-                                            .monospacedDigit()
-                                            .fontWeight(.semibold)
-                                    }
-                                    .font(.subheadline)
+                                    SWInfoRow(label: vehicle.name,
+                                              value: Decimal(price).formatted(.currency(code: catalog.currency).precision(.fractionLength(0))))
                                 }
                             }
                             DisclosureGroup {
                                 VStack(alignment: .leading, spacing: 6) {
                                     ForEach(package.items, id: \.self) { item in
-                                        Label(item, systemImage: "checkmark").font(.subheadline)
+                                        Label(item, systemImage: "checkmark").font(.swBody)
                                     }
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.top, SW.Space.xs)
                             } label: {
-                                Text("\(package.items.count) included services")
-                                    .font(.subheadline.weight(.medium))
-                                    .frame(minHeight: 44)
+                                Text("\(package.items.count) servicios incluidos")
+                                    .font(.swBody.weight(.medium))
+                                    .frame(minHeight: SW.minTouch)
                             }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(16)
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+                        .swCard(padding: SW.Space.lg)
                     }
                 }
             } else if model.error == nil {
-                ProgressView("Loading service menu…")
+                ProgressView("Cargando el menú de servicios…")
             } else {
-                Text("The service menu is unavailable. Use Refresh to try again.")
-                    .foregroundStyle(Color.primary.opacity(0.72))
+                SWBanner(kind: .info, text: "El menú de servicios no está disponible. Usa Actualizar para reintentar.")
             }
         }
     }
@@ -1078,6 +1205,8 @@ private struct GoogleClientSettings {
     }
 }
 
+// MARK: - Arrival review
+
 private struct ArrivalReviewView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -1088,45 +1217,104 @@ private struct ArrivalReviewView: View {
     @State private var vehicleClass = "car"
     @State private var packageId = "essential"
 
+    private var canSubmit: Bool { plate.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3 }
+
     var body: some View {
-        Form {
-            Section("Camera observation") {
-                LabeledContent("Camera", value: arrival.cameraId)
-                LabeledContent("Candidate", value: arrival.plateCandidate ?? "Unreadable")
-                LabeledContent("Confidence", value: arrival.confidence.map { "\(Int($0 * 100))%" } ?? "Unavailable")
-                Text("A candidate needs staff confirmation before a job is opened.").font(.footnote)
-            }
-            Section("Confirm vehicle") {
-                TextField("Plate number", text: $plate).textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled().disabled(arrival.confirmedPlate != nil)
-                Picker("Vehicle class", selection: $vehicleClass) {
-                    ForEach(model.catalog?.vehicleClasses ?? [], id: \.id) { item in Text(item.name).tag(item.id) }
-                }.disabled(arrival.vehicleClass != nil)
-                Picker("Detailing package", selection: $packageId) {
-                    ForEach(model.catalog?.packages ?? []) { item in Text(item.name).tag(item.id) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: SW.Space.lg) {
+                VStack(alignment: .leading, spacing: SW.Space.md) {
+                    Label("Observación de cámara", systemImage: "camera.viewfinder").font(.swSection).foregroundStyle(Color.swInk)
+                    if let candidate = arrival.plateCandidate {
+                        SWPlate(plate: candidate, font: .system(.largeTitle, design: .rounded, weight: .heavy))
+                    } else {
+                        Text("Placa ilegible").font(.system(.title, design: .rounded, weight: .heavy)).foregroundStyle(Color.swTextSecondary)
+                    }
+                    SWFlowLayout(spacing: SW.Space.sm) {
+                        SWChip(text: "Cámara \(arrival.cameraId)", symbol: "camera.fill", tint: .swNeutral)
+                        SWChip(text: arrival.confidence.map { "Confianza \(Int($0 * 100)) %" } ?? "Confianza no disponible",
+                               symbol: "scope", tint: .swNeutral)
+                        if let received = arrival.receivedDate {
+                            SWChip(text: "Recibida \(received.formatted(date: .omitted, time: .shortened))", symbol: "clock", tint: .swNeutral)
+                        }
+                    }
+                    SWBanner(kind: .warning, text: "Un candidato necesita confirmación del personal antes de abrir un trabajo.")
                 }
-                if let package = model.catalog?.packages.first(where: { $0.id == packageId }), let price = package.price(for: vehicleClass) {
-                    Text("Suggested \(package.name) · $\(price). Confirm choice before opening.")
-                        .font(.footnote).foregroundStyle(Color.primary.opacity(0.72))
-                }
-            }
-            if model.canOperate {
-                Button(arrival.confirmedPlate == nil ? "Confirm and open job" : "Open job") {
-                    Task {
-                        await model.confirmAndOpen(arrival, plate: plate, vehicleClass: vehicleClass,
-                            packageId: packageId, context: context, endpoint: endpoint)
-                        if model.error == nil { dismiss() }
+                .swCard()
+
+                VStack(alignment: .leading, spacing: SW.Space.md) {
+                    Label("Confirmar vehículo", systemImage: "checkmark.seal.fill").font(.swSection).foregroundStyle(Color.swInk)
+                    VStack(alignment: .leading, spacing: SW.Space.xs) {
+                        Text("Placa").font(.swMeta.weight(.semibold)).foregroundStyle(Color.swTextSecondary)
+                        TextField("Número de placa", text: $plate)
+                            .font(.swPlate)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                            .disabled(arrival.confirmedPlate != nil)
+                            .padding(SW.Space.md)
+                            .frame(minHeight: SW.minTouch)
+                            .background(Color.swBackground, in: RoundedRectangle(cornerRadius: SW.Radius.sm, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: SW.Radius.sm, style: .continuous).strokeBorder(Color.swBorder, lineWidth: 1.5))
+                    }
+                    pickerRow("Tipo de vehículo") {
+                        Picker("Tipo de vehículo", selection: $vehicleClass) {
+                            ForEach(model.catalog?.vehicleClasses ?? [], id: \.id) { item in Text(item.name).tag(item.id) }
+                        }.disabled(arrival.vehicleClass != nil)
+                    }
+                    pickerRow("Paquete de detallado") {
+                        Picker("Paquete de detallado", selection: $packageId) {
+                            ForEach(model.catalog?.packages ?? []) { item in Text(item.name).tag(item.id) }
+                        }
+                    }
+                    if let package = model.catalog?.packages.first(where: { $0.id == packageId }), let price = package.price(for: vehicleClass) {
+                        SWBanner(kind: .info, text: "Sugerido: \(package.name) · $\(price). Confirma la elección antes de abrir el trabajo.", symbol: "tag.fill")
                     }
                 }
-                .disabled(plate.trimmingCharacters(in: .whitespacesAndNewlines).count < 3)
-                .frame(minHeight: 44)
+                .swCard()
+
+                if model.canOperate {
+                    Button {
+                        Task {
+                            await model.confirmAndOpen(arrival, plate: plate, vehicleClass: vehicleClass,
+                                packageId: packageId, context: context, endpoint: endpoint)
+                            if model.error == nil { dismiss() }
+                        }
+                    } label: {
+                        Label(arrival.confirmedPlate == nil ? "Confirmar y abrir trabajo" : "Abrir trabajo", systemImage: "checkmark.circle.fill")
+                    }
+                    .buttonStyle(.swPrimary)
+                    .disabled(!canSubmit)
+                } else {
+                    SWBanner(kind: .info, text: "Tu rol es de solo lectura: no puedes abrir trabajos.", symbol: "lock.fill")
+                }
+                if let error = model.error { SWBanner(kind: .danger, text: error) }
             }
-            if let error = model.error { Text(error).foregroundStyle(.red) }
+            .frame(maxWidth: 720)
+            .padding(SW.Space.lg)
+            .frame(maxWidth: .infinity)
         }
-        .navigationTitle("Review arrival")
+        .swScreenBackground()
+        .navigationTitle("Revisar llegada")
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear { plate = arrival.confirmedPlate ?? arrival.plateCandidate ?? ""; vehicleClass = arrival.vehicleClass ?? "car" }
     }
+
+    private func pickerRow<P: View>(_ title: String, @ViewBuilder picker: () -> P) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack {
+                Text(title).font(.swBody).foregroundStyle(Color.swTextSecondary)
+                Spacer(minLength: SW.Space.sm)
+                picker().labelsHidden().pickerStyle(.menu)
+            }
+            VStack(alignment: .leading, spacing: SW.Space.xs) {
+                Text(title).font(.swBody).foregroundStyle(Color.swTextSecondary)
+                picker().labelsHidden().pickerStyle(.menu)
+            }
+        }
+        .frame(minHeight: SW.minTouch)
+    }
 }
+
+// MARK: - Completed history
 
 private struct CompletedHistoryView: View {
     @Environment(\.modelContext) private var context
@@ -1149,46 +1337,52 @@ private struct CompletedHistoryView: View {
                 List {
                     Section {
                         if let synced = model.savedAt {
-                            Label("Last synced \(synced.formatted(date: .abbreviated, time: .shortened))",
-                                  systemImage: model.isStale ? "wifi.slash" : "checkmark.circle")
-                                .font(.subheadline)
+                            Label("Última sincronización \(synced.formatted(date: .abbreviated, time: .shortened))",
+                                  systemImage: model.isStale ? "wifi.slash" : "checkmark.circle.fill")
+                                .font(.swBody)
                         }
-                        if isSyncing { ProgressView("Syncing archive…") }
-                        if let syncError { Text(syncError).font(.footnote).foregroundStyle(Color.primary.opacity(0.72)) }
+                        if isSyncing { ProgressView("Sincronizando archivo…") }
+                        if let syncError { Text(syncError).font(.swMeta).foregroundStyle(Color.swTextSecondary) }
                     }
-                    Section("Completed jobs") {
-                        if completed.isEmpty { Text("No recent completed jobs").foregroundStyle(Color.primary.opacity(0.72)) }
+                    .listRowBackground(Color.swSurface)
+                    Section("Trabajos completados") {
+                        if completed.isEmpty { Text("No hay trabajos completados recientes").foregroundStyle(Color.swTextSecondary) }
                         ForEach(completed) { job in
                             historyRow(job.plate, package: job.packageName, date: job.completedAt.flatMap(OperationsDate.parse))
                         }
                     }
-                    Section("Archive") {
+                    .listRowBackground(Color.swSurface)
+                    Section("Archivo") {
                         if let archived {
-                            Text("Saved \(archived.syncedAt.formatted(date: .abbreviated, time: .shortened))")
-                                .font(.footnote).foregroundStyle(Color.primary.opacity(0.72))
-                            if archived.jobs.isEmpty { Text("No archived jobs").foregroundStyle(Color.primary.opacity(0.72)) }
+                            Text("Guardado \(archived.syncedAt.formatted(date: .abbreviated, time: .shortened))")
+                                .font(.swMeta).foregroundStyle(Color.swTextSecondary)
+                            if archived.jobs.isEmpty { Text("No hay trabajos archivados").foregroundStyle(Color.swTextSecondary) }
                             ForEach(archived.jobs) { job in
                                 historyRow(job.plate, package: job.packageName, date: job.completedDate)
                             }
                         } else if !isSyncing {
-                            Text("No saved archive").foregroundStyle(Color.primary.opacity(0.72))
+                            Text("No hay archivo guardado").foregroundStyle(Color.swTextSecondary)
                         }
                     }
+                    .listRowBackground(Color.swSurface)
                 }
+                .scrollContentBackground(.hidden)
                 .refreshable { await syncArchive() }
             } else {
-                ContentUnavailableView("History unavailable", systemImage: "lock",
-                    description: Text("Connect and sign in to refresh your saved jobs."))
+                ContentUnavailableView("Historial no disponible", systemImage: "lock",
+                    description: Text("Conéctate e inicia sesión para actualizar tus trabajos guardados."))
             }
             }
             .onChange(of: timeline.date) { _, date in
                 model.purgeExpiredOfflineHistory(context: context, at: date)
             }
         }
+        .swScreenBackground()
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { model.purgeExpiredOfflineHistory(context: context, at: .now) }
         }
-        .navigationTitle("Completed history")
+        .navigationTitle("Historial completado")
+        .navigationBarTitleDisplayMode(.inline)
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             archive = try? model.savedArchiveHistory(context: context)
@@ -1206,33 +1400,39 @@ private struct CompletedHistoryView: View {
             syncError = nil
         } catch OperationsModel.ArchiveSyncError.batchWithdrawn {
             archive = nil
-            syncError = "An archive batch was removed. Pull down to sync available jobs."
+            syncError = "Se retiró un lote del archivo. Desliza hacia abajo para sincronizar los trabajos disponibles."
         } catch is CancellationError {
             return
         } catch {
-            syncError = "Archive could not sync. Pull down to retry."
+            syncError = "No se pudo sincronizar el archivo. Desliza hacia abajo para reintentar."
         }
     }
 
     private func historyRow(_ plate: String, package: String, date: Date?) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(plate).font(.headline)
-            Text(package).foregroundStyle(Color.primary.opacity(0.72))
-            if let date { Text(date, format: .dateTime.month().day().hour().minute()).font(.caption) }
+        HStack(alignment: .firstTextBaseline, spacing: SW.Space.md) {
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.swSuccess).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(plate).font(.system(.headline, design: .rounded, weight: .heavy))
+                Text(package).font(.swBody).foregroundStyle(Color.swTextSecondary)
+                if let date { Text(date, format: .dateTime.month().day().hour().minute()).font(.swMeta).foregroundStyle(Color.swTextSecondary) }
+            }
         }
+        .frame(minHeight: SW.minTouch, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 }
+
+// MARK: - POS info
 
 private struct PaymentChipView: View {
     let chip: JobPaymentPresentation.Chip
 
     var body: some View {
-        let tint: Color = switch chip.kind { case .paid: .green; case .partial: .orange; case .unpaid: .secondary }
-        Text(chip.text)
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 8).padding(.vertical, 4)
-            .background(tint.opacity(0.15), in: Capsule())
+        switch chip.kind {
+        case .paid: SWChip(text: chip.text, symbol: "checkmark.seal.fill", tint: .swSuccess)
+        case .partial: SWChip(text: chip.text, symbol: "circle.lefthalf.filled", tint: .swWarning)
+        case .unpaid: SWChip(text: chip.text, symbol: "exclamationmark.circle.fill", tint: .swAlert)
+        }
     }
 }
 
@@ -1241,28 +1441,32 @@ private struct JobPosInfoView: View {
     let job: JobDTO
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                if let ticket = JobPaymentPresentation.ticketLabel(job) {
-                    Text(ticket).font(.subheadline.weight(.medium)).accessibilityIdentifier("job-ticket-number")
-                }
-                if job.isDesktopPos {
-                    Label(JobPaymentPresentation.sourceBadge, systemImage: "desktopcomputer")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 8).padding(.vertical, 4)
-                        .background(Color.indigo.opacity(0.15), in: Capsule())
-                }
-                if JobPaymentPresentation.hasPaymentInfo(job) {
-                    PaymentChipView(chip: JobPaymentPresentation.chip(for: job)).accessibilityIdentifier("job-payment-status")
+        let hasChips = job.isDesktopPos || JobPaymentPresentation.hasPaymentInfo(job)
+        VStack(alignment: .leading, spacing: SW.Space.sm) {
+            if JobPaymentPresentation.ticketLabel(job) != nil || hasChips {
+                SWFlowLayout(spacing: SW.Space.sm) {
+                    if let ticket = JobPaymentPresentation.ticketLabel(job) {
+                        Text(ticket).font(.swBody.weight(.medium)).monospacedDigit().accessibilityIdentifier("job-ticket-number")
+                    }
+                    if job.isDesktopPos {
+                        SWChip(text: JobPaymentPresentation.sourceBadge, symbol: "desktopcomputer", tint: .swPOS)
+                    }
+                    if JobPaymentPresentation.hasPaymentInfo(job) {
+                        PaymentChipView(chip: JobPaymentPresentation.chip(for: job)).accessibilityIdentifier("job-payment-status")
+                    }
                 }
             }
-            if let name = job.customerName, !name.isEmpty { Text(name).font(.subheadline) }
+            if let name = job.customerName, !name.isEmpty {
+                Label(name, systemImage: "person.fill").font(.swBody)
+            }
             if let note = job.note, !note.isEmpty {
-                Text(note).font(.caption).foregroundStyle(Color.primary.opacity(0.72)).lineLimit(2)
+                Text(note).font(.swMeta).foregroundStyle(Color.swTextSecondary).lineLimit(2)
             }
         }
     }
 }
+
+// MARK: - Job detail
 
 private struct JobDetailView: View {
     @Environment(\.modelContext) private var context
@@ -1270,74 +1474,146 @@ private struct JobDetailView: View {
     let job: JobDTO
     let endpoint: String
     @State private var selectedEmployee = ""
+    @State private var confirmingCompletion = false
     private var currentJob: JobDTO { model.jobs.first(where: { $0.id == job.id }) ?? job }
 
     var body: some View {
-        Form {
-            Section("Vehicle and time") {
-                LabeledContent("Plate", value: currentJob.plate)
-                LabeledContent("Status", value: currentJob.status.replacingOccurrences(of: "_", with: " "))
-                LabeledContent("Time on site", value: "\(currentJob.elapsedSeconds / 60) min")
-                LabeledContent("Package", value: currentJob.packageName)
-                LabeledContent("Price", value: "$\(currentJob.priceUsd.formatted())")
-            }
-            Section("Ticket y cobro") {
-                if let ticket = currentJob.ticketNumber, !ticket.isEmpty {
-                    LabeledContent("Ticket de trabajo", value: ticket).accessibilityIdentifier("job-ticket-number")
-                }
-                if currentJob.isDesktopPos { LabeledContent("Origen", value: JobPaymentPresentation.sourceBadge) }
-                if let name = currentJob.customerName, !name.isEmpty { LabeledContent("Cliente", value: name) }
-                if let note = currentJob.note, !note.isEmpty { LabeledContent("Nota", value: note) }
-                if JobPaymentPresentation.hasPaymentInfo(currentJob) {
-                    LabeledContent("Pago") {
-                        PaymentChipView(chip: JobPaymentPresentation.chip(for: currentJob)).accessibilityIdentifier("job-payment-status")
-                    }
-                }
-                ForEach(currentJob.payments ?? []) { payment in
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text(JobPaymentPresentation.methodLabel(payment.method))
-                            Spacer()
-                            Text(JobPaymentPresentation.money(payment.amountUsd)).monospacedDigit().fontWeight(.semibold)
+        let current = currentJob
+        let status = JobStatus(raw: current.status)
+        ScrollView {
+            VStack(alignment: .leading, spacing: SW.Space.lg) {
+                // Header: the plate is the primary datum.
+                VStack(alignment: .leading, spacing: SW.Space.md) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .center) {
+                            SWPlate(plate: current.plate, font: .system(.largeTitle, design: .rounded, weight: .heavy)).fixedSize()
+                            Spacer(minLength: SW.Space.sm)
+                            StatusPill(status: status)
                         }
-                        let detail = [payment.ticketNumber.map { "Venta \($0)" },
-                                      payment.recordedDate.map { $0.formatted(date: .abbreviated, time: .shortened) }]
-                            .compactMap { $0 }.joined(separator: " · ")
-                        if !detail.isEmpty {
-                            Text(detail).font(.caption).foregroundStyle(Color.primary.opacity(0.72))
+                        VStack(alignment: .leading, spacing: SW.Space.sm) {
+                            SWPlate(plate: current.plate, font: .system(.largeTitle, design: .rounded, weight: .heavy))
+                            StatusPill(status: status)
                         }
                     }
+                    Text("\(current.packageName) · \(SWFormat.vehicleClassName(current.vehicleClass))").font(.swCardTitle)
+                    SWFlowLayout(spacing: SW.Space.lg) {
+                        Label(SWFormat.duration(seconds: current.elapsedSeconds), systemImage: "stopwatch")
+                        Label(JobPaymentPresentation.money(current.priceUsd), systemImage: "dollarsign.circle")
+                    }
+                    .font(.swBody).foregroundStyle(Color.swTextSecondary)
                     .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("job-payment-row")
+                    .accessibilityLabel("Tiempo en sitio \(SWFormat.duration(seconds: current.elapsedSeconds)). Precio \(JobPaymentPresentation.money(current.priceUsd))")
                 }
-            }
-            Section("Service checklist") { ForEach(currentJob.services, id: \.self) { service in Text(service) } }
-            Section("Employees") {
-                if currentJob.assignments.isEmpty { Text("Unassigned").foregroundStyle(Color.primary.opacity(0.72)) }
-                ForEach(currentJob.assignments, id: \.employeeId) { employee in Text(employee.employeeName) }
-                if model.canOperate && currentJob.status != "completed" && currentJob.status != "cancelled" {
-                    Picker("Assign employee", selection: $selectedEmployee) {
-                        Text("Select employee").tag("")
-                        ForEach(model.employees.filter(\.active)) { employee in Text(employee.name).tag(employee.id) }
+                .swCard(stripe: status.tint)
+
+                ticketCard(current)
+
+                VStack(alignment: .leading, spacing: SW.Space.sm) {
+                    Label("Lista de servicios", systemImage: "checklist").font(.swSection).foregroundStyle(Color.swInk)
+                    ForEach(current.services, id: \.self) { service in
+                        Label(service, systemImage: "checkmark.circle").font(.swBody)
+                            .frame(minHeight: 32, alignment: .leading)
                     }
-                    Button("Assign") { Task { await model.assign(selectedEmployee, to: currentJob, context: context, endpoint: endpoint) } }
-                        .disabled(selectedEmployee.isEmpty).frame(minHeight: 44)
                 }
+                .swCard()
+
+                teamCard(current)
+
+                if let error = model.error { SWBanner(kind: .danger, text: error) }
             }
-            if model.canOperate {
-                Section("Job controls") {
-                    if currentJob.status == "arrived" { transitionButton("Queue job", "queued") }
-                    if currentJob.status == "queued" { transitionButton("Start work", "in_progress") }
-                    if currentJob.status == "in_progress" { transitionButton("Complete job", "completed") }
-                }
-            }
-            if let error = model.error { Text(error).foregroundStyle(.red) }
+            .frame(maxWidth: 720)
+            .padding(SW.Space.lg)
+            .frame(maxWidth: .infinity)
         }
-        .navigationTitle("Job \(job.plate)")
+        .swScreenBackground()
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if model.canOperate, let next = status.next {
+                Button {
+                    if next.status == "completed" { confirmingCompletion = true }
+                    else { Task { await model.transition(current, to: next.status, context: context, endpoint: endpoint) } }
+                } label: {
+                    Label(next.title, systemImage: next.symbol)
+                }
+                .buttonStyle(.swPrimary)
+                .accessibilityIdentifier("job-detail-next-action")
+                .padding(.horizontal, SW.Space.lg).padding(.vertical, SW.Space.md)
+                .frame(maxWidth: 720)
+                .frame(maxWidth: .infinity)
+                .background(.bar)
+            }
+        }
+        .confirmationDialog("¿Completar este trabajo?", isPresented: $confirmingCompletion, titleVisibility: .visible) {
+            Button("Completar \(current.plate)") {
+                Task { await model.transition(current, to: "completed", context: context, endpoint: endpoint) }
+            }
+        }
+        .navigationTitle("Trabajo \(job.plate)")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func transitionButton(_ label: String, _ status: String) -> some View {
-        Button(label) { Task { await model.transition(currentJob, to: status, context: context, endpoint: endpoint) } }
-            .frame(minHeight: 44)
+    private func ticketCard(_ current: JobDTO) -> some View {
+        VStack(alignment: .leading, spacing: SW.Space.md) {
+            Label("Ticket y cobro", systemImage: "receipt").font(.swSection).foregroundStyle(Color.swInk)
+            if let ticket = current.ticketNumber, !ticket.isEmpty {
+                SWInfoRow(label: "Ticket de trabajo", value: ticket).accessibilityIdentifier("job-ticket-number")
+            }
+            if current.isDesktopPos { SWInfoRow(label: "Origen", value: JobPaymentPresentation.sourceBadge) }
+            if let name = current.customerName, !name.isEmpty { SWInfoRow(label: "Cliente", value: name) }
+            if let note = current.note, !note.isEmpty { SWInfoRow(label: "Nota", value: note) }
+            if JobPaymentPresentation.hasPaymentInfo(current) {
+                HStack {
+                    Text("Pago").font(.swBody).foregroundStyle(Color.swTextSecondary)
+                    Spacer(minLength: SW.Space.sm)
+                    PaymentChipView(chip: JobPaymentPresentation.chip(for: current)).accessibilityIdentifier("job-payment-status")
+                }
+            }
+            ForEach(current.payments ?? []) { payment in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(JobPaymentPresentation.methodLabel(payment.method)).font(.swBody)
+                        Spacer()
+                        Text(JobPaymentPresentation.money(payment.amountUsd)).monospacedDigit().fontWeight(.semibold)
+                    }
+                    let detail = [payment.ticketNumber.map { "Venta \($0)" },
+                                  payment.recordedDate.map { $0.formatted(date: .abbreviated, time: .shortened) }]
+                        .compactMap { $0 }.joined(separator: " · ")
+                    if !detail.isEmpty {
+                        Text(detail).font(.swMeta).foregroundStyle(Color.swTextSecondary)
+                    }
+                }
+                .padding(SW.Space.md)
+                .background(Color.swBackground, in: RoundedRectangle(cornerRadius: SW.Radius.sm, style: .continuous))
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("job-payment-row")
+            }
+        }
+        .swCard()
+    }
+
+    private func teamCard(_ current: JobDTO) -> some View {
+        VStack(alignment: .leading, spacing: SW.Space.md) {
+            Label("Empleados", systemImage: "person.2.fill").font(.swSection).foregroundStyle(Color.swInk)
+            if current.assignments.isEmpty { Text("Sin asignar").font(.swBody).foregroundStyle(Color.swTextSecondary) }
+            ForEach(current.assignments, id: \.employeeId) { employee in
+                Label(employee.employeeName, systemImage: "person.fill").font(.swBody)
+                    .frame(minHeight: 32, alignment: .leading)
+            }
+            if model.canOperate && current.status != "completed" && current.status != "cancelled" {
+                Divider()
+                Picker("Asignar empleado", selection: $selectedEmployee) {
+                    Text("Seleccionar empleado").tag("")
+                    ForEach(model.employees.filter(\.active)) { employee in Text(employee.name).tag(employee.id) }
+                }
+                .frame(minHeight: SW.minTouch)
+                Button {
+                    Task { await model.assign(selectedEmployee, to: current, context: context, endpoint: endpoint) }
+                } label: {
+                    Label("Asignar", systemImage: "person.badge.plus")
+                }
+                .buttonStyle(.swSecondary)
+                .disabled(selectedEmployee.isEmpty)
+            }
+        }
+        .swCard()
     }
 }

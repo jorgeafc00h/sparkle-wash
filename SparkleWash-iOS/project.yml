@@ -26,6 +26,8 @@ targets:
       - Views/Views.swift
       - Models/OperationsModels.swift
       - Views/OperationsView.swift
+      - Views/DesignSystem.swift
+      - Views/DemoSupport.swift
     dependencies:
       - package: GoogleSignIn
         product: GoogleSignIn
