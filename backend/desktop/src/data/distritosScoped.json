@@ -1,0 +1,1592 @@
+{
+  "_meta": {
+    "catalog": "CAT-008 Distrito (departamento+municipio scoped)",
+    "source": "Derived from MH CATALOGOS V1.1 (CAT-008/012/013); (departamento,municipio,distrito) grouping cross-verified against Decreto Legislativo 762 Art.1 with zero grouping mismatches.",
+    "note": "code/departamento/municipality are MH codes and are NOT globally unique (distrito & municipio codes reset per departamento) — always match on departamento AND municipality together. description is MH's official CAT-008 distrito name. Excludes the '00 Otro (Para extranjeros)' catch-all.",
+    "counts": {
+      "departamentos": 14,
+      "municipios": 44,
+      "distritos": 262
+    }
+  },
+  "catalogs": [
+    {
+      "id": "CAT-008",
+      "name": "Distrito (scoped)",
+      "options": [
+        {
+          "code": "03",
+          "description": "ATIQUIZAYA",
+          "departamento": "01",
+          "municipality": "13"
+        },
+        {
+          "code": "05",
+          "description": "EL REFUGIO",
+          "departamento": "01",
+          "municipality": "13"
+        },
+        {
+          "code": "09",
+          "description": "SAN LORENZO",
+          "departamento": "01",
+          "municipality": "13"
+        },
+        {
+          "code": "12",
+          "description": "TURÍN",
+          "departamento": "01",
+          "municipality": "13"
+        },
+        {
+          "code": "01",
+          "description": "AHUACHAPÁN",
+          "departamento": "01",
+          "municipality": "14"
+        },
+        {
+          "code": "02",
+          "description": "APANECA",
+          "departamento": "01",
+          "municipality": "14"
+        },
+        {
+          "code": "04",
+          "description": "CONCEPCIÓN DE ATACO",
+          "departamento": "01",
+          "municipality": "14"
+        },
+        {
+          "code": "11",
+          "description": "TACUBA",
+          "departamento": "01",
+          "municipality": "14"
+        },
+        {
+          "code": "06",
+          "description": "GUAYMANGO",
+          "departamento": "01",
+          "municipality": "15"
+        },
+        {
+          "code": "07",
+          "description": "JUJUTLA",
+          "departamento": "01",
+          "municipality": "15"
+        },
+        {
+          "code": "08",
+          "description": "SAN FRANCISCO MENÉNDEZ",
+          "departamento": "01",
+          "municipality": "15"
+        },
+        {
+          "code": "10",
+          "description": "SAN PEDRO PUXTLA",
+          "departamento": "01",
+          "municipality": "15"
+        },
+        {
+          "code": "06",
+          "description": "MASAHUAT",
+          "departamento": "02",
+          "municipality": "14"
+        },
+        {
+          "code": "07",
+          "description": "METAPÁN",
+          "departamento": "02",
+          "municipality": "14"
+        },
+        {
+          "code": "11",
+          "description": "STA ROSA GUACHI",
+          "departamento": "02",
+          "municipality": "14"
+        },
+        {
+          "code": "13",
+          "description": "TEXISTEPEQUE",
+          "departamento": "02",
+          "municipality": "14"
+        },
+        {
+          "code": "10",
+          "description": "SANTA ANA",
+          "departamento": "02",
+          "municipality": "15"
+        },
+        {
+          "code": "02",
+          "description": "COATEPEQUE",
+          "departamento": "02",
+          "municipality": "16"
+        },
+        {
+          "code": "04",
+          "description": "EL CONGO",
+          "departamento": "02",
+          "municipality": "16"
+        },
+        {
+          "code": "01",
+          "description": "CANDELARIA DE LA FRONTERA",
+          "departamento": "02",
+          "municipality": "17"
+        },
+        {
+          "code": "03",
+          "description": "CHALCHUAPA",
+          "departamento": "02",
+          "municipality": "17"
+        },
+        {
+          "code": "05",
+          "description": "EL PORVENIR",
+          "departamento": "02",
+          "municipality": "17"
+        },
+        {
+          "code": "08",
+          "description": "SAN ANTONIO PAJONAL",
+          "departamento": "02",
+          "municipality": "17"
+        },
+        {
+          "code": "09",
+          "description": "SAN SEBASTIÁN SALITRILLO",
+          "departamento": "02",
+          "municipality": "17"
+        },
+        {
+          "code": "12",
+          "description": "STGO D LA FRONT",
+          "departamento": "02",
+          "municipality": "17"
+        },
+        {
+          "code": "07",
+          "description": "JUAYÚA",
+          "departamento": "03",
+          "municipality": "17"
+        },
+        {
+          "code": "08",
+          "description": "NAHUIZALCO",
+          "departamento": "03",
+          "municipality": "17"
+        },
+        {
+          "code": "10",
+          "description": "SALCOATITÁN",
+          "departamento": "03",
+          "municipality": "17"
+        },
+        {
+          "code": "13",
+          "description": "STA C MASAHUAT",
+          "departamento": "03",
+          "municipality": "17"
+        },
+        {
+          "code": "09",
+          "description": "NAHULINGO",
+          "departamento": "03",
+          "municipality": "18"
+        },
+        {
+          "code": "11",
+          "description": "SAN ANTONIO DEL MONTE",
+          "departamento": "03",
+          "municipality": "18"
+        },
+        {
+          "code": "14",
+          "description": "SANTO DOMINGO GUZMÁN",
+          "departamento": "03",
+          "municipality": "18"
+        },
+        {
+          "code": "15",
+          "description": "SONSONATE",
+          "departamento": "03",
+          "municipality": "18"
+        },
+        {
+          "code": "16",
+          "description": "SONZACATE",
+          "departamento": "03",
+          "municipality": "18"
+        },
+        {
+          "code": "02",
+          "description": "ARMENIA",
+          "departamento": "03",
+          "municipality": "19"
+        },
+        {
+          "code": "03",
+          "description": "CALUCO",
+          "departamento": "03",
+          "municipality": "19"
+        },
+        {
+          "code": "04",
+          "description": "CUISNAHUAT",
+          "departamento": "03",
+          "municipality": "19"
+        },
+        {
+          "code": "05",
+          "description": "STA I ISHUATAN",
+          "departamento": "03",
+          "municipality": "19"
+        },
+        {
+          "code": "06",
+          "description": "IZALCO",
+          "departamento": "03",
+          "municipality": "19"
+        },
+        {
+          "code": "12",
+          "description": "SAN JULIÁN",
+          "departamento": "03",
+          "municipality": "19"
+        },
+        {
+          "code": "01",
+          "description": "ACAJUTLA",
+          "departamento": "03",
+          "municipality": "20"
+        },
+        {
+          "code": "04",
+          "description": "CITALÁ",
+          "departamento": "04",
+          "municipality": "34"
+        },
+        {
+          "code": "12",
+          "description": "LA PALMA",
+          "departamento": "04",
+          "municipality": "34"
+        },
+        {
+          "code": "25",
+          "description": "SAN IGNACIO",
+          "departamento": "04",
+          "municipality": "34"
+        },
+        {
+          "code": "01",
+          "description": "AGUA CALIENTE",
+          "departamento": "04",
+          "municipality": "35"
+        },
+        {
+          "code": "08",
+          "description": "DULCE NOM MARÍA",
+          "departamento": "04",
+          "municipality": "35"
+        },
+        {
+          "code": "10",
+          "description": "EL PARAÍSO",
+          "departamento": "04",
+          "municipality": "35"
+        },
+        {
+          "code": "13",
+          "description": "LA REINA",
+          "departamento": "04",
+          "municipality": "35"
+        },
+        {
+          "code": "16",
+          "description": "NVA CONCEPCIÓN",
+          "departamento": "04",
+          "municipality": "35"
+        },
+        {
+          "code": "22",
+          "description": "SAN FERNANDO",
+          "departamento": "04",
+          "municipality": "35"
+        },
+        {
+          "code": "24",
+          "description": "SAN FRANCISCO MORAZÁN",
+          "departamento": "04",
+          "municipality": "35"
+        },
+        {
+          "code": "31",
+          "description": "SAN RAFAEL",
+          "departamento": "04",
+          "municipality": "35"
+        },
+        {
+          "code": "32",
+          "description": "SANTA RITA",
+          "departamento": "04",
+          "municipality": "35"
+        },
+        {
+          "code": "33",
+          "description": "TEJUTLA",
+          "departamento": "04",
+          "municipality": "35"
+        },
+        {
+          "code": "02",
+          "description": "ARCATAO",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "03",
+          "description": "AZACUALPA",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "05",
+          "description": "COMALAPA",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "06",
+          "description": "CONCEPCIÓN QUEZALTEPEQUE",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "07",
+          "description": "CHALATENANGO",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "09",
+          "description": "EL CARRIZAL",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "11",
+          "description": "LA LAGUNA",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "14",
+          "description": "LAS VUELTAS",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "15",
+          "description": "NOMBRE DE JESUS",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "17",
+          "description": "NUEVA TRINIDAD",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "18",
+          "description": "OJOS DE AGUA",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "19",
+          "description": "POTONICO",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "20",
+          "description": "SAN ANT LA CRUZ",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "21",
+          "description": "SAN ANT RANCHOS",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "23",
+          "description": "SAN FRANCISCO LEMPA",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "26",
+          "description": "SAN I LABRADOR",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "27",
+          "description": "SAN J CANCASQUE",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "28",
+          "description": "SAN JOSE FLORES",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "29",
+          "description": "SAN LUIS CARMEN",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "30",
+          "description": "SN MIG MERCEDES",
+          "departamento": "04",
+          "municipality": "36"
+        },
+        {
+          "code": "12",
+          "description": "QUEZALTEPEQUE",
+          "departamento": "05",
+          "municipality": "23"
+        },
+        {
+          "code": "16",
+          "description": "SAN MATÍAS",
+          "departamento": "05",
+          "municipality": "23"
+        },
+        {
+          "code": "17",
+          "description": "SAN P TACACHICO",
+          "departamento": "05",
+          "municipality": "23"
+        },
+        {
+          "code": "02",
+          "description": "CIUDAD ARCE",
+          "departamento": "05",
+          "municipality": "24"
+        },
+        {
+          "code": "15",
+          "description": "SAN JUAN OPICO",
+          "departamento": "05",
+          "municipality": "24"
+        },
+        {
+          "code": "03",
+          "description": "COLON",
+          "departamento": "05",
+          "municipality": "25"
+        },
+        {
+          "code": "07",
+          "description": "JAYAQUE",
+          "departamento": "05",
+          "municipality": "25"
+        },
+        {
+          "code": "13",
+          "description": "SACACOYO",
+          "departamento": "05",
+          "municipality": "25"
+        },
+        {
+          "code": "19",
+          "description": "TALNIQUE",
+          "departamento": "05",
+          "municipality": "25"
+        },
+        {
+          "code": "21",
+          "description": "TEPECOYO",
+          "departamento": "05",
+          "municipality": "25"
+        },
+        {
+          "code": "01",
+          "description": "ANTGO CUSCATLÁN",
+          "departamento": "05",
+          "municipality": "26"
+        },
+        {
+          "code": "06",
+          "description": "HUIZÚCAR",
+          "departamento": "05",
+          "municipality": "26"
+        },
+        {
+          "code": "10",
+          "description": "NUEVO CUSCATLÁN",
+          "departamento": "05",
+          "municipality": "26"
+        },
+        {
+          "code": "14",
+          "description": "SN J VILLANUEVA",
+          "departamento": "05",
+          "municipality": "26"
+        },
+        {
+          "code": "22",
+          "description": "ZARAGOZA",
+          "departamento": "05",
+          "municipality": "26"
+        },
+        {
+          "code": "05",
+          "description": "CHILTIUPAN",
+          "departamento": "05",
+          "municipality": "27"
+        },
+        {
+          "code": "08",
+          "description": "JICALAPA",
+          "departamento": "05",
+          "municipality": "27"
+        },
+        {
+          "code": "09",
+          "description": "LA LIBERTAD",
+          "departamento": "05",
+          "municipality": "27"
+        },
+        {
+          "code": "18",
+          "description": "TAMANIQUE",
+          "departamento": "05",
+          "municipality": "27"
+        },
+        {
+          "code": "20",
+          "description": "TEOTEPEQUE",
+          "departamento": "05",
+          "municipality": "27"
+        },
+        {
+          "code": "04",
+          "description": "COMASAGUA",
+          "departamento": "05",
+          "municipality": "28"
+        },
+        {
+          "code": "11",
+          "description": "SANTA TECLA",
+          "departamento": "05",
+          "municipality": "28"
+        },
+        {
+          "code": "01",
+          "description": "AGUILARES",
+          "departamento": "06",
+          "municipality": "20"
+        },
+        {
+          "code": "05",
+          "description": "EL PAISNAL",
+          "departamento": "06",
+          "municipality": "20"
+        },
+        {
+          "code": "06",
+          "description": "GUAZAPA",
+          "departamento": "06",
+          "municipality": "20"
+        },
+        {
+          "code": "02",
+          "description": "APOPA",
+          "departamento": "06",
+          "municipality": "21"
+        },
+        {
+          "code": "09",
+          "description": "NEJAPA",
+          "departamento": "06",
+          "municipality": "21"
+        },
+        {
+          "code": "07",
+          "description": "ILOPANGO",
+          "departamento": "06",
+          "municipality": "22"
+        },
+        {
+          "code": "13",
+          "description": "SAN MARTIN",
+          "departamento": "06",
+          "municipality": "22"
+        },
+        {
+          "code": "17",
+          "description": "SOYAPANGO",
+          "departamento": "06",
+          "municipality": "22"
+        },
+        {
+          "code": "18",
+          "description": "TONACATEPEQUE",
+          "departamento": "06",
+          "municipality": "22"
+        },
+        {
+          "code": "03",
+          "description": "AYUTUXTEPEQUE",
+          "departamento": "06",
+          "municipality": "23"
+        },
+        {
+          "code": "04",
+          "description": "CUSCATANCINGO",
+          "departamento": "06",
+          "municipality": "23"
+        },
+        {
+          "code": "08",
+          "description": "MEJICANOS",
+          "departamento": "06",
+          "municipality": "23"
+        },
+        {
+          "code": "14",
+          "description": "SAN SALVADOR",
+          "departamento": "06",
+          "municipality": "23"
+        },
+        {
+          "code": "19",
+          "description": "CIUDAD DELGADO",
+          "departamento": "06",
+          "municipality": "23"
+        },
+        {
+          "code": "10",
+          "description": "PANCHIMALCO",
+          "departamento": "06",
+          "municipality": "24"
+        },
+        {
+          "code": "11",
+          "description": "ROSARIO DE MORA",
+          "departamento": "06",
+          "municipality": "24"
+        },
+        {
+          "code": "12",
+          "description": "SAN MARCOS",
+          "departamento": "06",
+          "municipality": "24"
+        },
+        {
+          "code": "15",
+          "description": "STG TEXACUANGOS",
+          "departamento": "06",
+          "municipality": "24"
+        },
+        {
+          "code": "16",
+          "description": "SANTO TOMAS",
+          "departamento": "06",
+          "municipality": "24"
+        },
+        {
+          "code": "06",
+          "description": "ORAT CONCEPCIÓN",
+          "departamento": "07",
+          "municipality": "17"
+        },
+        {
+          "code": "07",
+          "description": "SAN B PERULAPIA",
+          "departamento": "07",
+          "municipality": "17"
+        },
+        {
+          "code": "09",
+          "description": "SAN J GUAYABAL",
+          "departamento": "07",
+          "municipality": "17"
+        },
+        {
+          "code": "10",
+          "description": "SAN P PERULAPÁN",
+          "departamento": "07",
+          "municipality": "17"
+        },
+        {
+          "code": "15",
+          "description": "SUCHITOTO",
+          "departamento": "07",
+          "municipality": "17"
+        },
+        {
+          "code": "01",
+          "description": "CANDELARIA",
+          "departamento": "07",
+          "municipality": "18"
+        },
+        {
+          "code": "02",
+          "description": "COJUTEPEQUE",
+          "departamento": "07",
+          "municipality": "18"
+        },
+        {
+          "code": "03",
+          "description": "EL CARMEN",
+          "departamento": "07",
+          "municipality": "18"
+        },
+        {
+          "code": "04",
+          "description": "EL ROSARIO",
+          "departamento": "07",
+          "municipality": "18"
+        },
+        {
+          "code": "05",
+          "description": "MONTE SAN JUAN",
+          "departamento": "07",
+          "municipality": "18"
+        },
+        {
+          "code": "08",
+          "description": "SAN CRISTÓBAL",
+          "departamento": "07",
+          "municipality": "18"
+        },
+        {
+          "code": "11",
+          "description": "SAN RAF CEDROS",
+          "departamento": "07",
+          "municipality": "18"
+        },
+        {
+          "code": "12",
+          "description": "SAN RAMON",
+          "departamento": "07",
+          "municipality": "18"
+        },
+        {
+          "code": "13",
+          "description": "STA C ANALQUITO",
+          "departamento": "07",
+          "municipality": "18"
+        },
+        {
+          "code": "14",
+          "description": "STA C MICHAPA",
+          "departamento": "07",
+          "municipality": "18"
+        },
+        {
+          "code": "16",
+          "description": "TENANCINGO",
+          "departamento": "07",
+          "municipality": "18"
+        },
+        {
+          "code": "01",
+          "description": "CUYULTITÁN",
+          "departamento": "08",
+          "municipality": "23"
+        },
+        {
+          "code": "05",
+          "description": "OLOCUILTA",
+          "departamento": "08",
+          "municipality": "23"
+        },
+        {
+          "code": "09",
+          "description": "SN FCO CHINAMEC",
+          "departamento": "08",
+          "municipality": "23"
+        },
+        {
+          "code": "11",
+          "description": "SAN JUAN TALPA",
+          "departamento": "08",
+          "municipality": "23"
+        },
+        {
+          "code": "13",
+          "description": "SAN LUIS TALPA",
+          "departamento": "08",
+          "municipality": "23"
+        },
+        {
+          "code": "15",
+          "description": "SAN PEDRO MASAHUAT",
+          "departamento": "08",
+          "municipality": "23"
+        },
+        {
+          "code": "20",
+          "description": "TAPALHUACA",
+          "departamento": "08",
+          "municipality": "23"
+        },
+        {
+          "code": "02",
+          "description": "EL ROSARIO",
+          "departamento": "08",
+          "municipality": "24"
+        },
+        {
+          "code": "03",
+          "description": "JERUSALÉN",
+          "departamento": "08",
+          "municipality": "24"
+        },
+        {
+          "code": "04",
+          "description": "MERCED LA CEIBA",
+          "departamento": "08",
+          "municipality": "24"
+        },
+        {
+          "code": "06",
+          "description": "PARAÍSO OSORIO",
+          "departamento": "08",
+          "municipality": "24"
+        },
+        {
+          "code": "07",
+          "description": "SN ANT MASAHUAT",
+          "departamento": "08",
+          "municipality": "24"
+        },
+        {
+          "code": "08",
+          "description": "SAN EMIGDIO",
+          "departamento": "08",
+          "municipality": "24"
+        },
+        {
+          "code": "12",
+          "description": "SAN JUAN TEPEZONTES",
+          "departamento": "08",
+          "municipality": "24"
+        },
+        {
+          "code": "14",
+          "description": "SAN MIGUEL TEPEZONTES",
+          "departamento": "08",
+          "municipality": "24"
+        },
+        {
+          "code": "16",
+          "description": "SAN PEDRO NONUALCO",
+          "departamento": "08",
+          "municipality": "24"
+        },
+        {
+          "code": "18",
+          "description": "STA MA OSTUMA",
+          "departamento": "08",
+          "municipality": "24"
+        },
+        {
+          "code": "19",
+          "description": "STGO NONUALCO",
+          "departamento": "08",
+          "municipality": "24"
+        },
+        {
+          "code": "22",
+          "description": "SN LUIS LA HERR",
+          "departamento": "08",
+          "municipality": "24"
+        },
+        {
+          "code": "10",
+          "description": "SAN J NONUALCO",
+          "departamento": "08",
+          "municipality": "25"
+        },
+        {
+          "code": "17",
+          "description": "SAN R OBRAJUELO",
+          "departamento": "08",
+          "municipality": "25"
+        },
+        {
+          "code": "21",
+          "description": "ZACATECOLUCA",
+          "departamento": "08",
+          "municipality": "25"
+        },
+        {
+          "code": "02",
+          "description": "GUACOTECTI",
+          "departamento": "09",
+          "municipality": "10"
+        },
+        {
+          "code": "05",
+          "description": "SAN ISIDRO",
+          "departamento": "09",
+          "municipality": "10"
+        },
+        {
+          "code": "06",
+          "description": "SENSUNTEPEQUE",
+          "departamento": "09",
+          "municipality": "10"
+        },
+        {
+          "code": "08",
+          "description": "VICTORIA",
+          "departamento": "09",
+          "municipality": "10"
+        },
+        {
+          "code": "09",
+          "description": "DOLORES",
+          "departamento": "09",
+          "municipality": "10"
+        },
+        {
+          "code": "01",
+          "description": "CINQUERA",
+          "departamento": "09",
+          "municipality": "11"
+        },
+        {
+          "code": "03",
+          "description": "ILOBASCO",
+          "departamento": "09",
+          "municipality": "11"
+        },
+        {
+          "code": "04",
+          "description": "JUTIAPA",
+          "departamento": "09",
+          "municipality": "11"
+        },
+        {
+          "code": "07",
+          "description": "TEJUTEPEQUE",
+          "departamento": "09",
+          "municipality": "11"
+        },
+        {
+          "code": "01",
+          "description": "APASTEPEQUE",
+          "departamento": "10",
+          "municipality": "14"
+        },
+        {
+          "code": "04",
+          "description": "SANTA CLARA",
+          "departamento": "10",
+          "municipality": "14"
+        },
+        {
+          "code": "05",
+          "description": "SANTO DOMINGO",
+          "departamento": "10",
+          "municipality": "14"
+        },
+        {
+          "code": "06",
+          "description": "SN EST CATARINA",
+          "departamento": "10",
+          "municipality": "14"
+        },
+        {
+          "code": "07",
+          "description": "SAN ILDEFONSO",
+          "departamento": "10",
+          "municipality": "14"
+        },
+        {
+          "code": "08",
+          "description": "SAN LORENZO",
+          "departamento": "10",
+          "municipality": "14"
+        },
+        {
+          "code": "09",
+          "description": "SAN SEBASTIÁN",
+          "departamento": "10",
+          "municipality": "14"
+        },
+        {
+          "code": "02",
+          "description": "GUADALUPE",
+          "departamento": "10",
+          "municipality": "15"
+        },
+        {
+          "code": "03",
+          "description": "SAN CAY ISTEPEQ",
+          "departamento": "10",
+          "municipality": "15"
+        },
+        {
+          "code": "10",
+          "description": "SAN VICENTE",
+          "departamento": "10",
+          "municipality": "15"
+        },
+        {
+          "code": "11",
+          "description": "TECOLUCA",
+          "departamento": "10",
+          "municipality": "15"
+        },
+        {
+          "code": "12",
+          "description": "TEPETITÁN",
+          "departamento": "10",
+          "municipality": "15"
+        },
+        {
+          "code": "13",
+          "description": "VERAPAZ",
+          "departamento": "10",
+          "municipality": "15"
+        },
+        {
+          "code": "01",
+          "description": "ALEGRÍA",
+          "departamento": "11",
+          "municipality": "24"
+        },
+        {
+          "code": "02",
+          "description": "BERLÍN",
+          "departamento": "11",
+          "municipality": "24"
+        },
+        {
+          "code": "05",
+          "description": "EL TRIUNFO",
+          "departamento": "11",
+          "municipality": "24"
+        },
+        {
+          "code": "07",
+          "description": "ESTANZUELAS",
+          "departamento": "11",
+          "municipality": "24"
+        },
+        {
+          "code": "09",
+          "description": "JUCUAPA",
+          "departamento": "11",
+          "municipality": "24"
+        },
+        {
+          "code": "11",
+          "description": "MERCEDES UMAÑA",
+          "departamento": "11",
+          "municipality": "24"
+        },
+        {
+          "code": "12",
+          "description": "NUEVA GRANADA",
+          "departamento": "11",
+          "municipality": "24"
+        },
+        {
+          "code": "16",
+          "description": "SN BUENAVENTURA",
+          "departamento": "11",
+          "municipality": "24"
+        },
+        {
+          "code": "21",
+          "description": "STGO DE MARÍA",
+          "departamento": "11",
+          "municipality": "24"
+        },
+        {
+          "code": "03",
+          "description": "CALIFORNIA",
+          "departamento": "11",
+          "municipality": "25"
+        },
+        {
+          "code": "04",
+          "description": "CONCEP BATRES",
+          "departamento": "11",
+          "municipality": "25"
+        },
+        {
+          "code": "06",
+          "description": "EREGUAYQUÍN",
+          "departamento": "11",
+          "municipality": "25"
+        },
+        {
+          "code": "10",
+          "description": "JUCUARÁN",
+          "departamento": "11",
+          "municipality": "25"
+        },
+        {
+          "code": "13",
+          "description": "OZATLÁN",
+          "departamento": "11",
+          "municipality": "25"
+        },
+        {
+          "code": "17",
+          "description": "SAN DIONISIO",
+          "departamento": "11",
+          "municipality": "25"
+        },
+        {
+          "code": "18",
+          "description": "SANTA ELENA",
+          "departamento": "11",
+          "municipality": "25"
+        },
+        {
+          "code": "20",
+          "description": "SANTA MARÍA",
+          "departamento": "11",
+          "municipality": "25"
+        },
+        {
+          "code": "22",
+          "description": "TECAPÁN",
+          "departamento": "11",
+          "municipality": "25"
+        },
+        {
+          "code": "23",
+          "description": "USULUTÁN",
+          "departamento": "11",
+          "municipality": "25"
+        },
+        {
+          "code": "08",
+          "description": "JIQUILISCO",
+          "departamento": "11",
+          "municipality": "26"
+        },
+        {
+          "code": "14",
+          "description": "PTO EL TRIUNFO",
+          "departamento": "11",
+          "municipality": "26"
+        },
+        {
+          "code": "15",
+          "description": "SAN AGUSTÍN",
+          "departamento": "11",
+          "municipality": "26"
+        },
+        {
+          "code": "19",
+          "description": "SAN FCO JAVIER",
+          "departamento": "11",
+          "municipality": "26"
+        },
+        {
+          "code": "01",
+          "description": "CAROLINA",
+          "departamento": "12",
+          "municipality": "21"
+        },
+        {
+          "code": "02",
+          "description": "CIUDAD BARRIOS",
+          "departamento": "12",
+          "municipality": "21"
+        },
+        {
+          "code": "04",
+          "description": "CHAPELTIQUE",
+          "departamento": "12",
+          "municipality": "21"
+        },
+        {
+          "code": "11",
+          "description": "NVO EDÉN S JUAN",
+          "departamento": "12",
+          "municipality": "21"
+        },
+        {
+          "code": "13",
+          "description": "SAN ANT D MOSCO",
+          "departamento": "12",
+          "municipality": "21"
+        },
+        {
+          "code": "14",
+          "description": "SAN GERARDO",
+          "departamento": "12",
+          "municipality": "21"
+        },
+        {
+          "code": "16",
+          "description": "SAN LUIS REINA",
+          "departamento": "12",
+          "municipality": "21"
+        },
+        {
+          "code": "19",
+          "description": "SESORI",
+          "departamento": "12",
+          "municipality": "21"
+        },
+        {
+          "code": "03",
+          "description": "COMACARÁN",
+          "departamento": "12",
+          "municipality": "22"
+        },
+        {
+          "code": "06",
+          "description": "CHIRILAGUA",
+          "departamento": "12",
+          "municipality": "22"
+        },
+        {
+          "code": "09",
+          "description": "MONCAGUA",
+          "departamento": "12",
+          "municipality": "22"
+        },
+        {
+          "code": "12",
+          "description": "QUELEPA",
+          "departamento": "12",
+          "municipality": "22"
+        },
+        {
+          "code": "17",
+          "description": "SAN MIGUEL",
+          "departamento": "12",
+          "municipality": "22"
+        },
+        {
+          "code": "20",
+          "description": "ULUAZAPA",
+          "departamento": "12",
+          "municipality": "22"
+        },
+        {
+          "code": "05",
+          "description": "CHINAMECA",
+          "departamento": "12",
+          "municipality": "23"
+        },
+        {
+          "code": "07",
+          "description": "EL TRANSITO",
+          "departamento": "12",
+          "municipality": "23"
+        },
+        {
+          "code": "08",
+          "description": "LOLOTIQUE",
+          "departamento": "12",
+          "municipality": "23"
+        },
+        {
+          "code": "10",
+          "description": "NUEVA GUADALUPE",
+          "departamento": "12",
+          "municipality": "23"
+        },
+        {
+          "code": "15",
+          "description": "SAN JORGE",
+          "departamento": "12",
+          "municipality": "23"
+        },
+        {
+          "code": "18",
+          "description": "SAN RAF ORIENTE",
+          "departamento": "12",
+          "municipality": "23"
+        },
+        {
+          "code": "01",
+          "description": "ARAMBALA",
+          "departamento": "13",
+          "municipality": "27"
+        },
+        {
+          "code": "02",
+          "description": "CACAOPERA",
+          "departamento": "13",
+          "municipality": "27"
+        },
+        {
+          "code": "03",
+          "description": "CORINTO",
+          "departamento": "13",
+          "municipality": "27"
+        },
+        {
+          "code": "07",
+          "description": "EL ROSARIO",
+          "departamento": "13",
+          "municipality": "27"
+        },
+        {
+          "code": "10",
+          "description": "JOATECA",
+          "departamento": "13",
+          "municipality": "27"
+        },
+        {
+          "code": "11",
+          "description": "JOCOAITIQUE",
+          "departamento": "13",
+          "municipality": "27"
+        },
+        {
+          "code": "14",
+          "description": "MEANGUERA",
+          "departamento": "13",
+          "municipality": "27"
+        },
+        {
+          "code": "16",
+          "description": "PERQUÍN",
+          "departamento": "13",
+          "municipality": "27"
+        },
+        {
+          "code": "18",
+          "description": "SAN FERNANDO",
+          "departamento": "13",
+          "municipality": "27"
+        },
+        {
+          "code": "20",
+          "description": "SAN ISIDRO",
+          "departamento": "13",
+          "municipality": "27"
+        },
+        {
+          "code": "24",
+          "description": "TOROLA",
+          "departamento": "13",
+          "municipality": "27"
+        },
+        {
+          "code": "04",
+          "description": "CHILANGA",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "05",
+          "description": "DELIC DE CONCEP",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "06",
+          "description": "EL DIVISADERO",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "08",
+          "description": "GUALOCOCTI",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "09",
+          "description": "GUATAJIAGUA",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "12",
+          "description": "JOCORO",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "13",
+          "description": "LOLOTIQUILLO",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "15",
+          "description": "OSICALA",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "17",
+          "description": "SAN CARLOS",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "19",
+          "description": "SAN FCO GOTERA",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "21",
+          "description": "SAN SIMÓN",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "22",
+          "description": "SENSEMBRA",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "23",
+          "description": "SOCIEDAD",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "25",
+          "description": "YAMABAL",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "26",
+          "description": "YOLOAIQUÍN",
+          "departamento": "13",
+          "municipality": "28"
+        },
+        {
+          "code": "01",
+          "description": "ANAMOROS",
+          "departamento": "14",
+          "municipality": "19"
+        },
+        {
+          "code": "02",
+          "description": "BOLÍVAR",
+          "departamento": "14",
+          "municipality": "19"
+        },
+        {
+          "code": "03",
+          "description": "CONCEP DE OTE",
+          "departamento": "14",
+          "municipality": "19"
+        },
+        {
+          "code": "06",
+          "description": "EL SAUCE",
+          "departamento": "14",
+          "municipality": "19"
+        },
+        {
+          "code": "09",
+          "description": "LISLIQUE",
+          "departamento": "14",
+          "municipality": "19"
+        },
+        {
+          "code": "11",
+          "description": "NUEVA ESPARTA",
+          "departamento": "14",
+          "municipality": "19"
+        },
+        {
+          "code": "12",
+          "description": "PASAQUINA",
+          "departamento": "14",
+          "municipality": "19"
+        },
+        {
+          "code": "13",
+          "description": "POLORÓS",
+          "departamento": "14",
+          "municipality": "19"
+        },
+        {
+          "code": "15",
+          "description": "SAN JOSE",
+          "departamento": "14",
+          "municipality": "19"
+        },
+        {
+          "code": "16",
+          "description": "SANTA ROSA LIMA",
+          "departamento": "14",
+          "municipality": "19"
+        },
+        {
+          "code": "04",
+          "description": "CONCHAGUA",
+          "departamento": "14",
+          "municipality": "20"
+        },
+        {
+          "code": "05",
+          "description": "EL CARMEN",
+          "departamento": "14",
+          "municipality": "20"
+        },
+        {
+          "code": "07",
+          "description": "INTIPUCÁ",
+          "departamento": "14",
+          "municipality": "20"
+        },
+        {
+          "code": "08",
+          "description": "LA UNIÓN",
+          "departamento": "14",
+          "municipality": "20"
+        },
+        {
+          "code": "10",
+          "description": "MEANG DEL GOLFO",
+          "departamento": "14",
+          "municipality": "20"
+        },
+        {
+          "code": "14",
+          "description": "SAN ALEJO",
+          "departamento": "14",
+          "municipality": "20"
+        },
+        {
+          "code": "17",
+          "description": "YAYANTIQUE",
+          "departamento": "14",
+          "municipality": "20"
+        },
+        {
+          "code": "18",
+          "description": "YUCUAIQUÍN",
+          "departamento": "14",
+          "municipality": "20"
+        }
+      ]
+    }
+  ]
+}

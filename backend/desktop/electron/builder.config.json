@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.sparklewash.desktop",
+  "productName": "SparkleWash",
+  "extraMetadata": { "main": "electron/main.cjs" },
+  "directories": { "output": "electron-dist" },
+  "files": [
+    "dist/**/*",
+    "electron/*.cjs",
+    "public/icon.png"
+  ],
+  "asarUnpack": [],
+  "win": {
+    "target": [
+      { "target": "nsis", "arch": ["x64"] },
+      { "target": "zip", "arch": ["x64"] }
+    ],
+    "icon": "public/icon.ico"
+  },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": false,
+    "deleteAppDataOnUninstall": false,
+    "shortcutName": "SparkleWash",
+    "artifactName": "SparkleWash-Setup-${version}.exe",
+    "installerIcon": "public/icon.ico",
+    "uninstallerIcon": "public/icon.ico"
+  },
+  "mac": {
+    "target": [
+      { "target": "dmg", "arch": ["universal"] },
+      { "target": "zip", "arch": ["universal"] }
+    ],
+    "icon": "public/icon.icns",
+    "category": "public.app-category.business",
+    "notarize": true
+  },
+  "publish": {
+    "provider": "generic",
+    "url": "https://sticongen.blob.core.windows.net/sparklewash-installer"
+  }
+}

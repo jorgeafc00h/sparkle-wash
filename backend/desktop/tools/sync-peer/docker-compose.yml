@@ -1,0 +1,36 @@
+# Centralized cross-device test cell: the Invoices.SyncApi relay + the headless
+# Desktop peer in containers. The Android emulator (Detox) joins from the HOST:
+#   cd App.ReactNative/FacturasSimplesRN
+#   SYNC_E2E_EXTERNAL=1 SYNC_E2E_PORT=5099 npm run test:detox:android -- e2e/sync-v2-stock.e2e.js
+# (the emulator reaches the published port as 10.0.2.2:5099; the peer reaches the
+# relay container-to-container on relay:8080 — both use the same signing key).
+#
+# First build the relay image from the sibling repo (once, or after relay changes) —
+# the Dockerfile's COPY paths are REPO-ROOT-relative, so the context is the repo root:
+#   docker build -t fs-sync-relay:local \
+#     -f "<path to Invoices.Api>/Invoices.SyncApi/Dockerfile" "<path to Invoices.Api>"
+#
+# Then:  docker compose -f tools/sync-peer/docker-compose.yml up --build
+services:
+  relay:
+    image: fs-sync-relay:local
+    environment:
+      - ASPNETCORE_URLS=http://0.0.0.0:8080
+      - Sync__JwtSigningKey=${SYNC_E2E_SIGNING_KEY:-detox-sync-signing-key-0123456789abcdef}
+    ports:
+      - "5099:8080"
+
+  desktop-peer:
+    build:
+      context: ../..
+      dockerfile: tools/sync-peer/Dockerfile
+    image: fs-sync-peer:local
+    environment:
+      - SYNC_PEER_URL=http://relay:8080
+      - SYNC_PEER_SIGNING_KEY=${SYNC_E2E_SIGNING_KEY:-detox-sync-signing-key-0123456789abcdef}
+      - SYNC_PEER_WAIT_MS=${SYNC_PEER_WAIT_MS:-60000}
+      # Cross-client assertion: set SYNC_PEER_EXPECT_STOCK=7 (and a long SYNC_PEER_WAIT_MS)
+      # when the phone's "Ajustar Stock" run is expected to land on the peer during the window.
+      - SYNC_PEER_EXPECT_STOCK=${SYNC_PEER_EXPECT_STOCK:-}
+    depends_on:
+      - relay

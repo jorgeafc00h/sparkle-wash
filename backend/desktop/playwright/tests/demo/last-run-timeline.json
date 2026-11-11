@@ -1,0 +1,267 @@
+{
+  "videoW": 1920,
+  "videoH": 1080,
+  "events": [
+    {
+      "t": 1.22,
+      "label": "beat1-welcome",
+      "caption": "Empieza gratis, sin crear cuenta",
+      "x": 1249,
+      "y": 506,
+      "w": 382,
+      "h": 46
+    },
+    {
+      "t": 1.24,
+      "label": "beat1-guest",
+      "caption": "Toca Continuar sin iniciar sesión",
+      "x": 1249,
+      "y": 506,
+      "w": 382,
+      "h": 46
+    },
+    {
+      "t": 3.03,
+      "label": "beat2-onboarding-slide-1",
+      "caption": "Facturación electrónica sin complicaciones",
+      "x": 1072,
+      "y": 656,
+      "w": 343,
+      "h": 52
+    },
+    {
+      "t": 4.28,
+      "label": "beat2-onboarding-slide-2",
+      "caption": "Gestiona múltiples empresas en un solo lugar",
+      "x": 1072,
+      "y": 656,
+      "w": 343,
+      "h": 52
+    },
+    {
+      "t": 5.5,
+      "label": "beat3-onboarding-slide-3",
+      "caption": "Importa tus compras (DTE) desde Gmail",
+      "x": 1072,
+      "y": 656,
+      "w": 343,
+      "h": 52
+    },
+    {
+      "t": 6.72,
+      "label": "beat3-onboarding-slide-4",
+      "caption": "Libros de IVA y exportación en un clic",
+      "x": 1072,
+      "y": 656,
+      "w": 343,
+      "h": 52
+    },
+    {
+      "t": 7.95,
+      "label": "beat3-onboarding-slide-5",
+      "caption": "Versión gratis disponible — empieza ya",
+      "x": 1072,
+      "y": 656,
+      "w": 343,
+      "h": 52
+    },
+    {
+      "t": 9.89,
+      "label": "beat4-nombre-legal",
+      "caption": "Información básica de la empresa",
+      "x": 765,
+      "y": 285,
+      "w": 630,
+      "h": 38
+    },
+    {
+      "t": 11.22,
+      "label": "beat4-nombre-comercial",
+      "caption": "Nombre comercial del emisor",
+      "x": 765,
+      "y": 363,
+      "w": 630,
+      "h": 38
+    },
+    {
+      "t": 12.13,
+      "label": "beat4-nit",
+      "caption": "NIT de Hacienda",
+      "x": 765,
+      "y": 441,
+      "w": 307,
+      "h": 38
+    },
+    {
+      "t": 13.06,
+      "label": "beat4-nrc",
+      "caption": "Número de registro (NRC)",
+      "x": 1088,
+      "y": 441,
+      "w": 307,
+      "h": 38
+    },
+    {
+      "t": 13.71,
+      "label": "beat4-siguiente",
+      "caption": "Continúa al siguiente paso",
+      "x": 1294,
+      "y": 524,
+      "w": 122,
+      "h": 38
+    },
+    {
+      "t": 15.26,
+      "label": "beat5-correo",
+      "caption": "Datos de contacto",
+      "x": 765,
+      "y": 285,
+      "w": 630,
+      "h": 38
+    },
+    {
+      "t": 16.42,
+      "label": "beat5-telefono",
+      "caption": "Teléfono de la empresa",
+      "x": 765,
+      "y": 363,
+      "w": 630,
+      "h": 38
+    },
+    {
+      "t": 17.1,
+      "label": "beat5-direccion",
+      "caption": "Dirección del emisor",
+      "x": 765,
+      "y": 441,
+      "w": 630,
+      "h": 38
+    },
+    {
+      "t": 18.32,
+      "label": "beat5-departamento",
+      "caption": "Selecciona departamento",
+      "x": 765,
+      "y": 519,
+      "w": 307,
+      "h": 38
+    },
+    {
+      "t": 19.04,
+      "label": "beat5-municipio",
+      "caption": "Selecciona municipio",
+      "x": 1088,
+      "y": 519,
+      "w": 307,
+      "h": 38
+    },
+    {
+      "t": 19.66,
+      "label": "beat5-siguiente",
+      "caption": "Continúa a actividad económica",
+      "x": 1294,
+      "y": 716,
+      "w": 122,
+      "h": 38
+    },
+    {
+      "t": 21.26,
+      "label": "beat6-actividad-open",
+      "caption": "Actividad económica",
+      "x": 765,
+      "y": 285,
+      "w": 630,
+      "h": 38
+    },
+    {
+      "t": 23.11,
+      "label": "beat6-actividad-pick",
+      "caption": "Elige tu actividad económica",
+      "x": 644,
+      "y": 286,
+      "w": 632,
+      "h": 42
+    },
+    {
+      "t": 23.95,
+      "label": "beat6-establecimiento-open",
+      "caption": "Tipo de establecimiento",
+      "x": 765,
+      "y": 363,
+      "w": 630,
+      "h": 38
+    },
+    {
+      "t": 24.98,
+      "label": "beat6-establecimiento-pick",
+      "caption": "Casa matriz o sucursal",
+      "x": 644,
+      "y": 497,
+      "w": 632,
+      "h": 42
+    },
+    {
+      "t": 25.81,
+      "label": "beat6-siguiente",
+      "caption": "Continúa al certificado",
+      "x": 1294,
+      "y": 462,
+      "w": 122,
+      "h": 38
+    },
+    {
+      "t": 27.52,
+      "label": "beat7-cert-file",
+      "caption": "Carga tu certificado de Hacienda",
+      "x": 765,
+      "y": 261,
+      "w": 630,
+      "h": 20
+    },
+    {
+      "t": 28.45,
+      "label": "beat7-cert-password",
+      "caption": "Contraseña del certificado (privada)",
+      "x": 765,
+      "y": 383,
+      "w": 630,
+      "h": 38
+    },
+    {
+      "t": 29.13,
+      "label": "beat7-crear",
+      "caption": "Crea tu empresa",
+      "x": 1287,
+      "y": 466,
+      "w": 129,
+      "h": 38
+    },
+    {
+      "t": 32.06,
+      "label": "beat8-company-detail",
+      "caption": "Tu empresa está lista",
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 1080
+    },
+    {
+      "t": 32.08,
+      "label": "beat8-request-production-link",
+      "caption": "Solicita autorización a producción",
+      "x": 1723,
+      "y": 191,
+      "w": 152,
+      "h": 38
+    },
+    {
+      "t": 33.3,
+      "label": "beat8-production-access",
+      "caption": "Solicita autorización a producción",
+      "x": 696,
+      "y": 24,
+      "w": 768,
+      "h": 1786
+    }
+  ]
+}

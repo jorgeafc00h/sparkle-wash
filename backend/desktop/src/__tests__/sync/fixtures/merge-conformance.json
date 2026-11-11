@@ -1,0 +1,207 @@
+{
+  "version": 1,
+  "description": "Device Sync v2 merge conformance set. SHARED VERBATIM by App.ReactNative, App.Desktop and FacturasSimplesApp (SwiftUI): every platform's merge engine must reach these exact decisions. Edit all three copies together.",
+  "selfDeviceId": "dev-local",
+  "cases": [
+    {
+      "name": "customer: newer remote upsert wins",
+      "type": "customer",
+      "local": { "id": "c1", "firstName": "Ana", "updatedAt": "2026-09-24T10:00:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T10:05:00.000Z", "d": "dev-peer", "entity": { "id": "c1", "firstName": "Ana María", "updatedAt": "2026-09-24T10:05:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "id": "c1", "firstName": "Ana María", "updatedAt": "2026-09-24T10:05:00.000Z" }, "version": { "u": "2026-09-24T10:05:00.000Z", "d": "dev-peer" }, "conflictFields": [] }
+    },
+    {
+      "name": "customer: older remote upsert is ignored",
+      "type": "customer",
+      "local": { "id": "c1", "firstName": "Ana María", "updatedAt": "2026-09-24T10:05:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T10:00:00.000Z", "d": "dev-peer", "entity": { "id": "c1", "firstName": "Ana", "updatedAt": "2026-09-24T10:00:00.000Z" } },
+      "expect": { "kind": "skip", "reason": "stale", "conflictFields": [] }
+    },
+    {
+      "name": "customer: exact tie, remote deviceId greater wins",
+      "type": "customer",
+      "local": { "id": "c2", "phone": "7777-0000", "updatedAt": "2026-09-24T11:00:00.000Z" },
+      "localMeta": { "u": "2026-09-24T11:00:00.000Z", "d": "dev-a" },
+      "remote": { "op": "upsert", "u": "2026-09-24T11:00:00.000Z", "d": "dev-b", "entity": { "id": "c2", "phone": "7777-1111", "updatedAt": "2026-09-24T11:00:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "phone": "7777-1111" }, "version": { "u": "2026-09-24T11:00:00.000Z", "d": "dev-b" }, "conflictFields": [] }
+    },
+    {
+      "name": "customer: exact tie, remote deviceId smaller loses (mirror of the previous case: both orders converge on dev-b)",
+      "type": "customer",
+      "local": { "id": "c2", "phone": "7777-1111", "updatedAt": "2026-09-24T11:00:00.000Z" },
+      "localMeta": { "u": "2026-09-24T11:00:00.000Z", "d": "dev-b" },
+      "remote": { "op": "upsert", "u": "2026-09-24T11:00:00.000Z", "d": "dev-a", "entity": { "id": "c2", "phone": "7777-0000", "updatedAt": "2026-09-24T11:00:00.000Z" } },
+      "expect": { "kind": "skip", "reason": "stale", "conflictFields": [] }
+    },
+    {
+      "name": "product: plain LWW newer wins",
+      "type": "product",
+      "local": { "id": "p1", "productName": "Consultoría", "unitPrice": 100, "updatedAt": "2026-09-24T09:00:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T09:30:00.000Z", "d": "dev-peer", "entity": { "id": "p1", "productName": "Consultoría", "unitPrice": 120, "updatedAt": "2026-09-24T09:30:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "unitPrice": 120 }, "version": { "u": "2026-09-24T09:30:00.000Z", "d": "dev-peer" }, "conflictFields": [] }
+    },
+    {
+      "name": "unknown delete (never seen locally) is skipped",
+      "type": "product",
+      "local": null,
+      "localMeta": null,
+      "remote": { "op": "delete", "u": "2026-09-24T09:30:00.000Z", "d": "dev-peer" },
+      "expect": { "kind": "skip", "reason": "unknown-delete", "conflictFields": [] }
+    },
+    {
+      "name": "tombstone: newer delete removes the local entity",
+      "type": "customer",
+      "local": { "id": "c3", "firstName": "Luis", "updatedAt": "2026-09-24T08:00:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "delete", "u": "2026-09-24T08:10:00.000Z", "d": "dev-peer" },
+      "expect": { "kind": "delete", "version": { "u": "2026-09-24T08:10:00.000Z", "d": "dev-peer" }, "conflictFields": [] }
+    },
+    {
+      "name": "tombstone: delete older than the local edit is ignored",
+      "type": "customer",
+      "local": { "id": "c3", "firstName": "Luis", "updatedAt": "2026-09-24T08:20:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "delete", "u": "2026-09-24T08:10:00.000Z", "d": "dev-peer" },
+      "expect": { "kind": "skip", "reason": "stale", "conflictFields": [] }
+    },
+    {
+      "name": "tombstone: older upsert after a local tombstone is ignored",
+      "type": "customer",
+      "local": null,
+      "localMeta": { "u": "2026-09-24T08:10:00.000Z", "d": "dev-local", "del": true },
+      "remote": { "op": "upsert", "u": "2026-09-24T08:05:00.000Z", "d": "dev-peer", "entity": { "id": "c3", "firstName": "Luis", "updatedAt": "2026-09-24T08:05:00.000Z" } },
+      "expect": { "kind": "skip", "reason": "tombstoned", "conflictFields": [] }
+    },
+    {
+      "name": "tombstone: newer upsert resurrects",
+      "type": "customer",
+      "local": null,
+      "localMeta": { "u": "2026-09-24T08:10:00.000Z", "d": "dev-local", "del": true },
+      "remote": { "op": "upsert", "u": "2026-09-24T08:15:00.000Z", "d": "dev-peer", "entity": { "id": "c3", "firstName": "Luis Alberto", "updatedAt": "2026-09-24T08:15:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "id": "c3", "firstName": "Luis Alberto" }, "version": { "u": "2026-09-24T08:15:00.000Z", "d": "dev-peer" }, "conflictFields": [] }
+    },
+    {
+      "name": "invoice: unknown remote invoice is inserted verbatim",
+      "type": "invoice",
+      "local": null,
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T12:00:00.000Z", "d": "dev-peer", "entity": { "id": "i1", "invoiceNumber": "00118", "status": 0, "generationCode": "GC-1", "controlNumber": "DTE-01-M001P001-000000000000118", "items": [{ "id": "i1_1", "quantity": 1, "unitPrice": 10 }], "updatedAt": "2026-09-24T12:00:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "id": "i1", "invoiceNumber": "00118", "generationCode": "GC-1", "controlNumber": "DTE-01-M001P001-000000000000118" }, "version": { "u": "2026-09-24T12:00:00.000Z", "d": "dev-peer" }, "conflictFields": [] }
+    },
+    {
+      "name": "invoice lattice: older Sincronizando never regresses a local Completada",
+      "type": "invoice",
+      "local": { "id": "i2", "status": 2, "generationCode": "GC-2", "controlNumber": "DTE-01-M001P001-000000000000002", "receptionSeal": "SEAL-2", "fechaTransmision": "2026-09-24T12:30:00", "items": [{ "id": "i2_1", "quantity": 1, "unitPrice": 10 }], "updatedAt": "2026-09-24T12:30:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T12:20:00.000Z", "d": "dev-peer", "entity": { "id": "i2", "status": 1, "generationCode": "GC-2", "controlNumber": "DTE-01-M001P001-000000000000002", "items": [{ "id": "i2_1", "quantity": 1, "unitPrice": 10 }], "updatedAt": "2026-09-24T12:20:00.000Z" } },
+      "expect": { "kind": "skip", "reason": "acknowledged-local", "conflictFields": [] }
+    },
+    {
+      "name": "invoice lattice: even a NEWER unacknowledged copy never regresses a local Completada",
+      "type": "invoice",
+      "local": { "id": "i2", "status": 2, "generationCode": "GC-2", "receptionSeal": "SEAL-2", "items": [], "updatedAt": "2026-09-24T12:30:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T12:40:00.000Z", "d": "dev-peer", "entity": { "id": "i2", "status": 0, "generationCode": "GC-2", "items": [], "updatedAt": "2026-09-24T12:40:00.000Z" } },
+      "expect": { "kind": "skip", "reason": "acknowledged-local", "conflictFields": [] }
+    },
+    {
+      "name": "invoice lattice: an older Anulada still supersedes a local Completada",
+      "type": "invoice",
+      "local": { "id": "i3", "status": 2, "generationCode": "GC-3", "receptionSeal": "SEAL-3", "items": [], "updatedAt": "2026-09-24T13:00:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T12:55:00.000Z", "d": "dev-peer", "entity": { "id": "i3", "status": 3, "generationCode": "GC-3", "receptionSeal": "SEAL-3", "items": [], "updatedAt": "2026-09-24T12:55:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "status": 3, "receptionSeal": "SEAL-3" }, "version": { "u": "2026-09-24T13:00:00.000Z", "d": "dev-local" }, "conflictFields": [] }
+    },
+    {
+      "name": "invoice lattice: Anulada never yields to a newer Completada",
+      "type": "invoice",
+      "local": { "id": "i3", "status": 3, "generationCode": "GC-3", "receptionSeal": "SEAL-3", "items": [], "updatedAt": "2026-09-24T13:00:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T13:10:00.000Z", "d": "dev-peer", "entity": { "id": "i3", "status": 2, "generationCode": "GC-3", "receptionSeal": "SEAL-3", "items": [], "updatedAt": "2026-09-24T13:10:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "status": 3 }, "version": { "u": "2026-09-24T13:10:00.000Z", "d": "dev-peer" }, "conflictFields": [] }
+    },
+    {
+      "name": "invoice pre-acknowledgement: a newer Nueva (failed send reset) replaces a stale Sincronizando",
+      "type": "invoice",
+      "local": { "id": "i4", "status": 1, "generationCode": "GC-4", "items": [], "updatedAt": "2026-09-24T14:00:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T14:05:00.000Z", "d": "dev-peer", "entity": { "id": "i4", "status": 0, "generationCode": "GC-4", "items": [], "updatedAt": "2026-09-24T14:05:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "status": 0 }, "version": { "u": "2026-09-24T14:05:00.000Z", "d": "dev-peer" }, "conflictFields": [] }
+    },
+    {
+      "name": "invoice write-once: conflicting receptionSeal is surfaced and the first value kept",
+      "type": "invoice",
+      "local": { "id": "i5", "status": 2, "generationCode": "GC-5", "controlNumber": "DTE-01-M001P001-000000000000005", "receptionSeal": "SEAL-FIRST", "items": [], "updatedAt": "2026-09-24T15:00:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T15:05:00.000Z", "d": "dev-peer", "entity": { "id": "i5", "status": 2, "generationCode": "GC-5", "controlNumber": "DTE-01-M001P001-000000000000005", "receptionSeal": "SEAL-OTHER", "items": [], "updatedAt": "2026-09-24T15:05:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "receptionSeal": "SEAL-FIRST" }, "version": { "u": "2026-09-24T15:05:00.000Z", "d": "dev-peer" }, "conflictFields": ["receptionSeal"] }
+    },
+    {
+      "name": "invoice write-once: conflicting controlNumber between two acknowledged copies is surfaced",
+      "type": "invoice",
+      "local": { "id": "i6", "status": 2, "generationCode": "GC-6", "controlNumber": "DTE-01-M001P001-000000000000006", "receptionSeal": "SEAL-6", "fechaTransmision": "2026-09-24T15:10:00", "items": [], "updatedAt": "2026-09-24T15:10:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T15:20:00.000Z", "d": "dev-peer", "entity": { "id": "i6", "status": 2, "generationCode": "GC-6", "controlNumber": "DTE-01-M001P001-000000000000099", "receptionSeal": "SEAL-6", "fechaTransmision": "2026-09-24T15:11:00", "items": [], "updatedAt": "2026-09-24T15:20:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "controlNumber": "DTE-01-M001P001-000000000000006", "fechaTransmision": "2026-09-24T15:10:00" }, "version": { "u": "2026-09-24T15:20:00.000Z", "d": "dev-peer" }, "conflictFields": ["controlNumber", "fechaTransmision"] }
+    },
+    {
+      "name": "invoice write-once: conflicting generationCode on unacknowledged copies is surfaced, first value kept",
+      "type": "invoice",
+      "local": { "id": "i7", "status": 0, "generationCode": "GC-FIRST", "items": [], "updatedAt": "2026-09-24T16:00:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T16:05:00.000Z", "d": "dev-peer", "entity": { "id": "i7", "status": 0, "generationCode": "GC-OTHER", "items": [], "updatedAt": "2026-09-24T16:05:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "generationCode": "GC-FIRST" }, "version": { "u": "2026-09-24T16:05:00.000Z", "d": "dev-peer" }, "conflictFields": ["generationCode"] }
+    },
+    {
+      "name": "invoice controlNumber re-mint: the acknowledged copy's numeroControl replaces a stale pre-acknowledgement one without a conflict",
+      "type": "invoice",
+      "local": { "id": "i8", "status": 0, "generationCode": "GC-8", "controlNumber": "DTE-01-M001P001-000000000000117", "items": [{ "id": "i8_1", "quantity": 1, "unitPrice": 5 }], "updatedAt": "2026-09-24T17:10:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T17:05:00.000Z", "d": "dev-peer", "entity": { "id": "i8", "status": 2, "generationCode": "GC-8", "controlNumber": "DTE-01-M001P001-000000000000118", "receptionSeal": "SEAL-8", "items": [{ "id": "i8_1", "quantity": 1, "unitPrice": 5 }], "updatedAt": "2026-09-24T17:05:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "status": 2, "controlNumber": "DTE-01-M001P001-000000000000118", "receptionSeal": "SEAL-8" }, "version": { "u": "2026-09-24T17:10:00.000Z", "d": "dev-peer" }, "conflictFields": [] }
+    },
+    {
+      "name": "invoice immutability: a completed document's items cannot change (both acknowledged — surfaced)",
+      "type": "invoice",
+      "local": { "id": "i9", "status": 2, "generationCode": "GC-9", "receptionSeal": "SEAL-9", "items": [{ "id": "i9_1", "quantity": 1, "unitPrice": 10 }], "totals": { "totalPagar": 10 }, "updatedAt": "2026-09-24T18:00:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T18:05:00.000Z", "d": "dev-peer", "entity": { "id": "i9", "status": 2, "generationCode": "GC-9", "receptionSeal": "SEAL-9", "items": [{ "id": "i9_1", "quantity": 1, "unitPrice": 10 }, { "id": "i9_2", "quantity": 2, "unitPrice": 5 }], "totals": { "totalPagar": 20 }, "observaciones": "nota", "updatedAt": "2026-09-24T18:05:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "items": [{ "id": "i9_1", "quantity": 1, "unitPrice": 10 }], "totals": { "totalPagar": 10 }, "observaciones": "nota" }, "version": { "u": "2026-09-24T18:05:00.000Z", "d": "dev-peer" }, "conflictFields": ["items"] }
+    },
+    {
+      "name": "invoice immutability: an unacknowledged item edit never reaches a completed document",
+      "type": "invoice",
+      "local": { "id": "i9", "status": 2, "generationCode": "GC-9", "receptionSeal": "SEAL-9", "items": [{ "id": "i9_1", "quantity": 1, "unitPrice": 10 }], "updatedAt": "2026-09-24T18:00:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T18:10:00.000Z", "d": "dev-peer", "entity": { "id": "i9", "status": 0, "generationCode": "GC-9", "items": [{ "id": "i9_1", "quantity": 3, "unitPrice": 10 }], "updatedAt": "2026-09-24T18:10:00.000Z" } },
+      "expect": { "kind": "skip", "reason": "acknowledged-local", "conflictFields": [] }
+    },
+    {
+      "name": "purchase: the same DTE imported on another device (older) is dropped as a duplicate",
+      "type": "purchase",
+      "local": { "id": "cmp-local", "codigoGeneracion": "ABCD-1234", "numeroControl": "DTE-03-X-1", "totalPagar": 113, "updatedAt": "2026-09-24T07:00:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T06:00:00.000Z", "d": "dev-peer", "entity": { "id": "cmp-peer", "codigoGeneracion": "ABCD-1234", "numeroControl": "DTE-03-X-1", "totalPagar": 113, "updatedAt": "2026-09-24T06:00:00.000Z" } },
+      "expect": { "kind": "skip", "reason": "duplicate", "conflictFields": [] }
+    },
+    {
+      "name": "purchase: a newer copy of the same DTE merges onto the local record and keeps the local id",
+      "type": "purchase",
+      "local": { "id": "cmp-local", "codigoGeneracion": "ABCD-1234", "linkNote": null, "updatedAt": "2026-09-24T07:00:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T07:30:00.000Z", "d": "dev-peer", "entity": { "id": "cmp-peer", "codigoGeneracion": "ABCD-1234", "linkNote": "Venta 00118", "updatedAt": "2026-09-24T07:30:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "id": "cmp-local", "linkNote": "Venta 00118" }, "version": { "u": "2026-09-24T07:30:00.000Z", "d": "dev-peer" }, "conflictFields": [] }
+    },
+    {
+      "name": "company settings: plain LWW",
+      "type": "company",
+      "local": { "id": "co-local", "nombreComercial": "TestCo", "updatedAt": "2026-09-24T05:00:00.000Z" },
+      "localMeta": null,
+      "remote": { "op": "upsert", "u": "2026-09-24T05:30:00.000Z", "d": "dev-peer", "entity": { "id": "co-local", "nombreComercial": "TestCo SA de CV", "updatedAt": "2026-09-24T05:30:00.000Z" } },
+      "expect": { "kind": "upsert", "entity": { "nombreComercial": "TestCo SA de CV" }, "version": { "u": "2026-09-24T05:30:00.000Z", "d": "dev-peer" }, "conflictFields": [] }
+    }
+  ]
+}

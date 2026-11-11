@@ -1,0 +1,60 @@
+{
+  "videoW": 1080,
+  "videoH": 1920,
+  "events": [
+    {
+      "t": 1.59,
+      "label": "beat1-portal-notice",
+      "caption": "Solicita tu acceso a producción a Hacienda",
+      "x": 272,
+      "y": 104,
+      "w": 768,
+      "h": 238
+    },
+    {
+      "t": 4.21,
+      "label": "beat2-requirements",
+      "caption": "Tu empresa cumple los requisitos",
+      "x": 272,
+      "y": 366,
+      "w": 768,
+      "h": 236
+    },
+    {
+      "t": 6.83,
+      "label": "beat3-batch-5",
+      "caption": "Elige cuántos documentos de prueba por tipo",
+      "x": 293,
+      "y": 731,
+      "w": 96,
+      "h": 38
+    },
+    {
+      "t": 8.67,
+      "label": "beat4-start-process",
+      "caption": "Procesar todos: la app envía las pruebas a Hacienda",
+      "x": 802,
+      "y": 958,
+      "w": 238,
+      "h": 38
+    },
+    {
+      "t": 10.01,
+      "label": "beat5-processing",
+      "caption": "Se generan y envían automáticamente, con progreso en tiempo real",
+      "x": 293,
+      "y": 166,
+      "w": 96,
+      "h": 24
+    },
+    {
+      "t": 39.34,
+      "label": "beat6-completion",
+      "caption": "Pruebas completadas; pide producción en el portal de Hacienda",
+      "x": 272,
+      "y": 630,
+      "w": 768,
+      "h": 366
+    }
+  ]
+}

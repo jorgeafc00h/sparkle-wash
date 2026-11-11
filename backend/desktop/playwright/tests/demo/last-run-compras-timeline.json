@@ -1,0 +1,60 @@
+{
+  "videoW": 1920,
+  "videoH": 1080,
+  "events": [
+    {
+      "t": 1.23,
+      "label": "beat1-list",
+      "caption": "Tus facturas de compra, en un solo lugar",
+      "x": 264,
+      "y": 24,
+      "w": 183,
+      "h": 32
+    },
+    {
+      "t": 3.74,
+      "label": "beat1-email-badge",
+      "caption": "Tus facturas de compra, en un solo lugar",
+      "x": 1449,
+      "y": 350,
+      "w": 51,
+      "h": 24
+    },
+    {
+      "t": 10.76,
+      "label": "beat2-settings-btn",
+      "caption": "Conecta tu Gmail por IMAP, en tres pasos",
+      "x": 1498,
+      "y": 26,
+      "w": 50,
+      "h": 34
+    },
+    {
+      "t": 12.05,
+      "label": "beat2-imap-card",
+      "caption": "Conecta tu Gmail por IMAP, en tres pasos",
+      "x": 744,
+      "y": 970,
+      "w": 672,
+      "h": 173
+    },
+    {
+      "t": 14.58,
+      "label": "beat2-imap-start",
+      "caption": "Conecta tu Gmail por IMAP, en tres pasos",
+      "x": 858,
+      "y": 1044,
+      "w": 205,
+      "h": 36
+    },
+    {
+      "t": 19.15,
+      "label": "beat3-open-2fa",
+      "caption": "Paso 1: activa la verificación en dos pasos",
+      "x": 797,
+      "y": 1050,
+      "w": 210,
+      "h": 30
+    }
+  ]
+}
