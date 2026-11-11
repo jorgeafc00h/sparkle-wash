@@ -3,6 +3,9 @@
 Read README.md, docs/ARCHITECTURE.md, and docs/reviews/2026-10-18-code-review.md first.
 The active implementation is backend/src/carwash-api, frontend/src/main.tsx → OperationsApp.tsx,
 and SparkleWash-iOS (generated Xcode project; edit project.yml for project changes).
+The desktop POS is backend/desktop (Electron + React, a SparkleWash build of FACTURAS SIMPLES App.Desktop);
+read backend/desktop/CLAUDE.md and docs/SPARKLEWASH_INTEGRATION.md before changing it. Its end-to-end spec
+(`npx playwright test playwright/tests/carwash` in backend/desktop) runs the real API through src/carwash-api.DevHost.
 
 Run OpenSpec from this directory. Current supported behavior belongs in openspec/specs;
 unimplemented product requirements belong in openspec/changes/complete-platform-parity.

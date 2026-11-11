@@ -18,6 +18,7 @@ jobs:
     environment: ibm-demo
     env:
       VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+      SPARKLEWASH_GOOGLE_EXTRA_CLIENT_IDS: ${{ vars.SPARKLEWASH_GOOGLE_EXTRA_CLIENT_IDS }}
       IBM_CE_APP: ${{ vars.IBM_CE_APP }}
       IBM_CE_REGISTRY_SECRET: ${{ vars.IBM_CE_REGISTRY_SECRET }}
       IBM_CE_CPU: ${{ vars.IBM_CE_CPU || '0.125' }}
@@ -52,10 +53,21 @@ jobs:
             echo 'Missing GitHub Environment secret: SPARKLEWASH_APP_CONFIG_ENV.' >&2
             exit 1
           fi
-          if ! grep -Fqx "SPARKLEWASH_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID" <<< "$SPARKLEWASH_APP_CONFIG_ENV" ||
+          # SPARKLEWASH_GOOGLE_CLIENT_ID is a comma-separated audience list; the web console's client must be in it.
+          configured_ids=$(sed -n 's/^SPARKLEWASH_GOOGLE_CLIENT_ID=//p' <<< "$SPARKLEWASH_APP_CONFIG_ENV" | tail -n 1)
+          if ! tr ',' '\n' <<< "$configured_ids" | sed 's/^ *//;s/ *$//' | grep -Fqx "$VITE_GOOGLE_CLIENT_ID" ||
              ! grep -Eq '^SPARKLEWASH_STAFF_ROLES=.+$' <<< "$SPARKLEWASH_APP_CONFIG_ENV"; then
             echo 'Protected app settings must include the matching Google client ID and a staff-role allowlist.' >&2
             exit 1
+          fi
+          # Optional, non-secret: other first-party clients (SparkleWash Desktop, iOS) whose ID tokens the API accepts.
+          if [[ -n "$SPARKLEWASH_GOOGLE_EXTRA_CLIENT_IDS" ]]; then
+            for id in ${SPARKLEWASH_GOOGLE_EXTRA_CLIENT_IDS//,/ }; do
+              if [[ ! "$id" =~ ^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$ ]]; then
+                echo "SPARKLEWASH_GOOGLE_EXTRA_CLIENT_IDS has an invalid Google client ID: $id" >&2
+                exit 1
+              fi
+            done
           fi
           if [[ ! "$IBM_CE_USER" =~ ^[1-9][0-9]*$ ]]; then
             echo 'IBM_CE_USER must be a non-zero numeric UID.' >&2
@@ -224,6 +236,7 @@ jobs:
       - name: Create or update required application settings secret
         env:
           SPARKLEWASH_APP_CONFIG_ENV: ${{ secrets.SPARKLEWASH_APP_CONFIG_ENV }}
+          SPARKLEWASH_GOOGLE_EXTRA_CLIENT_IDS: ${{ vars.SPARKLEWASH_GOOGLE_EXTRA_CLIENT_IDS }}
         shell: bash
         run: |
           set -euo pipefail
@@ -231,6 +244,15 @@ jobs:
           trap 'rm -f "$config_file"' EXIT
           umask 077
           printf '%s' "$SPARKLEWASH_APP_CONFIG_ENV" > "$config_file"
+          # Merge the non-secret extra client IDs (desktop, iOS) into the API's Google audience list.
+          if [[ -n "$SPARKLEWASH_GOOGLE_EXTRA_CLIENT_IDS" ]]; then
+            current=$(sed -n 's/^SPARKLEWASH_GOOGLE_CLIENT_ID=//p' "$config_file" | tail -n 1)
+            merged=$(printf '%s,%s' "$current" "$SPARKLEWASH_GOOGLE_EXTRA_CLIENT_IDS" | tr ',' '\n' |
+              sed 's/^ *//;s/ *$//' | awk 'NF && !seen[$0]++' | paste -sd, -)
+            grep -v '^SPARKLEWASH_GOOGLE_CLIENT_ID=' "$config_file" > "$config_file.next" || true
+            printf '\nSPARKLEWASH_GOOGLE_CLIENT_ID=%s\n' "$merged" >> "$config_file.next"
+            mv "$config_file.next" "$config_file"
+          fi
           if ibmcloud ce secret get --name "$IBM_CE_APP_CONFIG_SECRET" >/dev/null 2>&1; then
             ibmcloud ce secret update --name "$IBM_CE_APP_CONFIG_SECRET" --from-env-file "$config_file"
           else

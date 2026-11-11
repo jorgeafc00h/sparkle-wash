@@ -14,6 +14,7 @@ and run jobs from a web console or the iOS/iPadOS app. Status, review history an
 | `edge/esp32-cam` | Arduino firmware 1.2 (BLE setup, mDNS, Preferences) | CI only (arduino-cli, esp32 core 3.0.7, NimBLE-Arduino 1.4.3) |
 | `web` | React/TS/Vite: landing at `/`, console at `/app/` (hash routes) | `cd web && npm test && npm run build` (also runs `tsc -b`) |
 | `ios` | SwiftUI app + `SparkleKit` Swift package, XcodeGen `project.yml` | CI only (macOS); no Swift toolchain in the Linux container |
+| `backend/desktop` | Electron + Vite + React 19 desktop app (POS, DTE, carwash work tickets); see `backend/desktop/CLAUDE.md` | `cd backend/desktop && npx tsc --noEmit && npx jest --ci && npm run build` |
 | `contracts/v1` | `service-packages.json`: price sheet shared by API, web, iOS | |
 
 Dead code awaiting the owner's approval to delete (don't build on it, don't delete without asking):

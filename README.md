@@ -7,6 +7,7 @@ SparkleWash is a carwash operations prototype with a .NET 10 API, React workboar
 - API: `backend/src/carwash-api/Program.cs`, `ArrivalStore.cs`, `JobStore.cs`, and `OperationsStore.cs`
 - Web: `frontend/src/main.tsx` → `OperationsApp.tsx`
 - iOS: `SparkleWash-iOS/Views/OperationsView.swift`; edit `SparkleWash-iOS/project.yml` for project changes
+- Desktop (Electron + React, SparkleWash build of FACTURAS SIMPLES `App.Desktop`): `backend/desktop`. Punto de venta prints one work ticket per car (`OT-C1-000001`), sends walk-ins and payments to `/api/jobs/walk-in` and `/api/jobs/{id}/payments`, and follows changes from iOS/web over `/api/events`. Contract: `backend/desktop/docs/SPARKLEWASH_INTEGRATION.md`; run with `npm run dev:electron --prefix backend/desktop`
 - Shared package menu and prices: `backend/contracts/v1/service-packages.json`
 - Implemented behavior: `openspec/specs/`; planned behavior: `openspec/changes/complete-platform-parity/`
 - HTTP routes: `docs/openapi.yaml`
