@@ -14,71 +14,19 @@
  * Needs the .NET 10 SDK. Skipped when `dotnet` is not on PATH.
  */
 
-import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 import { seedPopulatedAppState } from '../../fixtures/seed-state';
+import {
+  apiHeaders, connectDesktop, createWalkIn, hasDotnet, navigate, startDevHost, type DevHost,
+} from '../../fixtures/carwash-devhost';
 
-const BACKEND_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
-const DEV_HOST_PROJECT = path.join(BACKEND_ROOT, 'src/carwash-api.DevHost');
-const DEV_TOKEN = 'dev:1001:op@example.com';
-const hasDotnet = spawnSync('dotnet', ['--version'], { stdio: 'ignore' }).status === 0;
-
-let api: ChildProcess | null = null;
+let api: DevHost;
 let apiUrl = '';
-let dataDir = '';
-
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer();
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      server.close(() => (typeof address === 'object' && address ? resolve(address.port) : reject(new Error('no port'))));
-    });
-  });
-}
-
-async function waitForApi(url: string, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (api?.exitCode != null) throw new Error(`DevHost exited with ${api.exitCode}`);
-    try {
-      const res = await fetch(`${url}/healthz`);
-      if (res.ok) return;
-    } catch { /* not up yet */ }
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  throw new Error('DevHost did not become healthy');
-}
-
-async function apiSession(request: APIRequestContext): Promise<Record<string, string>> {
-  const res = await request.post(`${apiUrl}/api/auth/google`, { data: { idToken: DEV_TOKEN } });
-  expect(res.ok()).toBeTruthy();
-  const { sessionToken } = await res.json();
-  return { Authorization: `Bearer ${sessionToken}` };
-}
 
 async function apiJobs(request: APIRequestContext): Promise<Array<Record<string, any>>> {
-  const res = await request.get(`${apiUrl}/api/jobs`, { headers: await apiSession(request) });
+  const res = await request.get(`${apiUrl}/api/jobs`, { headers: await apiHeaders(request, apiUrl) });
   expect(res.ok()).toBeTruthy();
   return res.json();
-}
-
-/** In-app navigation: page.goto would re-run the seed init script and reset persisted state. */
-async function navigate(page: Page, hash: string): Promise<void> {
-  await page.evaluate((h) => { window.location.hash = h; }, hash);
-}
-
-async function createWalkIn(page: Page, plate: string, vehicleClass: string, packageId: string): Promise<void> {
-  await page.getByTestId('carwash-new-service').click();
-  await page.getByTestId('carwash-plate-input').fill(plate);
-  await page.getByTestId(`carwash-class-${vehicleClass}`).click();
-  await page.getByTestId(`carwash-package-${packageId}`).click();
-  await page.getByTestId('carwash-create').click();
 }
 
 test.describe.serial('SparkleWash desktop ↔ API', () => {
@@ -87,59 +35,23 @@ test.describe.serial('SparkleWash desktop ↔ API', () => {
 
   test.beforeAll(async () => {
     test.setTimeout(240_000);
-    dataDir = mkdtempSync(path.join(tmpdir(), 'sparklewash-e2e-'));
-    const port = await freePort();
-    apiUrl = `http://127.0.0.1:${port}`;
-    api = spawn('dotnet', ['run', '--project', DEV_HOST_PROJECT, '--urls', apiUrl], {
-      cwd: BACKEND_ROOT,
-      env: {
-        ...process.env,
-        ASPNETCORE_ENVIRONMENT: 'Development',
-        SPARKLEWASH_GOOGLE_CLIENT_ID: 'dev',
-        SPARKLEWASH_STAFF_ROLES: '1001=operator',
-        SPARKLEWASH_CORS_ORIGINS: 'http://127.0.0.1:5173',
-        SPARKLEWASH_TENANTS_DIR: path.join(dataDir, 'tenants'),
-        SPARKLEWASH_ARRIVALS_FILE: path.join(dataDir, 'arrivals.json'),
-        SPARKLEWASH_JOBS_FILE: path.join(dataDir, 'jobs.json'),
-        SPARKLEWASH_OPERATIONS_FILE: path.join(dataDir, 'operations.json'),
-        SPARKLEWASH_DEVICES_FILE: path.join(dataDir, 'devices.json'),
-        SPARKLEWASH_DATA_FILE: path.join(dataDir, 'stations.json'),
-        SPARKLEWASH_PHOTO_DIR: path.join(dataDir, 'photos'),
-        SPARKLEWASH_N1CO_WEBHOOK_FILE: path.join(dataDir, 'n1co.json'),
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let log = '';
-    api.stdout?.on('data', (chunk) => { log += chunk; });
-    api.stderr?.on('data', (chunk) => { log += chunk; });
-    try {
-      await waitForApi(apiUrl, 200_000);
-    } catch (error) {
-      throw new Error(`${(error as Error).message}\n${log.slice(-4000)}`);
-    }
+    api = await startDevHost();
+    apiUrl = api.url;
   });
 
-  test.afterAll(async () => {
-    api?.kill('SIGTERM');
-    api = null;
-    if (dataDir) rmSync(dataDir, { recursive: true, force: true });
-  });
+  test.afterAll(() => api?.stop());
 
   test('work ticket → API → status from another device → POS payment → offline outbox', async ({ page, request }) => {
     await seedPopulatedAppState(page);
 
     // ── Connect and sign in (dev token; production uses the desktop Google sign-in) ──
-    await navigate(page, '#/settings/carwash');
-    await expect(page.getByTestId('carwash-settings')).toBeVisible();
-    await page.getByTestId('carwash-api-url').fill(apiUrl);
-    await page.getByTestId('carwash-save').click();
-    await page.getByTestId('carwash-dev-token-input').fill(DEV_TOKEN);
-    await page.getByTestId('carwash-dev-token-submit').click();
-    await expect(page.getByTestId('carwash-session')).toBeVisible({ timeout: 15_000 });
+    await connectDesktop(page, apiUrl);
 
     // ── 1. Walk-in = one printed work ticket, sent to the API ──
     await navigate(page, '#/carwash');
     await expect(page.getByTestId('carwash-board')).toBeVisible();
+    // Live updates over /api/events, not the polling fallback.
+    await expect(page.getByTestId('carwash-sync-status')).toContainText('En vivo', { timeout: 10_000 });
     await createWalkIn(page, 'P123456', 'suv', 'essential');
 
     const arrived = page.getByTestId('carwash-col-arrived').getByTestId('carwash-job-card').filter({ hasText: 'P123456' });
@@ -157,7 +69,7 @@ test.describe.serial('SparkleWash desktop ↔ API', () => {
     const jobId: string = job!.id;
 
     // ── 2. iOS/web moves the job; the desktop board follows (live events) ──
-    const headers = await apiSession(request);
+    const headers = await apiHeaders(request, apiUrl);
     for (const status of ['queued', 'in_progress']) {
       const res = await request.post(`${apiUrl}/api/jobs/${jobId}/transition`, {
         headers: { ...headers, 'Idempotency-Key': `e2e-ios-${status}-${jobId}` },
@@ -166,7 +78,8 @@ test.describe.serial('SparkleWash desktop ↔ API', () => {
       expect(res.ok()).toBeTruthy();
     }
     const inProgress = page.getByTestId('carwash-col-in_progress').getByTestId('carwash-job-card').filter({ hasText: 'P123456' });
-    await expect(inProgress).toBeVisible({ timeout: 20_000 });
+    // Pushed by the event stream: well inside the 15 s polling interval.
+    await expect(inProgress).toBeVisible({ timeout: 5_000 });
 
     // ── 3. Desktop finishes it, POS charges it ──
     await inProgress.getByTestId('carwash-advance').click();
