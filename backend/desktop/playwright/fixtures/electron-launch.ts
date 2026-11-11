@@ -15,7 +15,7 @@ import {
   TEST_USER,
   SAMPLE_CUSTOMERS,
 } from './seed-state';
-import { MH_TEST_CREDENTIALS, MH_TEST_STORED_CREDENTIALS } from './mh-test-credentials';
+import { MH_TEST_CREDENTIALS, MH_TEST_STORED_CREDENTIALS, hasMhTestCredentials, readMhTestCertificateXml } from './mh-test-credentials';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -68,6 +68,13 @@ function shouldMock(opts: SeedOptions): boolean {
   if (opts.mock === true) return true;
   if (opts.real === false) return true;
   if (process.env.MH_MOCK === '1') return true;
+  if (!hasMhTestCredentials) {
+    throw new Error(
+      'Real-MH Electron run without MH test credentials: set MH_TEST_PASSWORD, MH_TEST_CERT_KEY_SHA512, ' +
+      'MH_TEST_API_KEY and MH_TEST_CERT_PATH (or playwright/fixtures/mh-test-credentials.local.json), ' +
+      'or run with MH_MOCK=1.',
+    );
+  }
   return false;
 }
 
@@ -78,7 +85,7 @@ function shouldMock(opts: SeedOptions): boolean {
  * reload dance, no race.
  */
 function buildSeedFiles(opts: SeedOptions) {
-  const certXml = readFileSync(CERT_FILE, 'utf-8');
+  const certXml = readMhTestCertificateXml();
   const nitKeys = [TEST_COMPANY.nit, MH_TEST_CREDENTIALS.nit];
 
   const encodePersist = (obj: Record<string, unknown>) => {
@@ -262,7 +269,7 @@ export async function seedElectron(
   opts: SeedElectronOptions = {},
 ): Promise<void> {
   // Real cert XML — only loaded when we're going to use it.
-  const certXml = readFileSync(CERT_FILE, 'utf-8');
+  const certXml = readMhTestCertificateXml();
 
   const payload = {
     TEST_USER,

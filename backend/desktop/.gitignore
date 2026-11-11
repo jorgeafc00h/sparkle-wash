@@ -18,3 +18,6 @@ design/brand/candidates/
 docs-screenshots/
 review-screenshots/
 playwright-report/
+# MH test credentials and certificates stay local (public repo): see playwright/fixtures/mh-test-credentials.ts
+playwright/fixtures/certificates/*.crt
+playwright/fixtures/mh-test-credentials.local.json
