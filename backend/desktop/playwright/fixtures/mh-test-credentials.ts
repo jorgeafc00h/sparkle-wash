@@ -36,6 +36,15 @@ const local: LocalCredentials = existsSync(LOCAL_FILE)
   : {};
 
 const nit = process.env.MH_TEST_NIT ?? local.nit ?? '06141404941342';
+
+/**
+ * Stand-ins for mock-MH runs (web specs, MH_MOCK=1 Electron specs) when no real credentials are supplied.
+ * They are fake: they only satisfy "credentials are configured" checks and never reach Hacienda.
+ */
+export const MOCK_MH_PASSWORD = 'sparklewash-mock-mh-password';
+/** SHA-512 of the fake certificate password 'sparklewash-mock-cert-password'. */
+export const MOCK_CERT_KEY_SHA512 = '1fd672676b3c8cf803db4f04d0f8f3cd75a0a130164a3382976f40c01e6dc49b66c86b4ea7c752f408866de59ce0433033a023930da7f8aa2eb9f70716f9c2a3';
+export const MOCK_API_KEY = 'sparklewash-mock-api-key';
 const certificatePathSetting = process.env.MH_TEST_CERT_PATH ?? local.certificatePath ?? resolve(__dirname, 'certificates', `${nit}.crt`);
 
 /** Stand-in used when the real certificate is not available (hermetic / mock-MH runs only). */
@@ -47,11 +56,11 @@ export const MH_TEST_CREDENTIALS = {
   /** Formatted NIT as the UI stores it. */
   nitFormatted: '0614-140494-134-2',
   /** MH API password — value used in the `MH_KEY` header. */
-  mhPassword: process.env.MH_TEST_PASSWORD ?? local.mhPassword ?? '',
+  mhPassword: process.env.MH_TEST_PASSWORD ?? local.mhPassword ?? MOCK_MH_PASSWORD,
   /** SHA-512 hash of the certificate password (`key` header for the Azure proxy). */
-  certificateKeySha512: process.env.MH_TEST_CERT_KEY_SHA512 ?? local.certificateKeySha512 ?? '',
+  certificateKeySha512: process.env.MH_TEST_CERT_KEY_SHA512 ?? local.certificateKeySha512 ?? MOCK_CERT_KEY_SHA512,
   /** API key for the Azure proxy (same constant as `config/api.ts::API_CONFIG.apiKey`). */
-  apiKey: process.env.MH_TEST_API_KEY ?? local.apiKey ?? '',
+  apiKey: process.env.MH_TEST_API_KEY ?? local.apiKey ?? MOCK_API_KEY,
   /** MH ambiente code for the test environment. '00' = test, '01' = production. */
   environmentCode: '00',
   /** Direct government API (when signing locally and submitting ourselves). */
@@ -64,7 +73,8 @@ export const MH_TEST_CREDENTIALS = {
 
 /** True when the real MH test credentials and certificate are available locally. */
 export const hasMhTestCredentials =
-  Boolean(MH_TEST_CREDENTIALS.mhPassword && MH_TEST_CREDENTIALS.certificateKeySha512) &&
+  MH_TEST_CREDENTIALS.mhPassword !== MOCK_MH_PASSWORD &&
+  MH_TEST_CREDENTIALS.certificateKeySha512 !== MOCK_CERT_KEY_SHA512 &&
   existsSync(MH_TEST_CREDENTIALS.certificatePath);
 
 /** The certificate XML, or a placeholder when it isn't available (enough for mock-MH runs). */
