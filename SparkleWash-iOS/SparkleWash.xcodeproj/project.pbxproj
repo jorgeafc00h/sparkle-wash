@@ -13,6 +13,7 @@
 		29B5E0D9661692D7B39CB2FC /* TestSwiftDataModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B430141B74F5C830C222FF8 /* TestSwiftDataModels.swift */; };
 		3A7B9873153325F069F89279 /* ArchiveHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132BEAC81954EE31E5FEE07D /* ArchiveHistoryTests.swift */; };
 		47AF30084FE53BEF558ED2FC /* stations.json in Resources */ = {isa = PBXBuildFile; fileRef = 7D8001D3B69775421EA98D59 /* stations.json */; };
+		534A23799DE75F18912BE01B /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5190051A4A29E080FC6C10B7 /* DesignSystem.swift */; };
 		59125D6A12A8FE6FAB728028 /* OperationsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 665F2C01F752E6D7DB0D6BA4 /* OperationsModels.swift */; };
 		727F60F486B5FF7453F1F7A8 /* SparkleWashApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55503F9F94FE3F14CA0DEAB9 /* SparkleWashApp.swift */; };
 		948CA8902113E797C0F1954C /* OperationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF9F39A25DC9F3929491CC58 /* OperationsView.swift */; };
@@ -20,6 +21,7 @@
 		C6B97CDE706A87E45239ACB5 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F2707101DEF606417FABC7 /* Models.swift */; };
 		C73B442EDD6B6DE4363BCE0A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = B9E664EAC9655AC8822B26FA /* GoogleSignIn */; };
 		E499A0B46DD929A21E1DC882 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = B1058D3AD147F1627C3111AC /* GoogleSignInSwift */; };
+		E721B0E4EDC3263D92132DC5 /* DemoSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91D1A3379D2DF05DA48DC730 /* DemoSupport.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,10 +40,12 @@
 		132BEAC81954EE31E5FEE07D /* ArchiveHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveHistoryTests.swift; sourceTree = "<group>"; };
 		1662A275C9A815BD269D9B7C /* alerts.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = alerts.json; sourceTree = "<group>"; };
 		4AD291FA9920009ABBE3162C /* SparkleWashTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SparkleWashTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5190051A4A29E080FC6C10B7 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		55503F9F94FE3F14CA0DEAB9 /* SparkleWashApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleWashApp.swift; sourceTree = "<group>"; };
 		665F2C01F752E6D7DB0D6BA4 /* OperationsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationsModels.swift; sourceTree = "<group>"; };
 		7D8001D3B69775421EA98D59 /* stations.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = stations.json; sourceTree = "<group>"; };
 		8091ABDD87D5306FD0DAE8EB /* PosJobTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosJobTests.swift; sourceTree = "<group>"; };
+		91D1A3379D2DF05DA48DC730 /* DemoSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoSupport.swift; sourceTree = "<group>"; };
 		9B430141B74F5C830C222FF8 /* TestSwiftDataModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSwiftDataModels.swift; sourceTree = "<group>"; };
 		BF9F39A25DC9F3929491CC58 /* OperationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationsView.swift; sourceTree = "<group>"; };
 		D7F2707101DEF606417FABC7 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -64,6 +68,8 @@
 		19D479CDECF65BC65FBC5631 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				91D1A3379D2DF05DA48DC730 /* DemoSupport.swift */,
+				5190051A4A29E080FC6C10B7 /* DesignSystem.swift */,
 				BF9F39A25DC9F3929491CC58 /* OperationsView.swift */,
 				F383D584968933BC3724889C /* Views.swift */,
 			);
@@ -221,6 +227,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E721B0E4EDC3263D92132DC5 /* DemoSupport.swift in Sources */,
+				534A23799DE75F18912BE01B /* DesignSystem.swift in Sources */,
 				C6B97CDE706A87E45239ACB5 /* Models.swift in Sources */,
 				59125D6A12A8FE6FAB728028 /* OperationsModels.swift in Sources */,
 				948CA8902113E797C0F1954C /* OperationsView.swift in Sources */,
