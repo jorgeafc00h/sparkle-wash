@@ -38,6 +38,6 @@
   },
   "publish": {
     "provider": "generic",
-    "url": "https://sticongen.blob.core.windows.net/sparklewash-installer"
+    "url": "https://github.com/jorgeafc00h/sparkle-wash/releases/latest/download"
   }
 }
