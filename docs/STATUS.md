@@ -93,6 +93,34 @@ Still open:
   * An equipment-health row on the floor screen.
   * Explainer video lines about the app.
 
+## Round 5: SparkleWash Desktop (2026-11-11)
+
+Added `backend/desktop/`, a SparkleWash custom build of the Facturas Simples desktop app (Electron 35 + React 19, copied
+from `App.Desktop` 1.4.6). It keeps every upstream feature (DTE invoicing, customers, products, compras, POS,
+cash drawer, closings, local users, device sync) and adds the carwash workflow. Contract:
+`backend/desktop/docs/SPARKLEWASH_INTEGRATION.md`.
+
+* **One work ticket per car.** The Lavado board's *Nuevo servicio* creates a walk-in, assigns `OT-{caja}-{n}`
+  and prints it on the thermal printer (copies for customer/vehicle/register). Offline walk-ins print at once,
+  wait in a durable outbox with idempotency keys, and sync later.
+* **API.** `POST /api/jobs/walk-in`, `/api/jobs/{id}/ticket` (write-once), `/api/jobs/{id}/payments`; jobs gained
+  `source`, `ticketNumber`, `customerName`, `note`, `payments`, `paidUsd`, `paymentStatus`, `paidAt`
+  (migration `backend/db/migrations/004_desktop_pos_job_fields.sql`). `backend/src/carwash-api.DevHost` runs the real app with
+  dev tokens for end-to-end tests; it is not in the Docker image.
+* **Punto de venta.** *Lavados por cobrar* adds a job to the sale; the completed sale records the payment on the job.
+* **Sync.** The desktop follows `/api/events` (polling fallback) through a main-process proxy; iOS shows the
+  ticket number, a *Caja* badge, the payment chip and a *Por cobrar* count.
+* **Isolation.** Own app id, `userData`, keychain names; auto-update only with `SPARKLEWASH_UPDATE_URL`.
+
+Tests: API 68 passed / 1 skipped (Postgres); desktop Jest 1114/1114, web Playwright 466 passed / 16 env-gated
+skips (+ 11 relay specs green with `SYNC_API_PROJECT_DIR`), and `playwright/tests/carwash/01-desktop-api-sync`
+(real API: walk-in → status from another device → POS payment → offline outbox). iOS: `SparkleWash-iOS` unit
+tests 11/11 on the iPhone 17 Pro simulator (incl. `PosJobTests`), SparkleKit 38/38 against a live API.
+
+Open: the desktop needs its own Google client id (added to `SPARKLEWASH_GOOGLE_CLIENT_ID`), an update feed and
+code signing; voiding a POS sale does not reverse the job payment; ticket-level POS discounts are not applied to
+the recorded payment; the Postgres path of the new fields has not run against a real database.
+
 ## iOS hand-off
 
 The detailed plan for continuing the iOS app is in [`docs/IOS_PLAN.md`](IOS_PLAN.md). It covers running and fixing every test (package, unit and UI, on iPhone and iPad), what each UI test checks, a manual verification checklist and the prioritized backlog.

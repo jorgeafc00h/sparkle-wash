@@ -1,0 +1,10 @@
+node_modules
+dist
+release
+electron-dist
+coverage
+playwright/screenshots
+playwright/docs-output
+playwright/report
+.git
+*.log

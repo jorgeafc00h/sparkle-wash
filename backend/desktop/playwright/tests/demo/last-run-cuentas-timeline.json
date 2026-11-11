@@ -1,0 +1,186 @@
+{
+  "videoW": 1920,
+  "videoH": 1080,
+  "events": [
+    {
+      "t": 1.21,
+      "label": "beat1-nav",
+      "caption": "Controla lo que te deben y lo que debes",
+      "x": 4,
+      "y": 475,
+      "w": 231,
+      "h": 40
+    },
+    {
+      "t": 2.51,
+      "label": "beat1-dashboard",
+      "caption": "Controla lo que te deben y lo que debes",
+      "x": 264,
+      "y": 24,
+      "w": 326,
+      "h": 32
+    },
+    {
+      "t": 11.01,
+      "label": "beat2-cards",
+      "caption": "Resumen: por cobrar, vencidas y vencimientos",
+      "x": 264,
+      "y": 104,
+      "w": 1632,
+      "h": 94
+    },
+    {
+      "t": 13.23,
+      "label": "beat2-receivable",
+      "caption": "Resumen: por cobrar, vencidas y vencimientos",
+      "x": 264,
+      "y": 104,
+      "w": 396,
+      "h": 94
+    },
+    {
+      "t": 14.84,
+      "label": "beat2-receivable-overdue",
+      "caption": "Resumen: por cobrar, vencidas y vencimientos",
+      "x": 676,
+      "y": 104,
+      "w": 396,
+      "h": 94
+    },
+    {
+      "t": 16.45,
+      "label": "beat2-payable",
+      "caption": "Resumen: por cobrar, vencidas y vencimientos",
+      "x": 1088,
+      "y": 104,
+      "w": 396,
+      "h": 94
+    },
+    {
+      "t": 18.05,
+      "label": "beat2-payable-overdue",
+      "caption": "Resumen: por cobrar, vencidas y vencimientos",
+      "x": 1500,
+      "y": 104,
+      "w": 396,
+      "h": 94
+    },
+    {
+      "t": 19.87,
+      "label": "beat3-table",
+      "caption": "Antigüedad de cada saldo, de un vistazo",
+      "x": 281,
+      "y": 387,
+      "w": 1598,
+      "h": 95
+    },
+    {
+      "t": 22.08,
+      "label": "beat3-aging-column",
+      "caption": "Antigüedad de cada saldo, de un vistazo",
+      "x": 1586,
+      "y": 388,
+      "w": 154,
+      "h": 45
+    },
+    {
+      "t": 29.08,
+      "label": "beat4-segment-porPagar",
+      "caption": "Cambia a cuentas por pagar a proveedores",
+      "x": 1784,
+      "y": 245,
+      "w": 86,
+      "h": 32
+    },
+    {
+      "t": 30.31,
+      "label": "beat4-payable-row",
+      "caption": "Cambia a cuentas por pagar a proveedores",
+      "x": 282,
+      "y": 433,
+      "w": 285,
+      "h": 49
+    },
+    {
+      "t": 38.32,
+      "label": "beat5-segment-porCobrar",
+      "caption": "Registra un cobro o un pago en segundos",
+      "x": 1694,
+      "y": 245,
+      "w": 91,
+      "h": 32
+    },
+    {
+      "t": 39.34,
+      "label": "beat5-open-row",
+      "caption": "Registra un cobro o un pago en segundos",
+      "x": 466,
+      "y": 433,
+      "w": 292,
+      "h": 49
+    },
+    {
+      "t": 40.58,
+      "label": "beat5-modal",
+      "caption": "Registra un cobro o un pago en segundos",
+      "x": 728,
+      "y": 304,
+      "w": 464,
+      "h": 464
+    },
+    {
+      "t": 41.99,
+      "label": "beat5-amount",
+      "caption": "Registra un cobro o un pago en segundos",
+      "x": 966,
+      "y": 436,
+      "w": 226,
+      "h": 38
+    },
+    {
+      "t": 43.53,
+      "label": "beat5-method",
+      "caption": "Registra un cobro o un pago en segundos",
+      "x": 728,
+      "y": 534,
+      "w": 464,
+      "h": 38
+    },
+    {
+      "t": 44.45,
+      "label": "beat5-reference",
+      "caption": "Registra un cobro o un pago en segundos",
+      "x": 728,
+      "y": 612,
+      "w": 464,
+      "h": 38
+    },
+    {
+      "t": 46.81,
+      "label": "beat5-submit",
+      "caption": "Registra un cobro o un pago en segundos",
+      "x": 1082,
+      "y": 801,
+      "w": 110,
+      "h": 38
+    },
+    {
+      "t": 47.76,
+      "label": "beat6-toast",
+      "caption": "El saldo se actualiza al instante, sin tocar el DTE",
+      "x": 1634,
+      "y": 28,
+      "w": 226,
+      "h": 20
+    },
+    {
+      "t": 49.76,
+      "label": "beat6-updated-balance",
+      "caption": "El saldo se actualiza al instante, sin tocar el DTE",
+      "x": 1477,
+      "y": 448,
+      "w": 55,
+      "h": 18
+    }
+  ]
+}

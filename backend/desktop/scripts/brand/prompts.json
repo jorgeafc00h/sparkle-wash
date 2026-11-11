@@ -1,0 +1,44 @@
+{
+  "accent": "deep teal green and bright sky blue",
+  "style": "Isometric miniature diorama, soft 3D clay render, rounded shapes, warm soft lighting, {accent} accents with clean white and light grey, glossy water reflections, centered on a plain solid black background, whole scene visible with margin around it. No text, no letters, no numbers, no logos, no watermark.",
+  "assets": {
+    "ob-01-welcome": {
+      "prompt": "A tiny car wash bay: a small shiny sedan under a wash gantry with sky-blue water spray, white foam bubbles and little sparkles, a smiling attendant holding a tablet beside it, teal floor tiles and a teal wash arch.",
+      "seed": 71001,
+      "batch": 4,
+      "removeBackground": true
+    },
+    "ob-03-invoices": {
+      "prompt": "Two tiny car wash buildings side by side on small floating platforms, each with a teal roof and a sky-blue wash arch, connected by glowing teal light paths to a central small desk with a laptop showing neat document cards.",
+      "seed": 72002,
+      "batch": 4,
+      "removeBackground": true
+    },
+    "ob-02-setup": {
+      "prompt": "A small car wash front office counter with a desktop computer, a large white envelope floating above it and several white document cards flying from the envelope into the screen along a glowing teal arc, a clean car parked outside the counter window.",
+      "seed": 73003,
+      "batch": 4,
+      "removeBackground": true
+    },
+    "ob-15-export": {
+      "prompt": "A tiny manager desk inside a car wash office with a monitor showing teal and sky-blue bar charts and a pie chart, a clipboard with a spreadsheet grid, a stack of tidy folders and a small potted plant, a wash bay with a car visible through a glass wall behind.",
+      "seed": 74004,
+      "batch": 4,
+      "removeBackground": true
+    },
+    "ob-06-security": {
+      "prompt": "A sparkling clean small car on a round teal display turntable, wrapped with a big sky-blue gift ribbon bow on its roof, water droplets and little star sparkles around it, a translucent protective shield glowing softly behind.",
+      "seed": 75005,
+      "batch": 4,
+      "removeBackground": true
+    }
+  },
+  "_note": "Describe colors in words only: hex codes in the prompt get painted onto signs as text. Brand: teal #0F766E (landing/iOS), sky #38BDF8, ink #13213A.",
+  "picked": {
+    "ob-01-welcome": "s71001_2",
+    "ob-03-invoices": "s72002_0",
+    "ob-02-setup": "s73003_3",
+    "ob-15-export": "s74004_1",
+    "ob-06-security": "s75005_1"
+  }
+}

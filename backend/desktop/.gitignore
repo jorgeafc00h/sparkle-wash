@@ -1,0 +1,20 @@
+node_modules/
+dist/
+electron-dist/
+.env
+.env.local
+.claude/worktrees/
+test-results/
+playwright/fixtures/certificates/*.pfx
+playwright/fixtures/certificates/*.key
+.env.*
+!.env.example
+*.tsbuildinfo
+
+# Brand asset candidates (scripts/brand/generate.py)
+design/brand/candidates/
+
+# Local artefacts (not shipped)
+docs-screenshots/
+review-screenshots/
+playwright-report/

@@ -149,6 +149,23 @@ public struct JobAssignment: Codable, Hashable, Sendable {
     }
 }
 
+public struct JobPayment: Codable, Hashable, Identifiable, Sendable {
+    public var id: String
+    public var method: String
+    public var amountUsd: Decimal
+    public var ticketNumber: String?
+    public var reference: String?
+    public var recordedAt: Date?
+    public var actor: String?
+    public var idempotencyKey: String?
+
+    public init(id: String, method: String, amountUsd: Decimal, ticketNumber: String? = nil, reference: String? = nil,
+                recordedAt: Date? = nil, actor: String? = nil, idempotencyKey: String? = nil) {
+        self.id = id; self.method = method; self.amountUsd = amountUsd; self.ticketNumber = ticketNumber
+        self.reference = reference; self.recordedAt = recordedAt; self.actor = actor; self.idempotencyKey = idempotencyKey
+    }
+}
+
 public struct Job: Codable, Hashable, Identifiable, Sendable {
     public var id: String
     public var arrivalId: String
@@ -168,11 +185,24 @@ public struct Job: Codable, Hashable, Identifiable, Sendable {
     public var activeSeconds: Int?
     public var transitions: [JobTransition]
     public var assignments: [JobAssignment]
+    // Added by the desktop point of sale; absent on older API deployments.
+    public var source: String?
+    public var ticketNumber: String?
+    public var customerName: String?
+    public var note: String?
+    public var payments: [JobPayment]?
+    public var paidUsd: Decimal?
+    public var paymentStatus: String?
+    public var paidAt: Date?
 
     public init(id: String, arrivalId: String, plate: String, vehicleClass: String, packageId: String, packageName: String,
          services: [String], priceUsd: Decimal, currency: String, status: JobStatus, arrivalAt: Date, startedAt: Date?,
          completedAt: Date?, cancelledAt: Date?, elapsedSeconds: Int, activeSeconds: Int?, transitions: [JobTransition],
-         assignments: [JobAssignment]) {
+         assignments: [JobAssignment], source: String? = nil, ticketNumber: String? = nil, customerName: String? = nil,
+         note: String? = nil, payments: [JobPayment]? = nil, paidUsd: Decimal? = nil, paymentStatus: String? = nil,
+         paidAt: Date? = nil) {
+        self.source = source; self.ticketNumber = ticketNumber; self.customerName = customerName; self.note = note
+        self.payments = payments; self.paidUsd = paidUsd; self.paymentStatus = paymentStatus; self.paidAt = paidAt
         self.id = id; self.arrivalId = arrivalId; self.plate = plate; self.vehicleClass = vehicleClass
         self.packageId = packageId; self.packageName = packageName; self.services = services; self.priceUsd = priceUsd
         self.currency = currency; self.status = status; self.arrivalAt = arrivalAt; self.startedAt = startedAt

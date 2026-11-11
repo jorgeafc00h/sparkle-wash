@@ -79,4 +79,35 @@ final class DecodingTests: XCTestCase {
         XCTAssertEqual(try Fixture.decode(Tenant.self, "tenant").city, "San Salvador")
         XCTAssertEqual(try Fixture.decode(Bays.self, "bays").stations.count, 0)
     }
+
+    private static let baseJob = """
+    "id":"j1","arrivalId":"a1","plate":"P123456","vehicleClass":"car","packageId":"quick","packageName":"Rapido",
+    "services":["Exterior"],"priceUsd":10,"currency":"USD","status":"in_progress","arrivalAt":"2026-10-21T20:55:28Z",
+    "elapsedSeconds":60,"transitions":[],"assignments":[]
+    """
+
+    func testLegacyJobWithoutPosFieldsStillDecodes() throws {
+        let job = try SparkleJSON.decoder().decode(Job.self, from: Data("{\(Self.baseJob)}".utf8))
+        XCTAssertNil(job.source); XCTAssertNil(job.ticketNumber); XCTAssertNil(job.payments)
+        XCTAssertNil(job.paymentStatus); XCTAssertNil(job.paidUsd)
+    }
+
+    func testDesktopJobDecodesTicketAndPayments() throws {
+        let json = """
+        {\(Self.baseJob),"source":"desktop-pos","ticketNumber":"OT-C1-000045","customerName":"Ana","note":"Sin cera",
+         "paidUsd":10,"paymentStatus":"paid","paidAt":"2026-10-21T21:10:00.1234567+00:00",
+         "payments":[{"id":"p1","method":"cash","amountUsd":4,"ticketNumber":"V-1","reference":null,
+         "recordedAt":"2026-10-21T21:00:00Z","actor":"ana@x.com","idempotencyKey":"k1-12345678"},
+         {"id":"p2","method":"card","amountUsd":6,"ticketNumber":"V-2","reference":"1234",
+         "recordedAt":"2026-10-21T21:10:00Z","actor":"ana@x.com","idempotencyKey":"k2-12345678"}]}
+        """
+        let job = try SparkleJSON.decoder().decode(Job.self, from: Data(json.utf8))
+        XCTAssertEqual(job.source, "desktop-pos")
+        XCTAssertEqual(job.ticketNumber, "OT-C1-000045")
+        XCTAssertEqual(job.payments?.map(\.method), ["cash", "card"])
+        XCTAssertEqual(job.payments?.reduce(0) { $0 + $1.amountUsd }, 10)
+        XCTAssertEqual(job.paymentStatus, "paid")
+        XCTAssertNotNil(job.paidAt)
+        XCTAssertNotNil(job.payments?.first?.recordedAt)
+    }
 }

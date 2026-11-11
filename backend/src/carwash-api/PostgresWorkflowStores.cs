@@ -20,7 +20,9 @@ internal sealed class PostgresWorkflowDatabase(NpgsqlDataSource source, string t
         INSERT INTO sparklewash.jobs SELECT * FROM jsonb_populate_record(NULL::sparklewash.jobs, $1)
         ON CONFLICT (tenant_id, id) DO UPDATE SET status=excluded.status,
             started_at=excluded.started_at, completed_at=excluded.completed_at, cancelled_at=excluded.cancelled_at,
-            transitions=excluded.transitions, assignments=excluded.assignments
+            transitions=excluded.transitions, assignments=excluded.assignments,
+            ticket_number=excluded.ticket_number, customer_name=excluded.customer_name, note=excluded.note,
+            payments=excluded.payments, paid_at=excluded.paid_at
         """;
 
     internal async Task<T> RunAsync<T>(bool write, Func<NpgsqlConnection, Task<T>> operation)
@@ -59,7 +61,9 @@ internal sealed class PostgresWorkflowDatabase(NpgsqlDataSource source, string t
             rows.Add(row.Deserialize<JobRecord>(RowJson)! with
             {
                 Transitions = row.GetProperty("transitions").Deserialize<List<JobTransition>>(WebJson)!,
-                Assignments = row.GetProperty("assignments").Deserialize<List<JobAssignment>>(WebJson)!
+                Assignments = row.GetProperty("assignments").Deserialize<List<JobAssignment>>(WebJson)!,
+                Payments = row.TryGetProperty("payments", out var payments) && payments.ValueKind == JsonValueKind.Array
+                    ? payments.Deserialize<List<JobPayment>>(WebJson)! : []
             });
         }
         return rows;
@@ -131,7 +135,8 @@ internal sealed class PostgresJobStore(PostgresWorkflowDatabase database, bool r
     public override Task<JobSummary> SummaryAsync(TimeZoneInfo? zone = null) => database.RunAsync(false, async connection =>
         await new JobStore(await database.Jobs(connection)).SummaryAsync(zone));
 
-    public override Task<JobActionResult> CreateAsync(ArrivalObservation arrival, ServicePackage package, string key, string actor) =>
+    public override Task<JobActionResult> CreateAsync(ArrivalObservation arrival, ServicePackage package, string key, string actor,
+        JobOpenDetails? details = null) =>
         database.RunAsync(true, async connection =>
         {
             var current = (await database.Arrivals(connection, "AND id=$2", arrival.Id)).SingleOrDefault();
@@ -143,7 +148,7 @@ internal sealed class PostgresJobStore(PostgresWorkflowDatabase database, bool r
                     OR transitions @> jsonb_build_array(jsonb_build_object('status','arrived','idempotencyKey',$4::text)))
                 """, current.Id, current.ConfirmedPlate!, key);
             var result = await new JobStore(candidates, row => database.SaveJob(connection, row))
-                .CreateAsync(current, package, key, actor);
+                .CreateAsync(current, package, key, actor, details);
             if (result.Status is JobActionStatus.Created or JobActionStatus.Duplicate && result.Job is not null && current.JobId is null)
                 await database.SaveArrival(connection, current with { JobId = result.Job.Id });
             return result;
@@ -162,6 +167,13 @@ internal sealed class PostgresJobStore(PostgresWorkflowDatabase database, bool r
 
     public override Task<JobActionResult> AssignAsync(string id, Employee employee, string key) =>
         Update(id, store => store.AssignAsync(id, employee, key));
+
+    public override Task<JobActionResult> SetTicketAsync(string id, string ticketNumber) =>
+        Update(id, store => store.SetTicketAsync(id, ticketNumber));
+
+    public override Task<JobActionResult> AddPaymentAsync(string id, string method, decimal amountUsd, string? ticketNumber,
+        string? reference, string key, string actor) =>
+        Update(id, store => store.AddPaymentAsync(id, method, amountUsd, ticketNumber, reference, key, actor));
 
     private Task<JobActionResult> Update(string id, Func<JobStore, Task<JobActionResult>> operation) =>
         database.RunAsync(true, async connection =>

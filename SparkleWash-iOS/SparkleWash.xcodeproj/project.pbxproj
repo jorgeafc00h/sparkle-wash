@@ -16,6 +16,7 @@
 		59125D6A12A8FE6FAB728028 /* OperationsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 665F2C01F752E6D7DB0D6BA4 /* OperationsModels.swift */; };
 		727F60F486B5FF7453F1F7A8 /* SparkleWashApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55503F9F94FE3F14CA0DEAB9 /* SparkleWashApp.swift */; };
 		948CA8902113E797C0F1954C /* OperationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF9F39A25DC9F3929491CC58 /* OperationsView.swift */; };
+		A22576F52857EA7FA1E8A4D2 /* PosJobTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8091ABDD87D5306FD0DAE8EB /* PosJobTests.swift */; };
 		C6B97CDE706A87E45239ACB5 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F2707101DEF606417FABC7 /* Models.swift */; };
 		C73B442EDD6B6DE4363BCE0A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = B9E664EAC9655AC8822B26FA /* GoogleSignIn */; };
 		E499A0B46DD929A21E1DC882 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = B1058D3AD147F1627C3111AC /* GoogleSignInSwift */; };
@@ -40,6 +41,7 @@
 		55503F9F94FE3F14CA0DEAB9 /* SparkleWashApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleWashApp.swift; sourceTree = "<group>"; };
 		665F2C01F752E6D7DB0D6BA4 /* OperationsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationsModels.swift; sourceTree = "<group>"; };
 		7D8001D3B69775421EA98D59 /* stations.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = stations.json; sourceTree = "<group>"; };
+		8091ABDD87D5306FD0DAE8EB /* PosJobTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosJobTests.swift; sourceTree = "<group>"; };
 		9B430141B74F5C830C222FF8 /* TestSwiftDataModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSwiftDataModels.swift; sourceTree = "<group>"; };
 		BF9F39A25DC9F3929491CC58 /* OperationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationsView.swift; sourceTree = "<group>"; };
 		D7F2707101DEF606417FABC7 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -109,6 +111,7 @@
 			isa = PBXGroup;
 			children = (
 				132BEAC81954EE31E5FEE07D /* ArchiveHistoryTests.swift */,
+				8091ABDD87D5306FD0DAE8EB /* PosJobTests.swift */,
 				9B430141B74F5C830C222FF8 /* TestSwiftDataModels.swift */,
 			);
 			path = Tests;
@@ -231,6 +234,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3A7B9873153325F069F89279 /* ArchiveHistoryTests.swift in Sources */,
+				A22576F52857EA7FA1E8A4D2 /* PosJobTests.swift in Sources */,
 				29B5E0D9661692D7B39CB2FC /* TestSwiftDataModels.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
