@@ -4,20 +4,32 @@ namespace CarwashApi;
 
 public sealed record JobTransition(string Status, DateTimeOffset At, string Actor, string IdempotencyKey);
 public sealed record JobAssignment(string EmployeeId, string EmployeeName, DateTimeOffset AssignedAt, string IdempotencyKey);
+public sealed record JobPayment(string Id, string Method, decimal AmountUsd, string? TicketNumber, string? Reference,
+    DateTimeOffset RecordedAt, string Actor, string IdempotencyKey);
 public sealed record JobRecord(string Id, string ArrivalId, string Plate, string VehicleClass, string PackageId,
     string PackageName, string[] Services, decimal PriceUsd, string Currency, string Status,
     DateTimeOffset ArrivalAt, DateTimeOffset? StartedAt, DateTimeOffset? CompletedAt, DateTimeOffset? CancelledAt,
-    List<JobTransition> Transitions, List<JobAssignment> Assignments);
+    List<JobTransition> Transitions, List<JobAssignment> Assignments,
+    string? Source = null, string? TicketNumber = null, string? CustomerName = null, string? Note = null,
+    List<JobPayment>? Payments = null, DateTimeOffset? PaidAt = null);
 public sealed record JobView(string Id, string ArrivalId, string Plate, string VehicleClass, string PackageId,
     string PackageName, string[] Services, decimal PriceUsd, string Currency, string Status,
     DateTimeOffset ArrivalAt, DateTimeOffset? StartedAt, DateTimeOffset? CompletedAt, DateTimeOffset? CancelledAt,
-    long ElapsedSeconds, long? ActiveSeconds, List<JobTransition> Transitions, List<JobAssignment> Assignments);
+    long ElapsedSeconds, long? ActiveSeconds, List<JobTransition> Transitions, List<JobAssignment> Assignments,
+    string? Source = null, string? TicketNumber = null, string? CustomerName = null, string? Note = null,
+    List<JobPayment>? Payments = null, decimal PaidUsd = 0, string PaymentStatus = "unpaid", DateTimeOffset? PaidAt = null);
 public sealed record JobSummary(int Total, int Arrived, int Queued, int InProgress, int Completed, int Cancelled,
     int ArrivalsTodayUtc, int CompletedTodayUtc, long? AverageCompletedSeconds,
     int ArrivalsToday = 0, int CompletedToday = 0);
 public sealed record JobTransitionInput(string? Status);
 public sealed record OpenJobInput(string? ArrivalId, string? PackageId);
 public sealed record AssignEmployeeInput(string? EmployeeId);
+public sealed record WalkInInput(string? Plate, string? VehicleClass, string? PackageId, string? EmployeeId,
+    string? TicketNumber, string? CustomerName, string? Note, string? Source);
+public sealed record TicketInput(string? TicketNumber);
+public sealed record PaymentInput(string? Method, decimal? AmountUsd, string? TicketNumber, string? Reference);
+/// <summary>Optional fields set when a job is opened (camera jobs leave them null).</summary>
+public sealed record JobOpenDetails(string Source = "camera", string? TicketNumber = null, string? CustomerName = null, string? Note = null);
 public enum JobActionStatus { Created, Duplicate, Conflict, NotFound, InvalidTransition }
 public sealed record JobActionResult(JobActionStatus Status, JobView? Job);
 
@@ -96,7 +108,7 @@ public class JobStore
         finally { _gate.Release(); }
     }
 
-    public virtual async Task<JobActionResult> CreateAsync(ArrivalObservation arrival, ServicePackage package, string key, string actor)
+    public virtual async Task<JobActionResult> CreateAsync(ArrivalObservation arrival, ServicePackage package, string key, string actor, JobOpenDetails? details = null)
     {
         await _gate.WaitAsync();
         try
@@ -111,7 +123,8 @@ public class JobStore
             var now = DateTimeOffset.UtcNow;
             var job = new JobRecord(Guid.NewGuid().ToString("N"), arrival.Id, arrival.ConfirmedPlate!, arrival.VehicleClass!, package.Id,
                 package.Name, package.Items.ToArray(), package.Prices[arrival.VehicleClass!], PackageCatalog.Current.Currency,
-                "arrived", arrival.ReceivedAt, null, null, null, [new JobTransition("arrived", now, actor, key)], []);
+                "arrived", arrival.ReceivedAt, null, null, null, [new JobTransition("arrived", now, actor, key)], [],
+                details?.Source ?? "camera", details?.TicketNumber, details?.CustomerName, details?.Note, []);
             await PersistAsync(_jobs.Append(job).ToList(), job);
             return new(JobActionStatus.Created, View(job, now));
         }
@@ -176,14 +189,71 @@ public class JobStore
         finally { _gate.Release(); }
     }
 
+    /// <summary>Write-once work-ticket number: Created when set, Duplicate when identical, Conflict when different.</summary>
+    public virtual async Task<JobActionResult> SetTicketAsync(string id, string ticketNumber)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var index = _jobs.FindIndex(x => x.Id == id);
+            if (index < 0) return new(JobActionStatus.NotFound, null);
+            var prior = _jobs[index];
+            if (prior.TicketNumber is not null)
+                return new(prior.TicketNumber == ticketNumber ? JobActionStatus.Duplicate : JobActionStatus.Conflict,
+                    View(prior, DateTimeOffset.UtcNow));
+            var nextJob = prior with { TicketNumber = ticketNumber };
+            var next = _jobs.ToList();
+            next[index] = nextJob;
+            await PersistAsync(next, nextJob);
+            return new(JobActionStatus.Created, View(nextJob, DateTimeOffset.UtcNow));
+        }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>Records a payment. Same key and body replays (Duplicate); a reused key with a different body, or a
+    /// cancelled job, is a Conflict.</summary>
+    public virtual async Task<JobActionResult> AddPaymentAsync(string id, string method, decimal amountUsd, string? ticketNumber,
+        string? reference, string key, string actor)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var index = _jobs.FindIndex(x => x.Id == id);
+            if (index < 0) return new(JobActionStatus.NotFound, null);
+            var prior = _jobs[index];
+            var previous = (prior.Payments ?? []).FirstOrDefault(x => x.IdempotencyKey == key);
+            if (previous is not null)
+                return new(previous.Method == method && previous.AmountUsd == amountUsd && previous.TicketNumber == ticketNumber &&
+                    previous.Reference == reference ? JobActionStatus.Duplicate : JobActionStatus.Conflict,
+                    View(prior, DateTimeOffset.UtcNow));
+            if (prior.Status == "cancelled") return new(JobActionStatus.Conflict, View(prior, DateTimeOffset.UtcNow));
+            var now = DateTimeOffset.UtcNow;
+            var payments = (prior.Payments ?? []).Append(new JobPayment(Guid.NewGuid().ToString("N"), method, amountUsd,
+                ticketNumber, reference, now, actor, key)).ToList();
+            var nextJob = prior with
+            {
+                Payments = payments,
+                PaidAt = prior.PaidAt ?? (payments.Sum(x => x.AmountUsd) >= prior.PriceUsd ? now : null)
+            };
+            var next = _jobs.ToList();
+            next[index] = nextJob;
+            await PersistAsync(next, nextJob);
+            return new(JobActionStatus.Created, View(nextJob, now));
+        }
+        finally { _gate.Release(); }
+    }
+
     private static JobView View(JobRecord job, DateTimeOffset now)
     {
         var end = job.CompletedAt ?? job.CancelledAt ?? now;
+        var payments = (job.Payments ?? []).ToList();
+        var paid = payments.Sum(x => x.AmountUsd);
         return new JobView(job.Id, job.ArrivalId, job.Plate, job.VehicleClass, job.PackageId, job.PackageName,
             job.Services, job.PriceUsd, job.Currency, job.Status, job.ArrivalAt, job.StartedAt, job.CompletedAt,
             job.CancelledAt, Math.Max(0, (long)(end - job.ArrivalAt).TotalSeconds),
             job.StartedAt is null ? null : Math.Max(0, (long)(end - job.StartedAt.Value).TotalSeconds),
-            job.Transitions, job.Assignments);
+            job.Transitions, job.Assignments, job.Source, job.TicketNumber, job.CustomerName, job.Note, payments, paid,
+            paid >= job.PriceUsd ? "paid" : paid > 0 ? "partial" : "unpaid", job.PaidAt);
     }
 
     private async Task PersistAsync(List<JobRecord> next, JobRecord changed)

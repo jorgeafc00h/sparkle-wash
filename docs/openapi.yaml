@@ -18,6 +18,34 @@ paths:
         '201': {description: Job and immutable package price snapshot}
         '200': {description: Identical retry}
         '409': {description: Unconfirmed arrival or duplicate open job}
+  /api/jobs/walk-in:
+    post:
+      description: >-
+        Desktop POS walk-in. Creates a staff-entered, already confirmed arrival (camera pos-counter, no photo), opens
+        the job with source desktop-pos, optional work-ticket number, customer name, note and employee.
+        Operator/admin Bearer and Idempotency-Key required.
+      responses:
+        '201': {description: Job created}
+        '200': {description: Identical retry of the same key}
+        '400': {description: Invalid plate, vehicle class, package, employee or ticket number}
+        '409': {description: Plate already has an open job, or key reused with different input}
+  /api/jobs/{id}/ticket:
+    post:
+      description: Attach a work-ticket number (write-once). Operator/admin Bearer.
+      responses:
+        '200': {description: Job with ticketNumber}
+        '409': {description: A different ticket number is already set}
+        '404': {description: Unknown job}
+  /api/jobs/{id}/payments:
+    post:
+      description: >-
+        Record a POS payment (cash, card, transfer, other) on a job; jobs expose payments, paidUsd, paymentStatus
+        (unpaid, partial, paid) and paidAt. Operator/admin Bearer and Idempotency-Key required.
+      responses:
+        '201': {description: Job with the payment}
+        '200': {description: Identical retry}
+        '409': {description: Key reused with different input, or job cancelled}
+        '404': {description: Unknown job}
   /api/jobs/summary:
     get:
       responses:

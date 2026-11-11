@@ -472,6 +472,112 @@ public static class Program
                 _ => Results.Json(result.Job, statusCode: StatusCodes.Status201Created)
             };
         });
+        app.MapPost("/api/jobs/walk-in", async (HttpContext context, WalkInInput? input) =>
+        {
+            var session = await staffAuth.AuthenticateAsync(context.Request.Headers.Authorization);
+            if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
+            if (session.Role is not ("operator" or "admin")) return Results.StatusCode(StatusCodes.Status403Forbidden);
+            var key = context.Request.Headers["Idempotency-Key"].ToString();
+            if (!ValidIdempotencyKey(key)) return Results.BadRequest(new { error = "Idempotency-Key is required" });
+            if (input is null) return Results.BadRequest(new { error = "Body is required" });
+            var plate = ArrivalStore.NormalizePlate(input.Plate);
+            if (plate is null) return Results.BadRequest(new { error = "Invalid plate" });
+            if (!PackageCatalog.Current.VehicleClasses.Any(x => x.Id == input.VehicleClass))
+                return Results.BadRequest(new { error = "Unknown vehicle class" });
+            var service = PackageCatalog.Current.Packages.FirstOrDefault(x => x.Id == input.PackageId);
+            if (service is null || !service.Prices.ContainsKey(input.VehicleClass!))
+                return Results.BadRequest(new { error = "Unknown detailing package" });
+            if (input.TicketNumber is not null && !ValidTicketNumber(input.TicketNumber))
+                return Results.BadRequest(new { error = "Ticket number must be 1-32 letters, digits or dashes" });
+            if (input.CustomerName is { Length: > 80 }) return Results.BadRequest(new { error = "Customer name is too long" });
+            if (input.Note is { Length: > 200 }) return Results.BadRequest(new { error = "Note is too long" });
+            if (input.Source is not (null or "desktop-pos" or "camera")) return Results.BadRequest(new { error = "Invalid source" });
+            Employee? employee = null;
+            if (input.EmployeeId is not null)
+            {
+                employee = (await t.Operations.EmployeesAsync()).FirstOrDefault(x => x.Id == input.EmployeeId && x.Active);
+                if (employee is null) return Results.BadRequest(new { error = "Employee is unknown or inactive" });
+            }
+            var eventId = "pos-" + (key.Length <= 120 ? key : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(key))));
+            var existing = (await t.Arrivals.ListAsync()).FirstOrDefault(x => x.CameraId == "pos-counter" && x.DeviceEventId == eventId);
+            if (existing is null && await t.Jobs.FindOpenByPlateAsync(plate) is { } open)
+                return Results.Json(new { error = "Plate already has an open job", job = open }, statusCode: StatusCodes.Status409Conflict);
+            const string keyReused = "Idempotency key was reused with different input";
+            var added = await t.Arrivals.AddAsync(new ArrivalInput(eventId, "pos-counter", plate, null, DateTimeOffset.UtcNow, null), null, photoStore, "entry");
+            var arrival = added.Observation;
+            if (arrival.PlateCandidate != plate) return Results.Conflict(new { error = keyReused });
+            var confirmed = await t.Arrivals.ConfirmAsync(arrival.Id, plate, input.VehicleClass!, session.Subject);
+            if (confirmed.Status is not (ArrivalConfirmStatus.Confirmed or ArrivalConfirmStatus.Duplicate))
+                return Results.Conflict(new { error = keyReused });
+            arrival = confirmed.Observation!;
+            var details = new JobOpenDetails(input.Source ?? "desktop-pos", input.TicketNumber, input.CustomerName, input.Note);
+            var result = await t.Jobs.CreateAsync(arrival, service, key, session.Subject, details);
+            if (result.Status == JobActionStatus.Conflict)
+            {
+                if (existing is null && added.Status == ArrivalAddStatus.Created) await t.Arrivals.DismissAsync(arrival.Id, "other", session.Subject);
+                var reused = result.Job is not null && result.Job.Transitions.Any(x => x.IdempotencyKey == key);
+                return Results.Json(new { error = reused ? keyReused : "Plate already has an open job", job = result.Job },
+                    statusCode: StatusCodes.Status409Conflict);
+            }
+            var job = result.Job!;
+            if (!usePostgresWorkflow) await t.Arrivals.LinkJobAsync(arrival.Id, job.Id);
+            if (employee is not null)
+            {
+                var assigned = await t.Jobs.AssignAsync(job.Id, employee, key + ":assign");
+                if (assigned.Status == JobActionStatus.Conflict && !job.Assignments.Any(x => x.EmployeeId == employee.Id))
+                    return Results.Json(new { error = keyReused, job = assigned.Job }, statusCode: StatusCodes.Status409Conflict);
+                job = assigned.Job ?? job;
+            }
+            if (result.Status == JobActionStatus.Created) { t.Changes.Publish("jobs"); t.Changes.Publish("arrivals"); }
+            return result.Status == JobActionStatus.Created
+                ? Results.Json(job, statusCode: StatusCodes.Status201Created) : Results.Json(job);
+        });
+        app.MapPost("/api/jobs/{id}/ticket", async (HttpContext context, string id, TicketInput? input) =>
+        {
+            var session = await staffAuth.AuthenticateAsync(context.Request.Headers.Authorization);
+            if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
+            if (session.Role is not ("operator" or "admin")) return Results.StatusCode(StatusCodes.Status403Forbidden);
+            if (input?.TicketNumber is null || !ValidTicketNumber(input.TicketNumber))
+                return Results.BadRequest(new { error = "Ticket number must be 1-32 letters, digits or dashes" });
+            var result = await t.Jobs.SetTicketAsync(id, input.TicketNumber);
+            if (result.Status == JobActionStatus.Created) t.Changes.Publish("jobs");
+            return result.Status switch
+            {
+                JobActionStatus.NotFound => Results.NotFound(),
+                JobActionStatus.Conflict => Results.Json(new { error = "Job already has a different ticket number", job = result.Job },
+                    statusCode: StatusCodes.Status409Conflict),
+                _ => Results.Json(result.Job)
+            };
+        });
+        app.MapPost("/api/jobs/{id}/payments", async (HttpContext context, string id, PaymentInput? input) =>
+        {
+            var session = await staffAuth.AuthenticateAsync(context.Request.Headers.Authorization);
+            if (session is null) return Results.Unauthorized();
+            var t = tenants.For(session.TenantId);
+            if (session.Role is not ("operator" or "admin")) return Results.StatusCode(StatusCodes.Status403Forbidden);
+            var key = context.Request.Headers["Idempotency-Key"].ToString();
+            if (!ValidIdempotencyKey(key)) return Results.BadRequest(new { error = "Idempotency-Key is required" });
+            if (input?.Method is not ("cash" or "card" or "transfer" or "other") || input.AmountUsd is null or <= 0 or > 100000 ||
+                input.TicketNumber is not null && !ValidTicketNumber(input.TicketNumber) || input.Reference is { Length: > 64 })
+                return Results.BadRequest(new { error = "Valid method, amountUsd (0-100000), ticketNumber and reference are required" });
+            var result = await t.Jobs.AddPaymentAsync(id, input.Method, input.AmountUsd.Value, input.TicketNumber, input.Reference, key, session.Subject);
+            if (result.Status == JobActionStatus.Created) t.Changes.Publish("jobs");
+            return result.Status switch
+            {
+                JobActionStatus.NotFound => Results.NotFound(),
+                JobActionStatus.Conflict => Results.Json(new
+                {
+                    error = result.Job?.Status == "cancelled" && !(result.Job.Payments ?? []).Any(x => x.IdempotencyKey == key)
+                        ? "Job is cancelled" : "Idempotency key was reused with different input",
+                    job = result.Job
+                }, statusCode: StatusCodes.Status409Conflict),
+                JobActionStatus.Duplicate => Results.Json(result.Job),
+                _ => Results.Json(result.Job, statusCode: StatusCodes.Status201Created)
+            };
+        });
         app.MapPost("/api/jobs/{id}/transition", async (HttpContext context, string id, JobTransitionInput input) =>
         {
             var session = await staffAuth.AuthenticateAsync(context.Request.Headers.Authorization);
@@ -827,6 +933,9 @@ public static class Program
                 ["/api/packages"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Shared detailing catalog" } } } },
                 ["/api/packages/suggestion"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Package suggestion without a charge" } } } },
                 ["/api/jobs"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Staff job list" } } }, post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Confirmed arrival opened as a job" } } } },
+                ["/api/jobs/walk-in"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Staff-entered walk-in opened as a job (Idempotency-Key required)" }, ["200"] = new { description = "Replay of the same key and input" }, ["400"] = new { description = "Invalid plate, class, package, employee or ticket number" }, ["409"] = new { description = "Plate already has an open job, or the key was reused with different input" } } } },
+                ["/api/jobs/{id}/ticket"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Work-ticket number set (write-once) or identical" }, ["400"] = new { description = "Invalid ticket number" }, ["404"] = new { description = "Unknown job" }, ["409"] = new { description = "A different ticket number is already set" } } } },
+                ["/api/jobs/{id}/payments"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Payment recorded; returns the job with paidUsd and paymentStatus" }, ["200"] = new { description = "Replay of the same key and body" }, ["400"] = new { description = "Invalid method, amount, ticket number, reference or Idempotency-Key" }, ["404"] = new { description = "Unknown job" }, ["409"] = new { description = "Job cancelled, or the key was reused with different input" } } } },
                 ["/api/plates/{plate}/timeline"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Jobs and camera sightings for one plate" }, ["400"] = new { description = "Invalid plate" } } } },
                 ["/api/tenants/registration"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Whether new carwashes can register" } } } },
                 ["/api/tenants/register"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Carwash created; owner signed in as admin" }, ["409"] = new { description = "Google account already belongs to a carwash" }, ["403"] = new { description = "Registration closed" } } } },
@@ -1128,6 +1237,8 @@ public static class Program
         input.Status is ("idle" or "washing" or "cleaning" or "drying" or "error") &&
         double.IsFinite(input.PressurePsi) && input.PressurePsi is >= 0 and <= 150 &&
         double.IsFinite(input.SoapLevelDm) && input.SoapLevelDm is >= 0 and <= 100;
+    private static bool ValidTicketNumber(string value) => value.Length is >= 1 and <= 32 &&
+        value.All(c => char.IsAsciiLetterOrDigit(c) || c == '-');
     private static bool ValidIdempotencyKey(string? key) => key is not null && key.Length is >= 8 and <= 128 &&
         key.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
     private static bool Authorized(HttpContext context, string? key, string header = "X-SparkleWash-Ingest-Key")
