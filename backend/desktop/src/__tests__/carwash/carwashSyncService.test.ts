@@ -45,6 +45,36 @@ describe('CarwashSyncService', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
+  it('keeps the default event stream when optional deps are passed as undefined (as the slice does)', async () => {
+    // Regression: `{ ...defaults, ...deps }` let `openStream: undefined` replace the default opener, so
+    // start() threw "openStream is not a function" and the board fell back to slow polling.
+    const realFetch = globalThis.fetch;
+    const fetchMock = jest.fn((_url: string, _init?: unknown) => new Promise<Response>(() => undefined));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      const refresh = jest.fn(async () => undefined);
+      const service = new CarwashSyncService(
+        {
+          client: asClient(new FakeClient()),
+          outbox: new CarwashOutbox({ storage: memoryStorage() }),
+          getSettings: () => ({ ...DEFAULT_CARWASH_SETTINGS, apiBaseUrl: 'http://api.test' }),
+          getSession: () => session,
+          openStream: undefined,
+          debounceMs: undefined,
+        },
+        { refresh, onFlushed: () => undefined, onStatus: () => undefined, silentReLogin: async () => null, onSignedOut: () => undefined },
+      );
+      await expect(service.start()).resolves.toBeUndefined();
+      expect(fetchMock).toHaveBeenCalledWith('http://api.test/api/events', expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer tok' }),
+      }));
+      expect(refresh).toHaveBeenCalled();
+      service.stop();
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
   it('stays signed-out without a session', async () => {
     const t = setup();
     t.signOut();
