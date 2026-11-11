@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { Landing } from "../landing/Landing";
+import { DESKTOP_DOWNLOAD_URL, DESKTOP_RELEASES_URL, Landing } from "../landing/Landing";
 
 describe("Landing", () => {
   it("is in Spanish and sends visitors to the live demo", () => {
@@ -30,5 +30,19 @@ describe("Landing", () => {
     expect(screen.getByRole("img", { name: /Pantalla "Trabajos"/ })).toHaveAttribute("src", "/landing/screens/tablero.jpg");
     await user.keyboard("{ArrowRight}");
     expect(within(tablist).getByRole("tab", { name: /Placas/ })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("offers the Windows desktop installer", () => {
+    const { container } = render(<Landing />);
+    expect(DESKTOP_DOWNLOAD_URL).toBe("https://github.com/jorgeafc00h/sparkle-wash/releases/latest/download/SparkleWash-Setup-latest.exe");
+    const download = screen.getByTestId("download-windows");
+    expect(download).toHaveAttribute("href", DESKTOP_DOWNLOAD_URL);
+    expect(download).toHaveTextContent("Descargar para Windows");
+    expect(screen.getByRole("link", { name: "Todas las versiones" })).toHaveAttribute("href", "https://github.com/jorgeafc00h/sparkle-wash/releases");
+    expect(DESKTOP_RELEASES_URL).toBe("https://github.com/jorgeafc00h/sparkle-wash/releases");
+    expect(container.querySelector("section#escritorio")).toContainElement(download);
+    expect(screen.getByRole("link", { name: "Escritorio" })).toHaveAttribute("href", "#escritorio");
+    expect(screen.getByText(/Windows 10 u 11 \(64 bits\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Ejecutar de todas formas/)).toBeInTheDocument();
   });
 });

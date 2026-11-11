@@ -6,11 +6,11 @@ export type Role = "viewer" | "operator" | "admin";
 export interface CatalogTranslation { name?: string; subtitle?: string; tagline?: string; items?: string[] }
 export interface VehicleClass { id: string; name: string; translations?: Record<string, CatalogTranslation> }
 export interface ServicePackage {
-  id: string; name: string; subtitle: string; tagline: string; items: string[]; prices: Record<string, number>;
+  id: string; name: string; subtitle: string; tagline?: string; items: string[]; prices: Record<string, number>;
   translations?: Record<string, CatalogTranslation>;
 }
-/** Text is in `locale` (Spanish); `translations` carries other languages. */
-export interface Catalog { currency: string; locale: string; vehicleClasses: VehicleClass[]; packages: ServicePackage[] }
+/** Text is in `locale` (Spanish when absent, as in the shared v1 contract); `translations` carries other languages. */
+export interface Catalog { currency: string; locale?: string; vehicleClasses: VehicleClass[]; packages: ServicePackage[] }
 
 export interface ArrivalObservation {
   id: string;

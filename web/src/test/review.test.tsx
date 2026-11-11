@@ -5,6 +5,10 @@ import { DemoApi } from "../lib/demo";
 import { ReviewView } from "../views/Review";
 import { BoardView } from "../views/Board";
 import { renderWith } from "./render";
+import catalogJson from "../../../contracts/v1/service-packages.json";
+
+const supremeItems = catalogJson.packages.find((p) => p.id === "supreme")!.items;
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 describe("ReviewView", () => {
   it("lets staff correct a misread plate and open the job (Spanish by default)", async () => {
@@ -19,7 +23,7 @@ describe("ReviewView", () => {
     await user.type(input, "zz-9876");
     await user.click(screen.getByRole("radio", { name: "XXL / Pickup" }));
     await user.click(screen.getByRole("radio", { name: /Supreme Spa/ }));
-    expect(screen.getByText(/Incluye: Todo lo de Renew · Cera líquida/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`Incluye: ${escapeRegExp(supremeItems.slice(0, 2).join(" · "))}`))).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Confirmar ZZ9876 y abrir trabajo · US\$50|Confirmar ZZ9876 y abrir trabajo · \$50/ }));
 
     await screen.findByText(/Trabajo abierto para ZZ9876 · Supreme Spa/);

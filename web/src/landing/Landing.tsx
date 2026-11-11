@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  ArrowRight, Bluetooth, Building2, Camera, Check, ChevronDown, Cpu, Gauge, History, Kanban, LayoutDashboard, Lightbulb,
-  LogIn, MonitorSmartphone, PlayCircle, ScanLine, ShieldCheck, Tablet, Wifi, WifiOff,
+  ArrowRight, Bluetooth, Building2, Camera, Check, ChevronDown, Cpu, Download, FileText, Gauge, History, Kanban, LayoutDashboard,
+  Lightbulb, LogIn, Monitor, MonitorSmartphone, PlayCircle, Printer, RefreshCw, ScanLine, ShieldCheck, Tablet, Wifi, WifiOff,
 } from "lucide-react";
 
 const DEMO_URL = "/app/?demo=1";
 const APP_URL = "/app/";
 const REGISTER_URL = "/app/?registro=1";
+/** Stable URL: GitHub serves the installer attached to the newest release. */
+export const DESKTOP_DOWNLOAD_URL = "https://github.com/jorgeafc00h/sparkle-wash/releases/latest/download/SparkleWash-Setup-latest.exe";
+export const DESKTOP_RELEASES_URL = "https://github.com/jorgeafc00h/sparkle-wash/releases";
 
 /** Fades sections up as they scroll into view (skipped when the visitor prefers reduced motion). */
 function useReveal() {
@@ -42,6 +45,7 @@ export function Landing() {
         <CameraSection />
         <Screens />
         <AppSection />
+        <DesktopSection />
         <Faq />
         <FinalCta />
       </main>
@@ -64,7 +68,7 @@ function Logo() {
 function Nav() {
   const [open, setOpen] = useState(false);
   const links = [
-    ["#como-funciona", "Cómo funciona"], ["#camara", "La cámara"], ["#pantallas", "Pantallas"], ["#app", "App"],
+    ["#como-funciona", "Cómo funciona"], ["#camara", "La cámara"], ["#pantallas", "Pantallas"], ["#app", "App"], ["#escritorio", "Escritorio"],
     ["#preguntas", "Preguntas"],
   ];
   return (
@@ -237,6 +241,46 @@ function AppSection() {
             </li>
           ))}
         </ul>
+      </div>
+    </section>
+  );
+}
+
+const DESKTOP_FEATURES = [
+  { icon: Printer, text: "Un ticket de trabajo impreso por cada vehículo, listo para el mostrador." },
+  { icon: Check, text: "Cobra los lavados en caja, con tus servicios y tus precios." },
+  { icon: FileText, text: "Facturación electrónica (DTE) sin salir del punto de venta." },
+  { icon: RefreshCw, text: "Se sincroniza con la app de iPhone y la consola web a través de la API de SparkleWash." },
+];
+
+function DesktopSection() {
+  return (
+    <section id="escritorio" className="section desktop" aria-labelledby="escritorio-titulo">
+      <div className="wrap">
+        <div className="desktop-card paper" data-reveal>
+          <span className="step-icon paper desktop-icon" style={{ background: "#cfe8d5" }}><Monitor size={30} aria-hidden /></span>
+          <div className="desktop-body">
+            <p className="eyebrow">Para Windows</p>
+            <h2 id="escritorio-titulo">SparkleWash para escritorio</h2>
+            <p className="desktop-lead">El punto de venta de tu caja: imprime el ticket de cada vehículo, cobra y factura, con los mismos datos que ve tu equipo en el celular.</p>
+            <ul className="desktop-list">
+              {DESKTOP_FEATURES.map(({ icon: Icon, text }) => (
+                <li key={text}><Icon size={18} aria-hidden />{text}</li>
+              ))}
+            </ul>
+            <div className="cta-row">
+              <a className="btn btn-coral btn-lg" data-testid="download-windows" href={DESKTOP_DOWNLOAD_URL} download rel="noopener">
+                <Download size={20} aria-hidden />Descargar para Windows
+              </a>
+              <a className="btn btn-paper btn-lg" href={DESKTOP_RELEASES_URL} rel="noopener">Todas las versiones</a>
+            </div>
+            <p className="desktop-req">Requiere Windows 10 u 11 (64 bits).</p>
+            <p className="desktop-note">
+              Windows SmartScreen puede mostrar una advertencia porque el instalador aún no está firmado. Si aparece, elige
+              {" "}<strong>Más información → Ejecutar de todas formas</strong>.
+            </p>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -471,6 +515,7 @@ function FinalCta() {
           <a className="btn btn-coral btn-lg" href={DEMO_URL}><PlayCircle size={20} aria-hidden />Abrir la demo</a>
           <a className="btn btn-paper btn-lg" href={REGISTER_URL}><Building2 size={18} aria-hidden />Registrar mi autolavado</a>
         </div>
+        <p className="final-login">¿Usas Windows en la caja? <a href="#escritorio">Descargar SparkleWash para escritorio</a></p>
       </div>
     </section>
   );
