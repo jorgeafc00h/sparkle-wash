@@ -51,13 +51,17 @@ export class CarwashSyncService {
   private status: CarwashSyncStatus = { state: 'signed-out', pending: 0, lastSyncedAt: null, lastError: null };
 
   constructor(deps: SyncDeps, callbacks: SyncCallbacks) {
+    // `??` per field: callers (the slice) pass optional deps explicitly as `undefined`,
+    // and a spread would let that `undefined` replace the default.
     this.deps = {
-      outbox: carwashOutbox,
-      openStream: defaultEventStreamOpener,
-      debounceMs: 500,
-      backoffMinMs: 1000,
-      backoffMaxMs: 30_000,
-      ...deps,
+      client: deps.client,
+      getSettings: deps.getSettings,
+      getSession: deps.getSession,
+      outbox: deps.outbox ?? carwashOutbox,
+      openStream: deps.openStream ?? defaultEventStreamOpener,
+      debounceMs: deps.debounceMs ?? 500,
+      backoffMinMs: deps.backoffMinMs ?? 1000,
+      backoffMaxMs: deps.backoffMaxMs ?? 30_000,
     };
     this.callbacks = callbacks;
     this.backoff = this.deps.backoffMinMs;
