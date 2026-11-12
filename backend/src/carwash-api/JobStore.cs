@@ -108,6 +108,18 @@ public class JobStore
         finally { _gate.Release(); }
     }
 
+    /// <summary>The open (not completed or cancelled) job carrying this work-ticket number, if any.</summary>
+    public virtual async Task<JobView?> FindOpenByTicketAsync(string ticketNumber)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var job = _jobs.LastOrDefault(x => x.TicketNumber == ticketNumber && x.Status is not ("completed" or "cancelled"));
+            return job is null ? null : View(job, DateTimeOffset.UtcNow);
+        }
+        finally { _gate.Release(); }
+    }
+
     public virtual async Task<JobActionResult> CreateAsync(ArrivalObservation arrival, ServicePackage package, string key, string actor, JobOpenDetails? details = null)
     {
         await _gate.WaitAsync();
@@ -117,8 +129,12 @@ public class JobStore
             if (sameKey is not null)
                 return new(sameKey.ArrivalId == arrival.Id && sameKey.PackageId == package.Id ? JobActionStatus.Duplicate : JobActionStatus.Conflict,
                     View(sameKey, DateTimeOffset.UtcNow));
+            var ticket = details?.TicketNumber;
+            // Checked under the same lock as the insert, so two registers printing the same work-ticket
+            // number at the same moment cannot both open a job with it.
             var existing = _jobs.FirstOrDefault(x => x.ArrivalId == arrival.Id ||
-                (x.Plate == arrival.ConfirmedPlate && x.Status is not ("completed" or "cancelled")));
+                (x.Status is not ("completed" or "cancelled") &&
+                    (x.Plate == arrival.ConfirmedPlate || ticket is not null && x.TicketNumber == ticket)));
             if (existing is not null) return new(JobActionStatus.Conflict, View(existing, DateTimeOffset.UtcNow));
             var now = DateTimeOffset.UtcNow;
             var job = new JobRecord(Guid.NewGuid().ToString("N"), arrival.Id, arrival.ConfirmedPlate!, arrival.VehicleClass!, package.Id,

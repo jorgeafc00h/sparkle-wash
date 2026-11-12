@@ -160,7 +160,7 @@ export default function OperationsApp() {
 
   return <main className="operations">
     <header className="topbar">
-      <div><p className="eyebrow">SparkleWash · Operations</p><h1>Carwash workboard</h1>
+      <div><p className="eyebrow">Car Spa · Operations</p><h1>Carwash workboard</h1>
         <p className="intro">Follow each car from arrival through detailing.</p></div>
       {session && <div className="header-actions">
         <span>Signed in as <strong>{session.role}</strong></span>

@@ -51,7 +51,7 @@ jobs:
       - run: brew install xcodegen
       - run: make ios-build
   desktop:
-    name: SparkleWash Desktop (Electron)
+    name: Car Spa Desktop (Electron)
     runs-on: ubuntu-latest
     defaults:
       run:

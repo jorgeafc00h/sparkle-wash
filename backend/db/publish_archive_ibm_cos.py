@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish a verified SparkleWash archive to a locked private IBM COS bucket."""
+"""Publish a verified Car Spa archive to a locked private IBM COS bucket."""
 import argparse
 from datetime import datetime, timezone
 import hashlib

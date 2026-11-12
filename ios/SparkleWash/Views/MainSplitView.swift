@@ -34,7 +34,7 @@ struct MainSplitView: View {
                     .accessibilityIdentifier("section-\(section.rawValue)")
                 }
             }
-            .navigationTitle(model.session?.tenant.name ?? "SparkleWash")
+            .navigationTitle(model.session?.tenant.name ?? "Car Spa")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button { showingSettings = true } label: { Label(t("ios.settings"), systemImage: "person.crop.circle") }

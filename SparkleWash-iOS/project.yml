@@ -28,6 +28,7 @@ targets:
       - Views/OperationsView.swift
       - Views/DesignSystem.swift
       - Views/DemoSupport.swift
+      - Resources/Assets.xcassets
     dependencies:
       - package: GoogleSignIn
         product: GoogleSignIn
@@ -36,6 +37,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sparklewash.app
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
@@ -52,7 +54,7 @@ targets:
         NSMicrophoneUsageDescription: Audio input for potential voice commands in the future.
         NSPhotoLibraryAddUsageDescription: Save car photos to your photo library.
         CFBundleName: SparkleWash
-        CFBundleDisplayName: SparkleWash
+        CFBundleDisplayName: Car Spa
         CFBundleShortVersionString: '1.0'
         CFBundleVersion: '4'
         GIDClientID: $(SPARKLEWASH_GOOGLE_IOS_CLIENT_ID)

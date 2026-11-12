@@ -1,6 +1,6 @@
-# SparkleWash Desktop — integration contract
+# Car Spa Desktop — integration contract
 
-SparkleWash Desktop is a custom build of the Facturas Simples desktop app (Electron + Vite + React 19 +
+Car Spa Desktop (formerly SparkleWash) is a custom build of the Facturas Simples desktop app (Electron + Vite + React 19 +
 Redux Toolkit), copied from `FACTURAS SIMPLES/App.Desktop` at release 1.4.6. It keeps every Facturas
 Simples feature (DTE invoicing, customers, products/inventory, compras, POS tickets, cash drawer, closings,
 consolidation, local users, device sync, printing) and adds the carwash workflow on top:
@@ -8,7 +8,7 @@ consolidation, local users, device sync, printing) and adds the carwash workflow
 1. **Each car detailing is a work ticket ("orden de trabajo").** The cashier opens a walk-in service
    (plate, vehicle class, package, optional employee/customer). The desktop assigns a work-ticket number
    (`OT-{registerCode}-{seq:6}`, e.g. `OT-C1-000045`), prints it on the thermal printer and sends the job
-   to the SparkleWash API.
+   to the Car Spa API.
 2. **The API is the shared source of truth.** Jobs created on the desktop appear in the iOS app (it
    polls `/api/jobs` every ~9 s) and the web console (it listens to `/api/events`). Status changes made on
    iOS/web flow back to the desktop through `/api/events` (SSE) with polling as a fallback.
@@ -50,13 +50,17 @@ Creates a staff-entered arrival (already confirmed, no photo, camera id `pos-cou
 the package/price snapshot, assigns the employee when given, and publishes `jobs` + `arrivals`.
 
 - `201` → `JobView` created. `200` → `JobView` replay of the same key with the same plate/package.
-- `409` → `{ error, job }` when the plate already has an open job or the key was reused differently.
+- `409` → `{ error, job }` when the plate already has an open job, another open job already carries the
+  ticket number, or the key was reused differently. The outbox treats a 409 as delivery only when `job` was
+  opened with this entry's idempotency key, or carries this walk-in's ticket number AND plate.
+- The `pos-counter` arrival never appears in `GET /api/arrivals?pending=true`; when the job cannot be opened it is
+  dismissed.
 - `400` invalid plate/class/package/employee/ticket number. `401`/`403` auth.
 
 ### `POST /api/jobs/{id}/ticket`
 
 Body `{ ticketNumber }`. Write-once: `200` → `JobView` when set or identical; `409` when a different
-ticket number is already set; `404` unknown job. Publishes `jobs`.
+ticket number is already set or another open job carries this one; `404` unknown job. Publishes `jobs`.
 
 ### `POST /api/jobs/{id}/payments`
 

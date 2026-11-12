@@ -35,10 +35,15 @@ function setup() {
       debounceMs: 500,
       backoffMinMs: 1000,
       backoffMaxMs: 4000,
+      idleTimeoutMs: 45_000,
     },
     callbacks,
   );
-  return { service, client, handlers, refresh, silentReLogin, onSignedOut, statuses, signOut: () => { current = null; } };
+  return {
+    service, client, handlers, refresh, silentReLogin, onSignedOut, statuses,
+    signOut: () => { current = null; },
+    setSession: (next: CarwashSession | null) => { current = next; },
+  };
 }
 
 describe('CarwashSyncService', () => {
@@ -138,6 +143,80 @@ describe('CarwashSyncService', () => {
     expect(t.silentReLogin).toHaveBeenCalledTimes(1);
     expect(t.onSignedOut).toHaveBeenCalledTimes(1);
     expect(t.service.isRunning()).toBe(false);
+  });
+
+  it('shares ONE re-login between requests that 401 at the same time (no spurious sign-out)', async () => {
+    const t = setup();
+    let finish!: (s: CarwashSession) => void;
+    t.silentReLogin.mockImplementation(() => new Promise<CarwashSession>((resolve) => { finish = resolve; }));
+    await t.service.start();
+    // The saved token is stale: the stream open and a refresh both come back 401 while re-login runs.
+    t.handlers[0].onOpen(401);
+    t.refresh.mockRejectedValueOnce(httpError(401));
+    const refresh = t.service.syncNow();
+    await jest.advanceTimersByTimeAsync(10);
+    expect(t.silentReLogin).toHaveBeenCalledTimes(1);
+    const fresh = { ...session, sessionToken: 'fresh' };
+    t.setSession(fresh);
+    finish(fresh);
+    await refresh;
+    await jest.advanceTimersByTimeAsync(10);
+    expect(t.onSignedOut).not.toHaveBeenCalled();
+    expect(t.service.isRunning()).toBe(true);
+    expect(t.client.token).toBe('fresh');
+    t.service.stop();
+  });
+
+  it('ignores a 401 for a token that a re-login already replaced', async () => {
+    const t = setup();
+    t.silentReLogin.mockImplementation(async () => {
+      const fresh = { ...session, sessionToken: 'fresh' };
+      t.setSession(fresh);
+      return fresh;
+    });
+    await t.service.start();
+    const stale = t.handlers[0];
+    t.refresh.mockRejectedValueOnce(httpError(401));
+    await t.service.syncNow(); // re-login → 'fresh'
+    expect(t.silentReLogin).toHaveBeenCalledTimes(1);
+    stale.onOpen(401); // late answer for the old stream (old generation of the handler is still current)
+    await jest.advanceTimersByTimeAsync(10);
+    await t.service.reportFailure(httpError(401), 'tok');
+    expect(t.silentReLogin).toHaveBeenCalledTimes(1);
+    expect(t.onSignedOut).not.toHaveBeenCalled();
+    t.service.stop();
+  });
+
+  it('a refresh that resolves after stop() changes no status', async () => {
+    const t = setup();
+    await t.service.start();
+    let release!: () => void;
+    t.refresh.mockImplementationOnce(() => new Promise<undefined>((resolve) => { release = () => resolve(undefined); }));
+    const pending = t.service.syncNow();
+    await jest.advanceTimersByTimeAsync(10);
+    t.service.stop();
+    const after = t.statuses.length;
+    release();
+    await pending;
+    expect(t.statuses.length).toBe(after);
+    expect(t.service.getStatus().state).toBe('signed-out');
+  });
+
+  it('drops a stream that goes quiet (half-open connection) and reconnects', async () => {
+    const t = setup();
+    await t.service.start();
+    t.handlers[0].onOpen(200);
+    await jest.advanceTimersByTimeAsync(10);
+    expect(t.service.getStatus().state).toBe('live');
+    await jest.advanceTimersByTimeAsync(30_000);
+    t.handlers[0].onData(': heartbeat\n\n'); // keeps it alive
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(t.handlers).toHaveLength(1);
+    await jest.advanceTimersByTimeAsync(15_000); // 45 s without data
+    expect(t.service.getStatus().state).toBe('polling');
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(t.handlers).toHaveLength(2);
+    t.service.stop();
   });
 
   it('resumes after a successful silent re-login', async () => {

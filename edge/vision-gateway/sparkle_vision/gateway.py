@@ -1,4 +1,4 @@
-"""Main loop: ESP32-CAM -> YOLO vehicles -> plate region -> OCR -> tracker -> SparkleWash API.
+"""Main loop: ESP32-CAM -> YOLO vehicles -> plate region -> OCR -> tracker -> Car Spa API.
 
     python -m sparkle_vision.gateway --camera-url http://192.168.1.50/cam-hi.jpg \
         --camera-id entrance-cam --api http://localhost:5001 --device-key $SPARKLEWASH_DEVICE_KEY --show

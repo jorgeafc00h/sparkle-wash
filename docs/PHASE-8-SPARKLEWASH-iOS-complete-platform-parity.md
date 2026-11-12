@@ -1,4 +1,4 @@
-# SparkleWash iOS App — Complete Platform Parity
+# Car Spa iOS App — Complete Platform Parity
 
 ## Summary of Round 4 Deliverables
 
@@ -19,7 +19,7 @@ This round delivered a fully functional **SwiftUI** iOS carwash productivity app
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    SparkleWash iOS App (SwiftUI v5.9)        │
+│                    Car Spa iOS App (SwiftUI v5.9)        │
 ├─────────────────────────────────────────────────────────────┤
 │                                                               │
 │  +----------------------------------------+  ← Tab 0   │
@@ -148,7 +148,7 @@ open /Users/jorgeflores/github/carwash/SparkleWash-iOS/SparkleWash.xcodeproj
 
 ## Conclusion
 
-The SparkleWash iOS app now has all four tabs implemented with:
+The Car Spa iOS app now has all four tabs implemented with:
 
 - A live productivity dashboard that aggregates job counts and revenue per category
 - Job history that surfaces plate numbers, models, and colors from the YOLO API

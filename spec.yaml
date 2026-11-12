@@ -1,4 +1,4 @@
-name: SparkleWash Carwash API
+name: Car Spa API
 version: 1.0.0
 description: A .NET 8 Minimal API for IoT carwash station monitoring with live telemetry streaming, photo uploads, and threshold-based alerting.
 author: Graphify-Labs (via Fission-AI OpenSpec)

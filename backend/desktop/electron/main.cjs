@@ -47,7 +47,7 @@ if (!app.commandLine.hasSwitch('user-data-dir')) {
   app.setPath('userData', path.join(app.getPath('appData'), 'SparkleWash'));
 }
 if (process.platform === 'darwin' || process.platform === 'win32') {
-  try { app.setAboutPanelOptions({ applicationName: 'SparkleWash', applicationVersion: app.getVersion(), copyright: 'SparkleWash' }); } catch { /* optional */ }
+  try { app.setAboutPanelOptions({ applicationName: 'Car Spa', applicationVersion: app.getVersion(), copyright: 'Car Spa' }); } catch { /* optional */ }
 }
 
 let mainWindow;
@@ -214,7 +214,7 @@ function initAutoUpdater() {
       dialog.showMessageBox(mainWindow, {
         type: 'info',
         title: 'Actualización disponible',
-        message: `SparkleWash ${info.version} está disponible.`,
+        message: `Car Spa ${info.version} está disponible.`,
         detail: 'Descarga el instalador y arrástralo a Aplicaciones para reemplazar la versión actual. Tus datos se conservan.',
         buttons: ['Descargar', 'Más tarde'],
         defaultId: 0,
@@ -377,7 +377,7 @@ function createAppMenu() {
       submenu: [
         { label: 'Manual de usuario', click: () => shell.openExternal('https://polite-ocean-090c2fd10.6.azurestaticapps.net/docs/manual/') },
         { type: 'separator' },
-        { label: `Acerca de SparkleWash v${app.getVersion()}`, enabled: false },
+        { label: `Acerca de Car Spa v${app.getVersion()}`, enabled: false },
       ],
     },
   ];
@@ -393,7 +393,7 @@ function createWindow() {
     height: 768,
     minWidth: 375,
     minHeight: 667,
-    title: 'SparkleWash',
+    title: 'Car Spa',
     show: false,
     icon: path.join(__dirname, '..', 'public', 'icon.png'),
     webPreferences: {
@@ -1092,6 +1092,9 @@ ipcMain.handle('mh:fetch', (_event, config) => mhFetch(config));
 // stream per window; the renderer parses frames and handles reconnects.
 ipcMain.handle('carwash:fetch', (_event, config) => carwashFetch(config));
 const carwashEventStreams = new Map();
+// webContents ids that already have a 'destroyed' cleanup listener: the renderer restarts the
+// stream on every reconnect, and one listener per start would pile up for the window's lifetime.
+const carwashEventCleanup = new Set();
 function stopCarwashEvents(webContentsId) {
   const handle = carwashEventStreams.get(webContentsId);
   if (handle) {
@@ -1106,7 +1109,14 @@ ipcMain.handle('carwash:events-start', (event, config) => {
     if (!sender.isDestroyed()) sender.send('carwash:event', msg);
   });
   carwashEventStreams.set(sender.id, handle);
-  sender.once('destroyed', () => stopCarwashEvents(sender.id));
+  if (!carwashEventCleanup.has(sender.id)) {
+    const id = sender.id;
+    carwashEventCleanup.add(id);
+    sender.once('destroyed', () => {
+      carwashEventCleanup.delete(id);
+      stopCarwashEvents(id);
+    });
+  }
   return true;
 });
 ipcMain.handle('carwash:events-stop', (event) => {

@@ -259,7 +259,7 @@ test.describe('Screens with no other coverage', () => {
     const board = page.getByTestId('carwash-board');
     await expect(board).toBeVisible();
     await expect(board.getByRole('heading', { level: 1, name: 'Lavado' })).toBeVisible();
-    await expect(board.getByText('SparkleWash no está conectado')).toBeVisible();
+    await expect(board.getByText('Car Spa no está conectado')).toBeVisible();
 
     await page.getByTestId('carwash-go-settings').click();
     await expect(page).toHaveURL(/#\/settings\/carwash$/);
@@ -277,7 +277,7 @@ test.describe('Screens with no other coverage', () => {
     await page.getByTestId('carwash-api-url').fill('http://127.0.0.1:59999');
     await page.getByTestId('carwash-register-code').fill('C7');
     await page.getByTestId('carwash-save').click();
-    await expect(page.getByText('Configuración de SparkleWash guardada')).toBeVisible();
+    await expect(page.getByText('Configuración de Car Spa guardada')).toBeVisible();
 
     await navigate(page, '/home');
     await expect(page.getByTestId('dashboard')).toBeVisible();

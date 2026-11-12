@@ -742,7 +742,7 @@ struct OperationsView: View {
                 Text("El vehículo \(job.plate) pasará a Completado.")
             }
             .navigationDestination(item: $demoDestination) { key in demoDestinationView(key) }
-            .navigationTitle(model.signedIn ? "Tablero" : "SparkleWash")
+            .navigationTitle(model.signedIn ? "Tablero" : "Car Spa")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if model.signedIn {
@@ -845,8 +845,8 @@ struct OperationsView: View {
     private var catalogIntro: some View {
         VStack(alignment: .leading, spacing: SW.Space.md) {
             HStack(spacing: SW.Space.md) {
-                SWBrandMark(size: 52)
-                Text("SparkleWash").font(.system(.title3, design: .rounded, weight: .bold)).foregroundStyle(.white)
+                SWBrandMark(size: 52, onDark: true)
+                Text("Car Spa").font(.system(.title3, design: .rounded, weight: .bold)).foregroundStyle(.white)
             }
             Text("Tu auto, como nuevo")
                 .font(.system(.largeTitle, design: .rounded, weight: .bold))
@@ -878,7 +878,7 @@ struct OperationsView: View {
                     Task { await signIn(ids) }
                 }
                 .frame(maxWidth: 320, minHeight: 48)
-                .accessibilityLabel("Iniciar sesión con Google como personal de SparkleWash")
+                .accessibilityLabel("Iniciar sesión con Google como personal de Car Spa")
             } else {
                 SWBanner(kind: .info, text: "El acceso del personal no está disponible en este dispositivo.", symbol: "lock.fill")
             }

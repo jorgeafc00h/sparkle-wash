@@ -1,4 +1,4 @@
-# SparkleWash — Full Implementation Guide
+# Car Spa — Full Implementation Guide
 
 A cross-platform carwash management system built with a shared MQTT/WebSocket contract.
 

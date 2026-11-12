@@ -1,5 +1,5 @@
 /**
- * Visual record of the SparkleWash Desktop screens (rebrand + carwash module), against the REAL API.
+ * Visual record of the Car Spa Desktop screens (rebrand + carwash module), against the REAL API.
  *
  * Captures full-page screenshots into $CARWASH_SCREENSHOT_DIR (default test-results/carwash-screens):
  * welcome/onboarding (rebrand), dashboard + sidebar, carwash settings with the work-ticket preview,
@@ -25,14 +25,14 @@ async function shot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
 }
 
-test.describe('SparkleWash Desktop screens', () => {
+test.describe('Car Spa Desktop screens', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('welcome and onboarding use the SparkleWash brand', async ({ page }) => {
+  test('welcome and onboarding use the Car Spa brand', async ({ page }) => {
     await page.goto('/#/welcome');
     await waitForAppReady(page);
     await expect(page.getByTestId('welcome')).toBeVisible();
-    await expect(page.getByTestId('welcome')).toContainText('Sparkle');
+    await expect(page.getByTestId('welcome')).toContainText('Car Spa');
     await expect(page.getByText('Facturas Simples', { exact: false })).toHaveCount(0);
     await shot(page, '01-welcome');
 

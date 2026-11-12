@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish a verified SparkleWash batch to a private Azure Blob container."""
+"""Publish a verified Car Spa batch to a private Azure Blob container."""
 import argparse
 import hashlib
 import json

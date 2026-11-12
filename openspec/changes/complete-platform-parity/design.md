@@ -17,7 +17,7 @@ Job states are `arrived` → `queued` → `in_progress` → `completed`, with `c
 
 Employees have stable IDs, names and active flags. Assignments snapshot historical names. Inventory items have SKU, unit and reorder threshold; on-hand derives from append-only receipt, adjustment and consumption movements. Job consumption is idempotent per operation, references an employee and item, cannot make stock negative, and stays auditable. Reservations are distinct from consumption and release on cancellation.
 
-Staff Google sign-in follows App.Desktop's provider-token-validation pattern but uses SparkleWash-owned sessions, roles and secrets. Device credentials can submit observations; staff roles gate plate correction, jobs, employees and stock changes. Web and SwiftUI use the same versioned DTOs and show loading, stale and error states. Native offline data is read-only until explicit reconciliation. N1CO payment references immutable job IDs and confirmed prices.
+Staff Google sign-in follows App.Desktop's provider-token-validation pattern but uses Car Spa-owned sessions, roles and secrets. Device credentials can submit observations; staff roles gate plate correction, jobs, employees and stock changes. Web and SwiftUI use the same versioned DTOs and show loading, stale and error states. Native offline data is read-only until explicit reconciliation. N1CO payment references immutable job IDs and confirmed prices.
 
 ## Cloud persistence and archive
 
@@ -50,7 +50,7 @@ See [cost and retention](../../../docs/cloud-cost-and-retention.md) and the
 
 ## Risks / unresolved decisions
 - Actual ESP32 board/camera/pinout and broker connectivity have not been verified.
-- N1CO is the selected payment processor. Reuse App.Desktop's Google sign-in approach: validate a Google identity token on the backend and issue a SparkleWash-owned session. Do not reuse Facturas Simples account tokens, JWT signing keys, or company membership as SparkleWash staff roles. Staff role assignment and receipt rules still need SparkleWash-specific policy.
+- N1CO is the selected payment processor. Reuse App.Desktop's Google sign-in approach: validate a Google identity token on the backend and issue a Car Spa-owned session. Do not reuse Facturas Simples account tokens, JWT signing keys, or company membership as Car Spa staff roles. Staff role assignment and receipt rules still need SparkleWash-specific policy.
 - Legacy upload size/status and reset method conflict; settle these in a versioned API contract.
 - Hosting prices, infrastructure and prior publication claims are unverified.
 - Firmware and deployment examples are not build or deployment evidence.

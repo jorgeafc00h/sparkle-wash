@@ -1,6 +1,6 @@
 import Foundation
 
-/// In-memory SparkleWash, for the demo mode and for tests. Mirrors the API's rules (job state machine,
+/// In-memory Car Spa backend, for the demo mode and for tests. Mirrors the API's rules (job state machine,
 /// pending/dismissed arrivals, device keys, team limits) and the web console's demo data.
 /// The rules live in `DemoWorld` (a value type, so seeding in `init` needs no actor hops); the actor
 /// serializes access and pushes change notifications.
@@ -94,7 +94,7 @@ struct DemoWorld {
     /// `seed: false` starts an empty carwash, as right after registering.
     init(seed: Bool, carwash: TenantInput?, now: Date) {
         catalogData = DemoWorld.defaultCatalog
-        tenantData = Tenant(id: "demo", name: carwash?.name ?? "SparkleWash Escalón",
+        tenantData = Tenant(id: "demo", name: carwash?.name ?? "Car Spa Escalón",
                             city: carwash == nil ? "San Salvador" : carwash?.city, country: carwash?.country ?? "SV",
                             phone: carwash == nil ? "+503 2222-3333" : carwash?.phone, timeZone: carwash?.timeZone ?? "America/El_Salvador",
                             createdAt: now.addingTimeInterval(-86400 * 30))

@@ -240,7 +240,7 @@ export function buildReceiptBlocks(payload: ReceiptPayload): ReceiptBlock[] {
 
   if (payload.kind === 'TEST') {
     C('PAGINA DE PRUEBA', { bold: true });
-    C('SparkleWash POS');
+    C('Car Spa POS');
     divider();
     C('Si lee esto, la impresora');
     C('esta configurada correctamente.');

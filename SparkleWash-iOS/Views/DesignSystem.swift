@@ -1,7 +1,7 @@
 import SwiftUI
 
-// SparkleWash design system.
-// Direction: "Soft UI Evolution" (ui-ux-pro-max) on the SparkleWash brand shared with the landing page and
+// Car Spa (formerly SparkleWash) design system; the SW type prefix comes from the former name.
+// Direction: "Soft UI Evolution" (ui-ux-pro-max) on the app palette shared with the landing page and
 // desktop app: teal #0F766E primary, ink navy #13213A, sky #38BDF8 drop highlight, coral #F97362 warm accent.
 // Calm teal-tinted canvas, white raised
 // cards with a hairline border and a very soft shadow, SF type on Dynamic Type text styles (rounded design for
@@ -186,20 +186,18 @@ extension View {
 
 // MARK: - Brand
 
+/// The Car Spa mark (vector asset from docs/brand, never redrawn). `size` is the old square badge's side; the
+/// wide mark is drawn at about the same visual area. Use `onDark` on dark surfaces (blue part turns white).
 struct SWBrandMark: View {
     var size: CGFloat = 56
+    var onDark = false
 
     var body: some View {
-        ZStack {
-            Circle().fill(LinearGradient(colors: [Color(0x14B8A6), Color(0x0F766E)],
-                                         startPoint: .top, endPoint: .bottom))
-            Image(systemName: "drop.fill")
-                .font(.system(size: size * 0.48, weight: .semibold))
-                .foregroundStyle(Color.swSky)
-                .shadow(color: .black.opacity(0.25), radius: 1, y: 1)
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        Image(onDark ? "car-spa-mark-ondark" : "car-spa-mark")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size * 1.5)
+            .accessibilityHidden(true)
     }
 }
 

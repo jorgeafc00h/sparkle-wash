@@ -35,7 +35,7 @@ public static class DevHostProgram
     {
         if (!DevIdentityVerifier.IsDevelopment())
         {
-            Console.Error.WriteLine("SparkleWash DevHost refuses to start: set ASPNETCORE_ENVIRONMENT=Development.");
+            Console.Error.WriteLine("Car Spa DevHost refuses to start: set ASPNETCORE_ENVIRONMENT=Development.");
             Environment.Exit(1);
             return;
         }

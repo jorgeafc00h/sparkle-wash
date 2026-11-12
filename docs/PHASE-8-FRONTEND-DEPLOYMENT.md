@@ -3,7 +3,7 @@
 ## Summary
 
 Phase 8 documents the React PWA frontend build + deployment as part of the
-SparkleWash web app. It is built with Vite and served from the .NET backend
+Car Spa web app. It is built with Vite and served from the .NET backend
 `wwwroot` directory in production.
 
 ### Build Configuration

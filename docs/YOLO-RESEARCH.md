@@ -1,8 +1,8 @@
-# YOLO Research Report: ESP32-CAM Plate & Vehicle Detection for SparkleWash
+# YOLO Research Report: ESP32-CAM Plate & Vehicle Detection for Car Spa
 
 ## Executive Summary
 
-For SparkleWash, the optimal architecture is a **hybrid approach**:
+For Car Spa, the optimal architecture is a **hybrid approach**:
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
@@ -59,7 +59,7 @@ This hybrid approach gives you:
 | YOLOv8m | ~25M params | 79B FLOPs | ~30 FPS (GPU) | ~56% COCO |
 | YOLO11n | ~3M params | 4B FLOPs | Similar or better on GPU | SOTA at this size |
 
-**For SparkleWash use-case**, I recommend **YOLOv8n-ONNX** quantized to INT8, deployed via:
+**For Car Spa use-case**, I recommend **YOLOv8n-ONNX** quantized to INT8, deployed via:
 
 - Option A: ONNX Runtime on server — minimal latency, works on CPU
 - Option B: PyTorch + TensorRT / ONNX backend for even faster inference on GPU
@@ -117,7 +117,7 @@ If you need <50ms latency (not the case for carwash jobs which can take many min
                       │
                       ▼ HTTP/HTTPS 443
   ┌──────────────────────────────────────────────────┐
-  │          iOS App (SparkleWash)                    │
+  │          iOS App (Car Spa)                    │
   │            — Tab 1: Dashboard                     │
   │            — Tab 2: Job History ⚡                │
   │            — Tab 3: Employees                     │

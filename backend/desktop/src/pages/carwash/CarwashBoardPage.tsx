@@ -1,5 +1,5 @@
 // Lavado — live workboard of the car washes: Llegó → En cola → En proceso →
-// Listo. Jobs come from the SparkleWash API (shared with the iOS app) and are
+// Listo. Jobs come from the Car Spa API (shared with the iOS app) and are
 // created offline-first through the carwash slice's outbox.
 
 import { useEffect, useMemo, useState } from 'react';
@@ -39,6 +39,7 @@ import { NewServiceModal } from '@/components/carwash/NewServiceModal';
 import { useCarwashInit } from '@/components/carwash/useCarwashInit';
 import { useWorkTicketPrinter } from '@/components/carwash/useWorkTicketPrinter';
 import { buildBoard, formatElapsed, jobElapsedMs } from '@/components/carwash/carwashUi';
+import { isUntrackedLegacyJob } from '@/services/carwash/posCarwashLines';
 
 const SYNC_LABEL: Record<CarwashSyncState, { label: string; variant: 'success' | 'info' | 'warning' | 'error' | 'neutral' }> = {
   'signed-out': { label: 'Sin sesión', variant: 'neutral' },
@@ -73,6 +74,8 @@ function useNow(intervalMs = 1000): number {
 
 function PaymentChip({ job }: { job: CarwashJob }) {
   const paid = job.paidUsd ?? 0;
+  // Opened before payment tracking: settled outside the POS, nothing to collect.
+  if (isUntrackedLegacyJob(job)) return null;
   if (job.paymentStatus === 'paid' || (paid >= job.priceUsd && job.priceUsd > 0)) {
     return <Badge variant="success" size="sm" data-testid="carwash-pay-chip">Pagado</Badge>;
   }
@@ -97,7 +100,7 @@ function JobCard({ job, now, canCharge, onAdvance, onCancel, onAssign, onPrint, 
   const next = NEXT_JOB_STATUSES[job.status].find((s) => s !== 'cancelled');
   const canCancel = NEXT_JOB_STATUSES[job.status].includes('cancelled');
   const employees = Array.from(new Set(job.assignments.map((a) => a.employeeName)));
-  const unpaid = job.paymentStatus !== 'paid' && (job.paidUsd ?? 0) < job.priceUsd;
+  const unpaid = job.paymentStatus !== 'paid' && (job.paidUsd ?? 0) < job.priceUsd && !isUntrackedLegacyJob(job);
   return (
     <div
       data-testid="carwash-job-card"
@@ -240,15 +243,15 @@ export default function CarwashBoardPage() {
   if (!signedIn && jobs.length === 0) {
     return (
       <div data-testid="carwash-board">
-        <PageHeader title="Lavado" subtitle="Órdenes de trabajo de SparkleWash" />
+        <PageHeader title="Lavado" subtitle="Órdenes de trabajo de Car Spa" />
         <EmptyState
           icon={<Car size={32} />}
-          title="SparkleWash no está conectado"
+          title="Car Spa no está conectado"
           message="Inicia sesión con Google y configura la API para ver y crear servicios de lavado."
         />
         <div className="text-center mt-3">
           <Link to="/settings/carwash" data-testid="carwash-go-settings" className="inline-flex items-center gap-1 text-accent-600 hover:underline text-sm">
-            <Settings2 size={14} /> Ir a la configuración de SparkleWash
+            <Settings2 size={14} /> Ir a la configuración de Car Spa
           </Link>
         </div>
       </div>
@@ -261,7 +264,7 @@ export default function CarwashBoardPage() {
     <div data-testid="carwash-board" className="space-y-4">
       <PageHeader
         title="Lavado"
-        subtitle="Órdenes de trabajo de SparkleWash"
+        subtitle="Órdenes de trabajo de Car Spa"
         actions={
           <>
             <div className="flex items-center gap-2 text-xs text-slate-500" data-testid="carwash-sync-status">

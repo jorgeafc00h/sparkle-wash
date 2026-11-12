@@ -48,7 +48,7 @@ const SETTINGS_GRID = [
     testId: 'settings-local-users',
   },
   {
-    label: 'SparkleWash (lavado)',
+    label: 'Car Spa (lavado)',
     description: 'Conexión con la API, tickets de trabajo y cuenta Google',
     icon: <Car size={22} />,
     href: '/settings/carwash',
@@ -399,7 +399,7 @@ export default function SettingsPage() {
       <Card>
         <h2 className="font-semibold text-brand-800 mb-2">Información de la App</h2>
         <p className="text-sm text-brand-500">
-          Versión <span className="font-mono font-medium">{APP_VERSION}</span> — SparkleWash Desktop
+          Versión <span className="font-mono font-medium">{APP_VERSION}</span> — Car Spa Desktop
         </p>
         <p className="text-xs text-brand-400 mt-1">
           &copy; {new Date().getFullYear()} Key Labs. Facturación Electrónica para El Salvador.

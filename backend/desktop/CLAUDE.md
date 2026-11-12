@@ -1,4 +1,4 @@
-# SparkleWash Desktop (Electron + Vite + React 19)
+# Car Spa Desktop, formerly SparkleWash (Electron + Vite + React 19)
 
 Custom build of the Facturas Simples desktop app (1.4.6 copy; the original is read-only upstream) plus the carwash
 workflow. Full contract: [docs/SPARKLEWASH_INTEGRATION.md](docs/SPARKLEWASH_INTEGRATION.md). Install/run/build: [README.md](README.md).
@@ -28,7 +28,7 @@ upstream relay: set `SYNC_API_PROJECT_DIR="/Users/jorgeflores/github/FACTURAS SI
 - Windows installers come from `.github/workflows/desktop-release.yml` (builds on every desktop change; publishes
   `desktop-v<version>` from main only when that tag is new — bump `package.json` "version" to release).
 - Keep "Facturas Simples" only where it names the upstream invoicing service/backend, plan names, legal DTE text, and
-  the PDF free-tier footer. App-facing names are "SparkleWash". UI text in Spanish.
+  the PDF free-tier footer. App-facing names are "Car Spa" (internal identifiers keep the SparkleWash name: appId, productName, userData, secure-storage services, artifact names). UI text in Spanish.
 - Keep `electron/builder.config.json` `files` listing `electron/*.cjs` and runtime deps in `dependencies`.
 - Do not change API hosts, OAuth client ids, telemetry keys or the sync relay config without an explicit task.
 - `.github/workflows` inside `desktop/` does not run; CI lives in the repo root workflow.

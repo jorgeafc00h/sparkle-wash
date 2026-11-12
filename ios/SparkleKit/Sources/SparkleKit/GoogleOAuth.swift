@@ -3,7 +3,7 @@ import Foundation
 
 /// Google sign-in for native apps (OAuth 2.0 authorization code + PKCE, RFC 7636 / RFC 8252).
 /// The app opens `authorizationURL` in ASWebAuthenticationSession, gets a code on its redirect URI,
-/// exchanges it for an ID token, and sends that token to the SparkleWash API.
+/// exchanges it for an ID token, and sends that token to the Car Spa API.
 public struct GoogleOAuth: Sendable {
     public let clientId: String
 

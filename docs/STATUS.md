@@ -1,4 +1,4 @@
-# SparkleWash: review and status (updated 2026-10-21, round 4)
+# Car Spa: review and status (updated 2026-10-21, round 4)
 
 ## What is real today
 
@@ -93,9 +93,9 @@ Still open:
   * An equipment-health row on the floor screen.
   * Explainer video lines about the app.
 
-## Round 5: SparkleWash Desktop (2026-11-11)
+## Round 5: Car Spa Desktop (2026-11-11)
 
-Added `backend/desktop/`, a SparkleWash custom build of the Facturas Simples desktop app (Electron 35 + React 19, copied
+Added `backend/desktop/`, a Car Spa custom build of the Facturas Simples desktop app (Electron 35 + React 19, copied
 from `App.Desktop` 1.4.6). It keeps every upstream feature (DTE invoicing, customers, products, compras, POS,
 cash drawer, closings, local users, device sync) and adds the carwash workflow. Contract:
 `backend/desktop/docs/SPARKLEWASH_INTEGRATION.md`.

@@ -132,6 +132,10 @@ internal sealed class PostgresJobStore(PostgresWorkflowDatabase database, bool r
             await new JobStore(await database.Jobs(connection, "AND plate=$2 AND status <> 'cancelled'", plate))
                 .FindOpenByPlateAsync(plate, closedWithin));
 
+    public override Task<JobView?> FindOpenByTicketAsync(string ticketNumber) => database.RunAsync(false, async connection =>
+        await new JobStore(await database.Jobs(connection, "AND ticket_number=$2 AND status NOT IN ('completed','cancelled')", ticketNumber))
+            .FindOpenByTicketAsync(ticketNumber));
+
     public override Task<JobSummary> SummaryAsync(TimeZoneInfo? zone = null) => database.RunAsync(false, async connection =>
         await new JobStore(await database.Jobs(connection)).SummaryAsync(zone));
 
@@ -144,9 +148,9 @@ internal sealed class PostgresJobStore(PostgresWorkflowDatabase database, bool r
                 current.VehicleClass is null || !package.Prices.ContainsKey(current.VehicleClass))
                 return new JobActionResult(JobActionStatus.Conflict, null);
             var candidates = await database.Jobs(connection, """
-                AND (arrival_id=$2 OR (plate=$3 AND status NOT IN ('completed','cancelled'))
+                AND (arrival_id=$2 OR ((plate=$3 OR ticket_number=$5) AND status NOT IN ('completed','cancelled'))
                     OR transitions @> jsonb_build_array(jsonb_build_object('status','arrived','idempotencyKey',$4::text)))
-                """, current.Id, current.ConfirmedPlate!, key);
+                """, current.Id, current.ConfirmedPlate!, key, (object?)details?.TicketNumber ?? DBNull.Value);
             var result = await new JobStore(candidates, row => database.SaveJob(connection, row))
                 .CreateAsync(current, package, key, actor, details);
             if (result.Status is JobActionStatus.Created or JobActionStatus.Duplicate && result.Job is not null && current.JobId is null)

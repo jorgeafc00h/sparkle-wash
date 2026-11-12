@@ -222,6 +222,65 @@ public sealed class DesktopPosWorkflowTests : IAsyncLifetime
     }
 
     [Fact]
+    public void PosCounterArrivalWithoutAJobIsNeverPending()
+    {
+        // A walk-in whose job could not be opened (e.g. a replay after the plate got another open job) leaves a
+        // confirmed pos-counter arrival without a job: it must not show up in the staff review queue.
+        var now = DateTimeOffset.UtcNow;
+        var orphan = new ArrivalObservation("a1", "pos-key", ArrivalStore.PosCounterCameraId, "P123456", null, now, now, null,
+            "digest", "P123456", "suv", "222", now, JobId: null, CameraRole: "entry");
+        ArrivalStore.IsPending(orphan).Should().BeFalse();
+        ArrivalStore.IsPending(orphan with { CameraId = "camera-entry" }).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task WorkTicketNumberIsUniqueAmongOpenJobs()
+    {
+        using var op = await Staff("operator");
+        var key = Key();
+        var first = await Post(op, "/api/jobs/walk-in", new { plate = "AAA111", vehicleClass = "suv", packageId = "essential", ticketNumber = "OT-C1-000001" }, key);
+        first.StatusCode.Should().Be(HttpStatusCode.Created);
+        var firstId = (await Body(first)).GetProperty("id").GetString();
+
+        // A second register with the same code prints the same number for another car.
+        var clash = await Post(op, "/api/jobs/walk-in", new { plate = "BBB222", vehicleClass = "suv", packageId = "essential", ticketNumber = "OT-C1-000001" }, Key());
+        clash.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var clashBody = await Body(clash);
+        clashBody.GetProperty("error").GetString().Should().Contain("Ticket number");
+        clashBody.GetProperty("job").GetProperty("id").GetString().Should().Be(firstId);
+        (await JobCount(op)).Should().Be(1);
+        (await Body(await op.GetAsync("/api/arrivals?pending=true"))).GetArrayLength().Should().Be(0);
+
+        // The original walk-in still replays with its own key.
+        (await Post(op, "/api/jobs/walk-in", new { plate = "AAA111", vehicleClass = "suv", packageId = "essential", ticketNumber = "OT-C1-000001" }, key))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Attaching the number to another open job is refused too; once the first car leaves, it is free again.
+        var otherId = (await Body(await Post(op, "/api/jobs/walk-in", WalkIn("CCC333"), Key()))).GetProperty("id").GetString();
+        (await Post(op, $"/api/jobs/{otherId}/ticket", new { ticketNumber = "OT-C1-000001" }, null)).StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await Post(op, $"/api/jobs/{firstId}/transition", new { status = "cancelled" }, Key())).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Post(op, $"/api/jobs/{otherId}/ticket", new { ticketNumber = "OT-C1-000001" }, null)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task SimultaneousWalkInsWithTheSameTicketOpenOnlyOneJob()
+    {
+        using var op = await Staff("operator");
+        for (var i = 0; i < 10; i++)
+        {
+            var ticket = $"OT-RACE-{i:000}";
+            var responses = await Task.WhenAll(
+                Post(op, "/api/jobs/walk-in", new { plate = $"RACEA{i}", vehicleClass = "suv", packageId = "essential", ticketNumber = ticket }, Key()),
+                Post(op, "/api/jobs/walk-in", new { plate = $"RACEB{i}", vehicleClass = "suv", packageId = "essential", ticketNumber = ticket }, Key()));
+            responses.Count(x => x.StatusCode == HttpStatusCode.Created).Should().Be(1, $"ticket {ticket} identifies one car");
+            var loser = responses.Single(x => x.StatusCode != HttpStatusCode.Created);
+            loser.StatusCode.Should().Be(HttpStatusCode.Conflict);
+            (await Body(loser)).GetProperty("error").GetString().Should().Contain("Ticket number");
+        }
+        (await Body(await op.GetAsync("/api/arrivals?pending=true"))).GetArrayLength().Should().Be(0);
+    }
+
+    [Fact]
     public async Task TicketIsWriteOnce()
     {
         using var op = await Staff("operator");

@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: SparkleWash Carwash API
+  title: Car Spa API
   version: 2.1.0
 servers:
   - url: http://localhost:5001

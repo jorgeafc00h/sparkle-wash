@@ -101,15 +101,77 @@ describe('CarwashOutbox', () => {
     expect(client.calls).toHaveLength(1);
   });
 
-  it('treats a 409 with a job body for the same ticket/plate as success', async () => {
+  it('treats a 409 whose job carries this walk-in\'s ticket AND plate as success', async () => {
     const { outbox, client } = setup();
-    client.jobs.push(makeJob({ id: 'srv-existing', plate: 'ABC1', status: 'queued' }));
+    client.jobs.push(makeJob({ id: 'srv-existing', plate: 'ABC1', status: 'queued', ticketNumber: 'OT-C1-ABC1' }));
     await outbox.enqueue(walkIn('ABC1', 'local-1'));
     await outbox.enqueue({ kind: 'transition', jobId: 'local-1', status: 'in_progress' });
     const res = await outbox.flush(asClient(client));
     expect(res.failed).toEqual([]);
     expect(res.idMap).toEqual({ 'local-1': 'srv-existing' });
     expect(client.calls[1].args[0]).toBe('srv-existing');
+  });
+
+  it('treats a 409 whose job was opened with this entry\'s idempotency key as success', async () => {
+    const { outbox, client } = setup();
+    const entry = await outbox.enqueue(walkIn('ABC1', 'local-1'));
+    client.failNext.createWalkIn = httpError(409, {
+      error: 'reused',
+      job: makeJob({ id: 'srv-mine', plate: 'ABC1', transitions: [{ status: 'arrived', at: 'x', actor: 'a', idempotencyKey: entry.idempotencyKey }] }),
+    });
+    const res = await outbox.flush(asClient(client));
+    expect(res.failed).toEqual([]);
+    expect(res.idMap).toEqual({ 'local-1': 'srv-mine' });
+  });
+
+  it('fails a 409 for another open job of the same plate (stale camera job) instead of adopting it', async () => {
+    const { outbox, client } = setup();
+    client.jobs.push(makeJob({ id: 'srv-stale', plate: 'ABC1', status: 'queued', ticketNumber: null, packageId: 'quick' }));
+    await outbox.enqueue(walkIn('ABC1', 'local-1'));
+    await outbox.enqueue({ kind: 'payment', jobId: 'local-1', payment: { method: 'cash', amountUsd: 35 } });
+    const res = await outbox.flush(asClient(client));
+    expect(res.idMap).toEqual({});
+    expect(res.failed.map((e) => e.op.kind)).toEqual(['walk-in', 'payment']);
+    expect(client.calls.filter((c) => c.method === 'recordPayment')).toHaveLength(0);
+  });
+
+  it('only sends the signed-in scope\'s entries and claims unscoped ones', async () => {
+    const { outbox, client } = setup();
+    client.jobs.push(makeJob({ id: 'j1', status: 'queued' }), makeJob({ id: 'j2', status: 'queued', plate: 'Z' }));
+    await outbox.enqueue({ kind: 'transition', jobId: 'j1', status: 'in_progress' }, 'http://api|tenant-a');
+    await outbox.enqueue({ kind: 'transition', jobId: 'j2', status: 'in_progress' }, null);
+    const asB = await outbox.flush(asClient(client), 'http://api|tenant-b');
+    expect(asB).toMatchObject({ sent: 1, remaining: 0 });
+    expect(client.calls.map((c) => c.args[0])).toEqual(['j2']);
+    expect(await outbox.pendingCount('http://api|tenant-b')).toBe(0);
+    expect(await outbox.pendingCount('http://api|tenant-a')).toBe(1);
+    const asA = await outbox.flush(asClient(client), 'http://api|tenant-a');
+    expect(asA).toMatchObject({ sent: 1, remaining: 0 });
+    expect(client.calls.map((c) => c.args[0])).toEqual(['j2', 'j1']);
+  });
+
+  it('does not wipe the stored queue when the first storage read fails', async () => {
+    const { storage, make, client } = setup();
+    client.jobs.push(makeJob({ id: 'j1', status: 'queued' }));
+    const first = make();
+    await first.enqueue({ kind: 'transition', jobId: 'j1', status: 'in_progress' });
+    let failures = 1;
+    const flakyStorage = {
+      getItem: (k: string) => (failures-- > 0 ? Promise.reject(new Error('ipc')) : storage.getItem(k)),
+      setItem: storage.setItem,
+    };
+    const reopened = new CarwashOutbox({ storage: flakyStorage, uuid: () => `r-${Math.random()}` });
+    await expect(reopened.enqueue({ kind: 'transition', jobId: 'j1', status: 'completed' })).rejects.toThrow('ipc');
+    await reopened.enqueue({ kind: 'transition', jobId: 'j1', status: 'completed' });
+    expect((await reopened.list()).map((e) => (e.op as { status: string }).status)).toEqual(['in_progress', 'completed']);
+  });
+
+  it('keeps a copy of a corrupt outbox before starting empty', async () => {
+    const { storage, make } = setup();
+    storage.map.set(CARWASH_OUTBOX_KEY, '{not json');
+    const outbox = make();
+    expect(await outbox.list()).toEqual([]);
+    expect(storage.map.get(`${CARWASH_OUTBOX_KEY}.corrupt`)).toBe('{not json');
   });
 
   it('fails a 409 whose job is a different vehicle and ticket', async () => {

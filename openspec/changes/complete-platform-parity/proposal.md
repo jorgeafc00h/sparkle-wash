@@ -1,7 +1,7 @@
 # Job-centered operational platform parity
 
 ## Why
-SparkleWash must follow cars and their work, not fixed wash stations. An ESP32 camera observes an arriving plate; staff confirm the vehicle, choose a detailing package, assign employees, record materials and close the job. The business needs whole-carwash job counts, elapsed time, employee activity and stock usage on web and SwiftUI. Existing station metrics are a technical baseline, not the product dashboard.
+Car Spa must follow cars and their work, not fixed wash stations. An ESP32 camera observes an arriving plate; staff confirm the vehicle, choose a detailing package, assign employees, record materials and close the job. The business needs whole-carwash job counts, elapsed time, employee activity and stock usage on web and SwiftUI. Existing station metrics are a technical baseline, not the product dashboard.
 
 ## What Changes
 - Accept plate-observation events with image provenance and confidence; staff confirm/correct them before job creation.

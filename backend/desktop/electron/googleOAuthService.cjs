@@ -131,11 +131,11 @@ function escapeHtml(text) {
 function callbackPage(ok, message) {
   const title = ok ? 'Sesión iniciada' : 'No se pudo iniciar sesión';
   const color = ok ? '#15803d' : '#b91c1c';
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>SparkleWash</title></head>
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Car Spa</title></head>
 <body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;text-align:center;padding:48px;color:#1f2937">
 <h2 style="color:${color}">${escapeHtml(title)}</h2>
 <p>${escapeHtml(message)}</p>
-<p style="color:#6b7280">Puedes cerrar esta pestaña y volver a SparkleWash.</p>
+<p style="color:#6b7280">Puedes cerrar esta pestaña y volver a Car Spa.</p>
 </body></html>`;
 }
 

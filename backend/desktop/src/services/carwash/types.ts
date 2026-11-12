@@ -203,6 +203,12 @@ export interface CarwashOutboxEntry {
   lastError: string | null;
   /** True once the server rejected the op (4xx). Failed entries are skipped by flush but stay visible. */
   failed?: boolean;
+  /**
+   * Account the write belongs to (`<api origin>|<tenant id>`). Flushes only send entries of the signed-in
+   * scope, so another carwash or server never receives them. Unscoped entries (queued while signed out,
+   * or before scoping existed) are claimed by the next scope that flushes.
+   */
+  scope?: string | null;
   op: CarwashOutboxOp;
 }
 
