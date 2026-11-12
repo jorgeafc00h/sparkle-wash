@@ -1,4 +1,4 @@
-# SparkleWash iOS App — Productivity Dashboard (v1.0)
+# Car Spa iOS App — Productivity Dashboard (v1.0)
 
 A SwiftUI-native iOS app for tracking carwash job performance, employee productivity, and revenue summaries.
 
@@ -90,7 +90,7 @@ SparkleWash-iOS/
 
 ## API Contract
 
-The iOS app connects to the local SparkleWash API at `http://localhost:8080` (or configurable in Settings).
+The iOS app connects to the local Car Spa API at `http://localhost:8080` (or configurable in Settings).
 
 | Method | Path | Returns |
 |--------|------|---------|
@@ -132,7 +132,7 @@ The ESP32 firmware is responsible for taking the photo every ~167ms and POSTing 
 
 ## License
 
-Proprietary internal property of SparkleWash Inc.
+Proprietary internal property of Car Spa Inc.
 
 ## Contributors
 

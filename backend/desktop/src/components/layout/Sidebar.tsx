@@ -151,10 +151,10 @@ export function Sidebar() {
       {/* Logo */}
       <div className="px-5 pt-5 pb-5 border-b border-brand-800">
         <div className="flex items-center gap-2.5">
-          <BrandMark size={32} className="shrink-0 rounded-lg" />
+          <BrandMark size={28} className="shrink-0" />
           <div>
             <p className="text-lg font-bold tracking-tight text-white leading-tight">
-              Sparkle<span className="text-sky-400">Wash</span>
+              Car <span className="text-orange-400">Spa</span>
             </p>
             <p className="text-xs text-brand-400 mt-0.5">Lavado y facturación</p>
           </div>

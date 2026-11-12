@@ -167,7 +167,7 @@ export function LocalUserLockScreen() {
             {selected ? `Hola, ${selected.displayName}` : '¿Quién está usando la app?'}
           </h1>
           <p className="mt-1 text-sm text-brand-400">
-            {company?.nombreComercial || company?.nombre || 'SparkleWash'}
+            {company?.nombreComercial || company?.nombre || 'Car Spa'}
           </p>
         </div>
 

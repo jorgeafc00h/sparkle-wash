@@ -1,4 +1,4 @@
-# SparkleWash Carwash — Spec & UI Project Summary
+# Car Spa — Spec & UI Project Summary
 
 ## What This Is
 

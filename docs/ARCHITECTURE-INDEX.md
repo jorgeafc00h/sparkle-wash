@@ -1,4 +1,4 @@
-# SparkleWash — Architecture Index
+# Car Spa — Architecture Index
 
 A single source of truth for the full-stack carwash management system.
 

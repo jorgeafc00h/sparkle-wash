@@ -1,4 +1,4 @@
-# SparkleWash System Specification — v2.1 (Final)
+# Car Spa System Specification — v2.1 (Final)
 
 > **Historical prototype specification:** This document preserves an earlier system design and is not a current feature inventory or proof of implementation. Some station, telemetry, PWA, and hosting claims below describe experiments or superseded plans. Use the current [README](../README.md), [architecture](ARCHITECTURE.md), and dated [project review](reviews/2026-10-18-code-review.md) for verified project behavior.
 

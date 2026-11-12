@@ -1,6 +1,6 @@
 schema: spec-driven
 context: |
-  SparkleWash is a carwash operations prototype with a .NET 10 API,
+  Car Spa is a carwash operations prototype with a .NET 10 API,
   React 18 / TypeScript / Vite 5 dashboard, Swift 6 / SwiftUI / SwiftData
   iOS 18+ app, and unverified ESP-IDF firmware under esp32-firmware/ESP32-CAM-Station-V1.
   Run OpenSpec from the repository root. openspec/specs is the implemented baseline;

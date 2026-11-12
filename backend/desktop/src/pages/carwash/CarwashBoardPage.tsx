@@ -1,5 +1,5 @@
 // Lavado — live workboard of the car washes: Llegó → En cola → En proceso →
-// Listo. Jobs come from the SparkleWash API (shared with the iOS app) and are
+// Listo. Jobs come from the Car Spa API (shared with the iOS app) and are
 // created offline-first through the carwash slice's outbox.
 
 import { useEffect, useMemo, useState } from 'react';
@@ -243,15 +243,15 @@ export default function CarwashBoardPage() {
   if (!signedIn && jobs.length === 0) {
     return (
       <div data-testid="carwash-board">
-        <PageHeader title="Lavado" subtitle="Órdenes de trabajo de SparkleWash" />
+        <PageHeader title="Lavado" subtitle="Órdenes de trabajo de Car Spa" />
         <EmptyState
           icon={<Car size={32} />}
-          title="SparkleWash no está conectado"
+          title="Car Spa no está conectado"
           message="Inicia sesión con Google y configura la API para ver y crear servicios de lavado."
         />
         <div className="text-center mt-3">
           <Link to="/settings/carwash" data-testid="carwash-go-settings" className="inline-flex items-center gap-1 text-accent-600 hover:underline text-sm">
-            <Settings2 size={14} /> Ir a la configuración de SparkleWash
+            <Settings2 size={14} /> Ir a la configuración de Car Spa
           </Link>
         </div>
       </div>
@@ -264,7 +264,7 @@ export default function CarwashBoardPage() {
     <div data-testid="carwash-board" className="space-y-4">
       <PageHeader
         title="Lavado"
-        subtitle="Órdenes de trabajo de SparkleWash"
+        subtitle="Órdenes de trabajo de Car Spa"
         actions={
           <>
             <div className="flex items-center gap-2 text-xs text-slate-500" data-testid="carwash-sync-status">

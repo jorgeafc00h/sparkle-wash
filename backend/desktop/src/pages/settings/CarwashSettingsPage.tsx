@@ -1,4 +1,4 @@
-// Settings → SparkleWash (lavado): API connection, Google sign-in, work-ticket
+// Settings → Car Spa (lavado): API connection, Google sign-in, work-ticket
 // printing options and a sample print. The carwash API must list this app's
 // Google OAuth client id as an accepted audience.
 
@@ -97,7 +97,7 @@ export default function CarwashSettingsPage() {
     setSaving(true);
     try {
       await dispatch(saveCarwashSettings(clamped())).unwrap();
-      toast.success('Configuración de SparkleWash guardada');
+      toast.success('Configuración de Car Spa guardada');
     } catch (err) {
       toast.error(`No se pudo guardar: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -111,7 +111,7 @@ export default function CarwashSettingsPage() {
     try {
       const client = new CarwashApiClient({ baseUrl: form.apiBaseUrl.trim() });
       await client.request('GET', '/health', { auth: false });
-      setTestResult({ ok: true, message: 'Conexión correcta con la API de SparkleWash.' });
+      setTestResult({ ok: true, message: 'Conexión correcta con la API de Car Spa.' });
     } catch (err) {
       setTestResult({ ok: false, message: err instanceof Error ? err.message : String(err) });
     } finally {
@@ -124,7 +124,7 @@ export default function CarwashSettingsPage() {
     try {
       if (dirty) await dispatch(saveCarwashSettings(clamped())).unwrap();
       await dispatch(signInCarwash()).unwrap();
-      toast.success('Sesión iniciada en SparkleWash');
+      toast.success('Sesión iniciada en Car Spa');
     } catch (err) {
       toast.error(`No se pudo iniciar sesión: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -177,7 +177,7 @@ export default function CarwashSettingsPage() {
 
   return (
     <div data-testid="carwash-settings" className="space-y-6 max-w-3xl">
-      <PageHeader title="SparkleWash (lavado)" subtitle="Conexión con la API, tickets de trabajo y cuenta" />
+      <PageHeader title="Car Spa (lavado)" subtitle="Conexión con la API, tickets de trabajo y cuenta" />
 
       <Card className="p-5 space-y-4">
         <h2 className="font-semibold text-brand-800">Conexión</h2>
@@ -200,7 +200,7 @@ export default function CarwashSettingsPage() {
           )}
         </div>
         <p className="text-xs text-slate-500">
-          La API de SparkleWash debe incluir el Client ID de Google de esta aplicación en sus audiencias permitidas;
+          La API de Car Spa debe incluir el Client ID de Google de esta aplicación en sus audiencias permitidas;
           de lo contrario el inicio de sesión será rechazado.
         </p>
 
@@ -210,7 +210,7 @@ export default function CarwashSettingsPage() {
             <div className="flex flex-wrap items-center gap-3" data-testid="carwash-session">
               <CheckCircle2 size={18} className="text-green-600" />
               <div className="text-sm">
-                <p className="font-medium text-brand-900">{session.tenant?.name ?? 'SparkleWash'}</p>
+                <p className="font-medium text-brand-900">{session.tenant?.name ?? 'Car Spa'}</p>
                 <p className="text-xs text-slate-500">{session.email ?? session.subject}</p>
               </div>
               <Badge variant="info" size="sm">{ROLE_LABEL[session.role] ?? session.role}</Badge>

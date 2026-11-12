@@ -297,4 +297,4 @@ Current configuration:
 - [IBM Code Engine price example](https://cloud.ibm.com/docs/account?topic=account-sample)
 - [GitHub Packages billing](https://docs.github.com/en/billing/concepts/product-billing/github-packages)
 - [Neon pricing](https://neon.com/pricing)
-- [SparkleWash cost and retention assessment](cloud-cost-and-retention.md)
+- [Car Spa cost and retention assessment](cloud-cost-and-retention.md)

@@ -47,7 +47,7 @@ const job = (over: Partial<CarwashJob> = {}): CarwashJob => ({
 });
 
 const baseOpts = {
-  companyName: 'SparkleWash',
+  companyName: 'Car Spa',
   companyPhone: '2222-3333',
   companyAddress: 'Col. Escalón, San Salvador',
   registerCode: 'C1',
@@ -64,7 +64,7 @@ describe('work ticket layout', () => {
     expect(payload.kind).toBe('WORK_ORDER');
     const out = renderReceiptText(payload);
     for (const expected of [
-      'SPARKLEWASH',
+      'CAR SPA',
       'Tel 2222-3333',
       'ORDEN DE TRABAJO',
       'OT-C1-000045',
@@ -125,7 +125,7 @@ describe('work ticket layout', () => {
         { employeeId: 'e2', employeeName: 'José Luis Martínez', assignedAt: '' },
       ],
     });
-    const payload = withBlocks(buildWorkTicketReceipt(long, { ...baseOpts, companyName: 'Autolavado SparkleWash El Paraíso', paper: { widthMm: 58 } }));
+    const payload = withBlocks(buildWorkTicketReceipt(long, { ...baseOpts, companyName: 'Autolavado Car Spa El Paraíso', paper: { widthMm: 58 } }));
     const cols = colsForWidth(58);
     for (const block of payload.blocks!) expect([block.text, block.text.length <= cols]).toEqual([block.text, true]);
     expect(renderReceiptText(payload)).toContain('María Fernanda');

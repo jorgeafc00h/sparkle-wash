@@ -1,10 +1,10 @@
-# SparkleWash Final Specification v2.0
+# Car Spa Final Specification v2.0
 
 > **Status:** Design complete. Backend builds clean (`dotnet build` exit 0, .NET 10). Frontend ships via `npm run build` (exit 0, 148 kB / gzip 48 kB). Next: end-to-end integration test + Oracle ARM Free Tier deploy.
 
 ## 1. Product
 
-SparkleWash is a **real-time IoT carwash management platform**. Customers watch their car
+Car Spa is a **real-time IoT carwash management platform**. Customers watch their car
 get washed via a live camera and station dashboard; owners monitor PSI pressure, soap level,
 station occupancy, revenue and payment verification from an admin bento-grid. It runs as a
 PWA (installable, works offline via a cache-first service worker) and streams station feeds

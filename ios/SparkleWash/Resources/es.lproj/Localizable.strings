@@ -16,12 +16,12 @@
 "admin.tab.employees" = "Empleados";
 "admin.tab.team" = "Equipo";
 "admin.title" = "Administración";
-"admin.welcome" = "¡Bienvenido a SparkleWash, {name}!";
+"admin.welcome" = "¡Bienvenido a Car Spa, {name}!";
 "alert.highPressure" = "Presión de agua alta";
 "alert.lowPressure" = "Presión de agua baja";
 "alert.lowSoapLevel" = "Jabón por agotarse";
 "app.console" = "Consola del personal";
-"app.name" = "SparkleWash";
+"app.name" = "Car Spa";
 "bays.none" = "Aún no hay telemetría de bahías";
 "bays.outOfRange" = "Fuera de rango";
 "bays.pressure" = "Presión";
@@ -86,7 +86,7 @@
 "device.fps" = "Fotos/s";
 "device.key" = "Llave";
 "device.never" = "Esperando la primera conexión";
-"device.neverHelp" = "Enciéndela manteniendo BOOT presionado y abre la app SparkleWash en el iPhone o iPad: Administración › Cámaras › {name} › Configurar Wi-Fi por Bluetooth.";
+"device.neverHelp" = "Enciéndela manteniendo BOOT presionado y abre la app Car Spa en el iPhone o iPad: Administración › Cámaras › {name} › Configurar Wi-Fi por Bluetooth.";
 "device.offline" = "Sin señal · visto {ago}";
 "device.online" = "En línea";
 "device.reads" = "Lecturas";
@@ -215,7 +215,7 @@
 "link.name" = "Nombre";
 "link.namePlaceholder" = "Cámara de entrada";
 "link.role" = "Función";
-"link.steps" = "1) Con la app SparkleWash para iPhone/iPad, configura el Wi-Fi de la cámara por Bluetooth (ID: {cameraId}). 2) Ejecuta en el gateway:";
+"link.steps" = "1) Con la app Car Spa para iPhone/iPad, configura el Wi-Fi de la cámara por Bluetooth (ID: {cameraId}). 2) Ejecuta en el gateway:";
 "link.stepsLegacy" = "¿Firmware 1.1? Graba CAMERA_ID = {cameraId} en el sketch.";
 "link.title" = "Vincular una ESP32-CAM";
 "nav.admin" = "Administración";
@@ -320,7 +320,7 @@
 "signin.body" = "Revisa las llegadas de las cámaras, sigue las placas y avanza los trabajos.";
 "signin.demo" = "Explorar la demo";
 "signin.demoNote" = "La demo simula las cámaras ESP32 en tu navegador. No se guarda nada.";
-"signin.newCarwash" = "¿Tu autolavado aún no usa SparkleWash?";
+"signin.newCarwash" = "¿Tu autolavado aún no usa Car Spa?";
 "signin.notConfigured" = "El inicio de sesión con Google no está configurado en esta versión. Define {variable} para conectar con la API.";
 "signin.notStaff" = "Esta cuenta de Google no está en la lista del personal.";
 "signin.or" = "o";

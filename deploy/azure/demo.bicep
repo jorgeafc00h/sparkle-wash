@@ -1,6 +1,6 @@
 targetScope = 'resourceGroup'
 
-@description('A unique name for the disposable SparkleWash app.')
+@description('A unique name for the disposable Car Spa app.')
 @minLength(2)
 @maxLength(24)
 param appName string = 'sparklewash-demo'

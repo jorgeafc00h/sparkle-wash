@@ -1,4 +1,4 @@
-# SparkleWash Feature Research & Additions
+# Car Spa Feature Research & Additions
 
 Based on industry best practices from leading car wash management systems (CarWright, WashCo, CarPro, detailPRO), I've identified additional useful features to add to the app.
 

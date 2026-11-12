@@ -89,7 +89,7 @@ export function buildWorkTicketCopies(job: CarwashJob, settings: PosSettings, op
   const company = opts.company;
   const base: Omit<WorkTicketOptions, 'copyLabel'> = {
     companyId: company?.id ?? opts.companyId,
-    companyName: opts.companyName || company?.nombreComercial || company?.nombre || 'SparkleWash',
+    companyName: opts.companyName || company?.nombreComercial || company?.nombre || 'Car Spa',
     companyPhone: opts.companyPhone ?? company?.telefono,
     companyAddress: opts.companyAddress ?? (company?.complemento || company?.direccion),
     registerCode: opts.registerCode,

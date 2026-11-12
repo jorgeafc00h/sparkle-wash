@@ -1,8 +1,8 @@
-# SparkleWash — Full System Implementation Summary
+# Car Spa — Full System Implementation Summary
 
 ## Executive Summary
 
-This document provides a complete specification for **SparkleWash**, an IoT carwash management system. The system consists of four coordinated layers:
+This document provides a complete specification for **Car Spa**, an IoT carwash management system. The system consists of four coordinated layers:
 
 1. **Edge Layer**: ESP32-CAM (OV2640 camera + ADC rain/water probes) → publishes JSON frames over MQTT
 2. **Backend API**: .NET 8 Minimal API on Azure Container Apps or Oracle Cloud ARM Free Tier → WebSocket streaming server

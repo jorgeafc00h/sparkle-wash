@@ -22,6 +22,7 @@
 		C73B442EDD6B6DE4363BCE0A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = B9E664EAC9655AC8822B26FA /* GoogleSignIn */; };
 		E499A0B46DD929A21E1DC882 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = B1058D3AD147F1627C3111AC /* GoogleSignInSwift */; };
 		E721B0E4EDC3263D92132DC5 /* DemoSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91D1A3379D2DF05DA48DC730 /* DemoSupport.swift */; };
+		F968DBEF0594691E7ACCF10A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 012121ECF5AFB15AC07B7BD2 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,6 +36,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		012121ECF5AFB15AC07B7BD2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0827696822ECC699F6A15527 /* service-packages.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "service-packages.json"; sourceTree = "<group>"; };
 		0EFE452D8E9A9FEE72492B84 /* SparkleWash.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SparkleWash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		132BEAC81954EE31E5FEE07D /* ArchiveHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveHistoryTests.swift; sourceTree = "<group>"; };
@@ -104,6 +106,14 @@
 			path = SparkleWashApp;
 			sourceTree = "<group>";
 		};
+		8DEDE6344747555F26810E64 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				012121ECF5AFB15AC07B7BD2 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		BD72BC19A4F2D84CAE5850AC /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -127,6 +137,7 @@
 			isa = PBXGroup;
 			children = (
 				BD72BC19A4F2D84CAE5850AC /* Models */,
+				8DEDE6344747555F26810E64 /* Resources */,
 				7C9039A4EE01D9B89B0B486A /* SparkleWashApp */,
 				D328FB72034045D68A107DA7 /* Tests */,
 				394220DD4581E0943E65DDB3 /* v1 */,
@@ -143,6 +154,7 @@
 			buildConfigurationList = 015CB3254E23DD63412A15CB /* Build configuration list for PBXNativeTarget "SparkleWash" */;
 			buildPhases = (
 				62EA2A96FD3180035BF5A2E8 /* Sources */,
+				50A165A7B8E62FD04AA3EAE0 /* Resources */,
 				BF814E63ABDD7FB07408C3B1 /* Frameworks */,
 			);
 			buildRules = (
@@ -217,6 +229,14 @@
 				03F7AEFAC71070571912110C /* alerts.json in Resources */,
 				202CBDC8ED5EA8A1AA310E80 /* service-packages.json in Resources */,
 				47AF30084FE53BEF558ED2FC /* stations.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		50A165A7B8E62FD04AA3EAE0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F968DBEF0594691E7ACCF10A /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

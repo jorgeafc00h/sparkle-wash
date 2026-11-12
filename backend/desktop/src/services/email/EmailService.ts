@@ -155,7 +155,7 @@ export class EmailService {
           company.correo,
           '',
           '---',
-          'Enviado con SparkleWash',
+          'Enviado con Car Spa',
         ].join('\n')
       : [
           `Estimado/a ${recipientName},`,
@@ -173,7 +173,7 @@ export class EmailService {
           company.correo,
           '',
           '---',
-          'Enviado con SparkleWash',
+          'Enviado con Car Spa',
         ].join('\n');
 
     const body = encodeURIComponent(bodyText);

@@ -2,7 +2,7 @@
 
 ## Summary
 
-Phase 6 documents the end-to-end deployment of SparkleWash to Oracle Cloud's
+Phase 6 documents the end-to-end deployment of Car Spa to Oracle Cloud's
 **Universal Linux Machine (UML)** on the ARM64 free tier. This is the cheapest
 option at **~$5/month** compared to Azure Container Apps (~$18–30/month).
 

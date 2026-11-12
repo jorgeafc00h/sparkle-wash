@@ -1,4 +1,4 @@
-# SparkleWash iOS review and implementation plan
+# Car Spa iOS review and implementation plan
 
 Reviewed November 5, 2026 against the active iOS 18 target, API archive routes, current OpenSpec, simulator tests and Apple documentation. The Xcode project is generated from `SparkleWash-iOS/project.yml`.
 

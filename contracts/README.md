@@ -28,9 +28,9 @@ GET `/api/inventory/items` returns on-hand, reserved, available and reorder stat
 | Station stream | Ordinary GET `/ws` requests receive 404. | Implemented for authenticated WebSocket clients at `/ws/app-station-streaming/{stationId}`. It sends an initial snapshot, updates no faster than once per second, and a heartbeat every 15 seconds by default. |
 | Station identity | Demo station IDs are short strings (for example `b4c3`). | Preserve string IDs; do not impose UUID syntax until hardware enrollment establishes the ID format. |
 
-N1CO is the selected payment processor. Staff identity will follow the App.Desktop Google sign-in and backend session pattern, with SparkleWash-owned roles and secrets. Role assignment and receipt rules are still pending.
+N1CO is the selected payment processor. Staff identity will follow the App.Desktop Google sign-in and backend session pattern, with Car Spa-owned roles and secrets. Role assignment and receipt rules are still pending.
 
-POST `/api/auth/google` validates a Google ID token against `SPARKLEWASH_GOOGLE_CLIENT_ID` and admits only Google subject IDs mapped in `SPARKLEWASH_STAFF_ROLES` (`numeric-sub=viewer|operator|admin`, separated by semicolons). It returns an eight-hour opaque SparkleWash session token. The server stores only a token digest in memory, so restart expires sessions. Job, employee and stock routes enforce these roles; web and native sign-in flows are still being built.
+POST `/api/auth/google` validates a Google ID token against `SPARKLEWASH_GOOGLE_CLIENT_ID` and admits only Google subject IDs mapped in `SPARKLEWASH_STAFF_ROLES` (`numeric-sub=viewer|operator|admin`, separated by semicolons). It returns an eight-hour opaque Car Spa session token. The server stores only a token digest in memory, so restart expires sessions. Job, employee and stock routes enforce these roles; web and native sign-in flows are still being built.
 
 ## N1CO webhook inbox (partial task 1.6)
 

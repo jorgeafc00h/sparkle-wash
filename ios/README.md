@@ -1,4 +1,4 @@
-# SparkleWash para iOS / iPadOS
+# Car Spa para iOS / iPadOS
 
 SwiftUI app for the carwash staff: the same features as the web console (`/app/`), in Spanish by default.
 

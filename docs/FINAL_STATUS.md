@@ -1,4 +1,4 @@
-# SparkleWash Productivity Dashboard — Build Summary
+# Car Spa Productivity Dashboard — Build Summary
 
 **Round:** 15/256  
 **Status:** ✅ BUILD SUCCESSFUL — App deployed and serving at http://localhost:8085/

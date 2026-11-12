@@ -1,7 +1,7 @@
 # Round 81 / 256 — API Specifications & OpenAPI 3.1 Schema Design
 
 ## Objective
-Research and finalize the complete API contract specification for SparkleWash, including:
+Research and finalize the complete API contract specification for Car Spa, including:
 - REST endpoint contracts with OpenAPI 3.0.3 schema
 - WebSocket event payloads for station state streaming
 - WebSocket protocol framing (binary + JSON)

@@ -1,9 +1,11 @@
-# SparkleWash Desktop
+# Car Spa Desktop
 
-Aplicación de escritorio (Electron + Vite + React 19 + Redux Toolkit) de SparkleWash: punto de venta,
+Car Spa (formerly SparkleWash).
+
+Aplicación de escritorio (Electron + Vite + React 19 + Redux Toolkit) de Car Spa: punto de venta,
 órdenes de lavado y facturación electrónica (DTE de El Salvador). Es una versión personalizada de la app de
 escritorio de Facturas Simples 1.4.6 que conserva todas sus funciones y agrega el flujo de lavado de autos,
-sincronizado con la API de SparkleWash (`backend/src/carwash-api`), la app iOS y la consola web.
+sincronizado con la API de Car Spa (`backend/src/carwash-api`), la app iOS y la consola web.
 
 - Contrato de integración con la API: [docs/SPARKLEWASH_INTEGRATION.md](docs/SPARKLEWASH_INTEGRATION.md)
 - Notas para desarrollo (estructura, reglas): [CLAUDE.md](CLAUDE.md)
@@ -51,16 +53,16 @@ Solo las `VITE_*` llegan al renderer (se incluyen al compilar). Ver `.env.exampl
 
 | Variable | Uso |
 |---|---|
-| `VITE_SPARKLEWASH_API_URL` | Origen de la API de SparkleWash (por defecto `http://localhost:8080`; en dev puede ser `/carwash-api` con el proxy de Vite) |
+| `VITE_SPARKLEWASH_API_URL` | Origen de la API de Car Spa (por defecto `http://localhost:8080`; en dev puede ser `/carwash-api` con el proxy de Vite) |
 | `VITE_SPARKLEWASH_API_PROXY_TARGET` | Destino del proxy de Vite en desarrollo |
-| `VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_CLIENT_SECRET` | Cliente OAuth tipo *Desktop* de Google. **La API de SparkleWash debe aceptar este client id**: añádelo a `SPARKLEWASH_GOOGLE_CLIENT_ID` (lista separada por comas) o el inicio de sesión del personal fallará |
+| `VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_CLIENT_SECRET` | Cliente OAuth tipo *Desktop* de Google. **La API de Car Spa debe aceptar este client id**: añádelo a `SPARKLEWASH_GOOGLE_CLIENT_ID` (lista separada por comas) o el inicio de sesión del personal fallará |
 | `VITE_GOOGLE_REDIRECT_URI` | Solo flujo web/dev |
 | `VITE_API_BASE_URL`, `VITE_SYNC_API_URL`, `VITE_CHAT_API_URL` | Servicios de Facturas Simples (ver abajo) |
 | `SPARKLEWASH_UPDATE_URL` | Feed de actualizaciones (proveedor genérico) leído por el proceso principal. Vacío = sin actualizaciones automáticas |
 
 ### Actualizaciones automáticas
 
-Opt-in. El actualizador solo arranca si hay un feed de SparkleWash: `SPARKLEWASH_UPDATE_URL` en tiempo de ejecución, o el
+Opt-in. El actualizador solo arranca si hay un feed de Car Spa: `SPARKLEWASH_UPDATE_URL` en tiempo de ejecución, o el
 `publish` horneado al empaquetar (`app-update.yml`). El feed oficial son los GitHub Releases del repositorio:
 `https://github.com/jorgeafc00h/sparkle-wash/releases/latest/download` (proveedor genérico). Nunca apunta al feed de
 Facturas Simples.

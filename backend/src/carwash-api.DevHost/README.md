@@ -1,4 +1,4 @@
-# SparkleWash DevHost
+# Car Spa DevHost
 
 Local-only host for end-to-end runs of the desktop POS and iOS app. It runs the real API
 (`Program.BuildApp`) with a verifier that accepts `dev:<subject>:<email>` instead of a Google ID token.

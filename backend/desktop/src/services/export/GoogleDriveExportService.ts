@@ -55,7 +55,7 @@ const GoogleDriveExportService = {
     const metadata = {
       name: fileName,
       mimeType: 'application/json',
-      description: 'Respaldo automático de SparkleWash',
+      description: 'Respaldo automático de Car Spa',
     };
 
     const formData = new FormData();

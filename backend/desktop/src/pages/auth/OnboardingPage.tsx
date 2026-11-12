@@ -24,7 +24,7 @@ const SLIDES: Slide[] = [
   {
     image: obWelcome,
     eyebrow: 'Bienvenido',
-    title: 'SparkleWash',
+    title: 'Car Spa',
     subtitle:
       'Administra tus lavados, el punto de venta y tus documentos tributarios electrónicos, de manera fácil y rápida.',
     accent: 'bg-accent-500/20 text-accent-200',
@@ -42,7 +42,7 @@ const SLIDES: Slide[] = [
     eyebrow: 'Compras desde Gmail',
     title: 'Importa tus DTEs recibidos',
     subtitle:
-      'Conecta tu cuenta de Gmail y SparkleWash descargará automáticamente los DTEs que te envían tus proveedores.',
+      'Conecta tu cuenta de Gmail y Car Spa descargará automáticamente los DTEs que te envían tus proveedores.',
     accent: 'bg-purple-500/20 text-purple-200',
   },
   {

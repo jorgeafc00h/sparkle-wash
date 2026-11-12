@@ -1,7 +1,7 @@
 # Desktop POS work tickets and job payments
 
 ## Why
-The SparkleWash Desktop point of sale opens jobs for walk-in customers without a camera sighting, prints a numbered work ticket, and records what the customer paid. The API only knew camera arrivals and had nowhere to keep a ticket number, a customer name or payments.
+The Car Spa Desktop point of sale opens jobs for walk-in customers without a camera sighting, prints a numbered work ticket, and records what the customer paid. The API only knew camera arrivals and had nowhere to keep a ticket number, a customer name or payments.
 
 ## What Changes
 - Jobs gain `source`, `ticketNumber`, `customerName`, `note`, `payments`, `paidAt`, plus derived `paidUsd` and `paymentStatus`. Older jobs read back with an empty `payments` array.
