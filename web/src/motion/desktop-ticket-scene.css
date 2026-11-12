@@ -1,0 +1,101 @@
+/* DesktopTicketScene: 9 s played once. 0–3 s the work ticket prints (offline), 3–6 s the sync badge goes live,
+   6–9 s the job created offline syncs. Sized by its own width (container query), not the viewport. */
+.cs-m-desk { color: var(--color-text, #111827); }
+.cs-m-desk__frame { position: relative; container-type: inline-size; }
+.cs-m-desk__stage {
+  position: relative; aspect-ratio: 16 / 9; overflow: hidden;
+  border-radius: var(--radius-lg, 22px);
+  background: var(--m-n8); border: 1px solid var(--m-n6);
+  color: var(--m-w);
+}
+.cs-m-desk__toggle { position: absolute; top: 12px; right: 12px; z-index: 3; }
+.cs-m-desk__caption { margin-top: var(--space-5, 24px); }
+
+/* ---------- the register window ---------- */
+.cs-m-desk__window {
+  position: absolute; left: 3.5%; top: 23%; width: 62%; font-size: 1.75cqi;
+  border-radius: 1em; overflow: hidden;
+  background: var(--m-n9); border: 1px solid var(--m-n6);
+  box-shadow: 0 1.4em 3em rgba(0, 0, 0, .35);
+  --d: .1s;
+}
+.cs-m-desk__titlebar {
+  display: flex; align-items: center; gap: .6em; padding: .6em .9em;
+  background: #070E22; border-bottom: 1px solid var(--m-n6);
+  font-size: .85em; font-weight: 600; color: var(--m-m2);
+}
+.cs-m-desk__titlebar img { height: 1.25em; width: auto; display: block; }
+.cs-m-desk__winctl { margin-left: auto; display: flex; gap: 1em; opacity: .7; }
+.cs-m-desk__winctl i { display: block; width: .75em; height: .75em; }
+.cs-m-desk__winctl i:nth-child(1) { background: linear-gradient(currentColor, currentColor) 50% 70% / 100% 1.5px no-repeat; }
+.cs-m-desk__winctl i:nth-child(2) { border: 1.5px solid currentColor; border-radius: 1px; }
+.cs-m-desk__winctl i:nth-child(3) {
+  background: linear-gradient(45deg, transparent 45%, currentColor 45% 55%, transparent 55%),
+    linear-gradient(-45deg, transparent 45%, currentColor 45% 55%, transparent 55%);
+}
+.cs-m-desk__head { display: flex; align-items: center; justify-content: space-between; gap: .8em; padding: .9em .9em .7em; }
+.cs-m-desk__h { font: 700 1.05em/1.2 var(--m-disp); white-space: nowrap; }
+.cs-m-desk__badges { display: flex; align-items: center; gap: .45em; }
+.cs-m-desk__sync, .cs-m-desk__status { display: grid; }
+.cs-m-desk__sync > *, .cs-m-desk__status > * { grid-area: 1 / 1; justify-self: end; }
+.cs-m-desk__rows { display: grid; gap: .55em; padding: 0 .9em .9em; }
+.cs-m-desk__row {
+  position: relative; display: flex; align-items: center; gap: .7em; padding: .6em .7em;
+  border-radius: .7em; background: var(--m-n8); border: 1px solid var(--m-n6);
+  animation: cs-m-in-up .5s var(--cs-m-ease) var(--rd, .35s) both;
+}
+.cs-m-desk__row:nth-child(2) { --rd: .5s; }
+.cs-m-desk__row:nth-child(3) { --rd: .65s; }
+.cs-m-desk__row .cs-m-plate { font-size: .95em; }
+.cs-m-desk__class { flex: 1; min-width: 0; color: var(--m-m3); font-size: .9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs-m-desk__row--sync::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; background: rgba(63, 131, 140, .28);
+  opacity: 0; animation: cs-m-desk-flash 1.3s ease 6.8s both;
+}
+
+/* badges and pills (the desktop app's own labels) */
+.cs-m-badge {
+  display: inline-flex; align-items: center; gap: .45em; padding: .32em .75em; border-radius: 999px;
+  font-size: .8em; font-weight: 700; white-space: nowrap; line-height: 1.2;
+}
+.cs-m-badge--off { box-shadow: inset 0 0 0 1px var(--m-o3); color: var(--m-o3); }
+.cs-m-badge--info { box-shadow: inset 0 0 0 1px var(--m-b4); color: var(--m-b4); }
+.cs-m-badge--live { background: var(--m-t7); color: var(--m-w); }
+.cs-m-badge--warn { background: rgba(251, 90, 0, .16); color: var(--m-o3); }
+.cs-m-pill--muted { background: var(--m-n6); color: var(--m-m2); }
+.cs-m-pill--info { box-shadow: inset 0 0 0 1px var(--m-b4); color: var(--m-b4); }
+
+.cs-m-desk__s-off { opacity: 0; animation: cs-m-out .3s ease 3.3s both; }
+.cs-m-desk__s-con { opacity: 0; animation: cs-m-blip 1s linear 3.3s both; }
+.cs-m-desk__s-live { animation: cs-m-in-pop .4s var(--cs-m-ease) 4.2s both; }
+.cs-m-desk__live-dot { position: relative; width: .55em; height: .55em; border-radius: 50%; background: var(--m-t50); }
+.cs-m-desk__pulse {
+  position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--m-t50);
+  opacity: 0; animation: cs-m-desk-pulse 1.1s ease-out 4.35s 2 both;
+}
+.cs-m-desk__pending { opacity: 0; animation: cs-m-out .4s ease 7.1s both; }
+.cs-m-desk__upload {
+  display: grid; place-items: center; width: 1.5em; height: 1.5em; color: var(--m-b4);
+  opacity: 0; animation: cs-m-desk-up .9s ease-out 6.2s both;
+}
+.cs-m-desk__upload svg { width: 100%; height: 100%; }
+.cs-m-desk__st-pending { opacity: 0; animation: cs-m-out .3s ease 6.9s both; }
+.cs-m-desk__st-synced { animation: cs-m-in-pop .4s var(--cs-m-ease) 7s both; }
+
+/* ---------- the printer and the ticket ---------- */
+.cs-m-desk__printer { position: absolute; left: 69.5%; width: 27%; top: 19%; font-size: 1.45cqi; --d: .4s; }
+.cs-m-desk__printer .cs-m-printer__paper { animation: cs-m-feed 1.6s linear 1s both; }
+.cs-m-desk__printer .cs-m-ticket { animation: cs-m-feed-in 1.6s linear 1s both; }
+
+@keyframes cs-m-desk-pulse { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(2.8); } }
+@keyframes cs-m-desk-up {
+  0% { opacity: 0; transform: translateY(.5em); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(-.9em); }
+}
+@keyframes cs-m-desk-flash { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---------- narrow columns and phones ---------- */
+@container (max-width: 520px) {
+  .cs-m-desk__stage { aspect-ratio: 4 / 5.2; }
+  .cs-m-desk__window { left: 4%; right: 4%; width: auto; top: 13%; font-size: 3.4cqi; }
+  .cs-m-desk__printer { left: 22%; width: 56%; top: 58%; font-size: 2.6cqi; }
+}

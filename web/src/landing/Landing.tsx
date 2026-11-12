@@ -1,47 +1,92 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { HeroScene } from "../motion/HeroScene";
 import {
-  ArrowRight, Bluetooth, Building2, Camera, Check, ChevronDown, Cpu, Download, FileText, Gauge, History, Kanban, LayoutDashboard,
-  Lightbulb, LogIn, Monitor, MonitorSmartphone, PlayCircle, Printer, RefreshCw, ScanLine, ShieldCheck, Tablet, Wifi, WifiOff,
+  ArrowRight, Bluetooth, BookOpen, Building2, Camera, Check, ChevronDown, Cpu, Download, FileText, Gauge, History, Kanban,
+  LayoutDashboard, Lightbulb, LogIn, Menu, MonitorSmartphone, PlayCircle, Printer, Receipt, RefreshCw, ScanLine, ShieldCheck,
+  Tablet, Wifi, WifiOff, X,
 } from "lucide-react";
+
+// Below-the-fold scenes load on demand; each slot shows its static fallback until its chunk arrives.
+const HowItWorksScene = lazy(() => import("../motion/HowItWorksScene").then((m) => ({ default: m.HowItWorksScene })));
+const DesktopTicketScene = lazy(() => import("../motion/DesktopTicketScene").then((m) => ({ default: m.DesktopTicketScene })));
+const PolishScene = lazy(() => import("../motion/extra/PolishScene").then((m) => ({ default: m.PolishScene })));
+const MobileBoardScene = lazy(() => import("../motion/extra/MobileBoardScene").then((m) => ({ default: m.MobileBoardScene })));
+const LogoIntroScene = lazy(() => import("../motion/extra/LogoIntroScene").then((m) => ({ default: m.LogoIntroScene })));
 
 const DEMO_URL = "/app/?demo=1";
 const APP_URL = "/app/";
 const REGISTER_URL = "/app/?registro=1";
-/** Stable URL: GitHub serves the installer attached to the newest release. */
+export const MANUAL_URL = "/manual/";
+/** Stable URL: GitHub serves the installer attached to the newest release. The file name is a deployed identifier: keep it. */
 export const DESKTOP_DOWNLOAD_URL = "https://github.com/jorgeafc00h/sparkle-wash/releases/latest/download/SparkleWash-Setup-latest.exe";
 export const DESKTOP_RELEASES_URL = "https://github.com/jorgeafc00h/sparkle-wash/releases";
 
-/** Fades sections up as they scroll into view (skipped when the visitor prefers reduced motion). */
-function useReveal() {
+/**
+ * Mount points for the CSS animation scenes (web/src/motion). Each is a plain `<div data-scene-slot="…">` whose children
+ * are a static, accessible fallback; mounting a scene replaces those children and keeps the slot's box and styling.
+ */
+export const SCENE_SLOTS = ["hero", "how-it-works", "polish", "mobile", "desktop-ticket", "logo-intro"] as const;
+
+const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+/**
+ * The page's motion layer, no library: scroll reveals (fade and rise, staggered children), floating frames that pause
+ * offscreen, and a light parallax on the hero art. Only transform and opacity move; all of it is off under reduced motion.
+ */
+function useMotion() {
   useEffect(() => {
-    const items = document.querySelectorAll<HTMLElement>("[data-reveal]");
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) {
-      items.forEach((el) => el.classList.add("is-visible"));
+    const root = document.documentElement;
+    const reveals = document.querySelectorAll<HTMLElement>("[data-reveal]");
+    const floats = document.querySelectorAll<HTMLElement>("[data-float]");
+    if (reducedMotion() || !("IntersectionObserver" in window)) {
+      reveals.forEach((el) => el.classList.add("is-visible"));
       return;
     }
-    const observer = new IntersectionObserver((entries) => {
+    root.classList.add("js-motion");
+    const revealer = new IntersectionObserver((entries) => {
       for (const entry of entries) if (entry.isIntersecting) {
         entry.target.classList.add("is-visible");
-        observer.unobserve(entry.target);
+        revealer.unobserve(entry.target);
       }
-    }, { rootMargin: "0px 0px -10% 0px" });
-    items.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+    }, { rootMargin: "0px 0px -8% 0px" });
+    reveals.forEach((el) => revealer.observe(el));
+    const floater = new IntersectionObserver((entries) => {
+      for (const entry of entries) entry.target.classList.toggle("is-inview", entry.isIntersecting);
+    });
+    floats.forEach((el) => floater.observe(el));
+
+    // Hero parallax: one passive scroll listener, one rAF per frame, only while the hero is on screen.
+    const hero = document.querySelector<HTMLElement>("[data-parallax-root]");
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      if (!hero) return;
+      const y = Math.min(window.scrollY, hero.offsetHeight);
+      hero.style.setProperty("--parallax", String(Math.round(y)));
+    };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(update); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    update();
+    return () => {
+      revealer.disconnect();
+      floater.disconnect();
+      window.removeEventListener("scroll", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+      root.classList.remove("js-motion");
+    };
   }, []);
 }
 
 export function Landing() {
-  useReveal();
+  useMotion();
   return (
     <>
       <a className="skip" href="#contenido">Saltar al contenido</a>
       <Nav />
       <main id="contenido">
         <Hero />
-        <Torn color="var(--ink)" />
-        <VideoSection />
-        <Torn color="var(--ink)" flip />
         <HowItWorks />
+        <Polish />
         <CameraSection />
         <Screens />
         <AppSection />
@@ -56,232 +101,212 @@ export function Landing() {
 
 function Logo() {
   return (
-    <a href="#" className="logo" aria-label="SparkleWash, inicio">
-      <span className="logo-mark paper" aria-hidden>
-        <svg width="22" height="22" viewBox="0 0 32 32"><path d="M16 4c4.5 6.5 8 10.5 8 14.5a8 8 0 0 1-16 0C8 14.5 11.5 10.5 16 4z" fill="#8fd3f4" /><path d="M12.5 19.5a3.5 3.5 0 0 0 3.5 3.5" stroke="#f6efe4" strokeWidth="2.4" fill="none" strokeLinecap="round" /></svg>
+    <a href="#" className="logo" aria-label="Car Spa, inicio">
+      <span className="logo-mark" aria-hidden>
+        <img src="/brand/car-spa-mark-ondark.svg" alt="" width="64" height="28" />
       </span>
-      SparkleWash
+      <span className="logo-word">Car Spa</span>
     </a>
   );
 }
 
+const NAV_LINKS: [string, string][] = [
+  ["#como-funciona", "Cómo funciona"], ["#camara", "La cámara"], ["#pantallas", "Pantallas"], ["#app", "App"],
+  ["#escritorio", "Escritorio"], [MANUAL_URL, "Manual"], ["#preguntas", "Preguntas"],
+];
+
 function Nav() {
   const [open, setOpen] = useState(false);
-  const links = [
-    ["#como-funciona", "Cómo funciona"], ["#camara", "La cámara"], ["#pantallas", "Pantallas"], ["#app", "App"], ["#escritorio", "Escritorio"],
-    ["#preguntas", "Preguntas"],
-  ];
+  const close = () => setOpen(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
   return (
-    <header className="nav">
-      <div className="wrap nav-inner">
+    <header className="nav cs-showroom">
+      <div className="cs-wrap nav-inner">
         <Logo />
-        <nav aria-label="Secciones" className={`nav-links ${open ? "open" : ""}`}>
-          {links.map(([href, label]) => <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>)}
-          <a href={REGISTER_URL} onClick={() => setOpen(false)}>Registrar mi autolavado</a>
-          <a className="nav-login" href={APP_URL}><LogIn size={16} aria-hidden />Entrar</a>
+        <nav aria-label="Secciones" id="menu-secciones" className={`nav-links ${open ? "open" : ""}`}>
+          {NAV_LINKS.map(([href, label]) => (
+            <a key={href} className="cs-link-underline" href={href} onClick={close}>{label}</a>
+          ))}
+          <a className="cs-link-underline nav-register" href={REGISTER_URL} onClick={close}>Registrar mi autolavado</a>
+          <a className="cs-link-underline nav-login" href={APP_URL}><LogIn size={16} aria-hidden />Entrar</a>
         </nav>
-        <a className="btn btn-ink nav-cta" href={DEMO_URL}>Probar la demo</a>
-        <button type="button" className="menu" aria-expanded={open} aria-label="Menú" onClick={() => setOpen((v) => !v)}>
-          <span /><span /><span />
+        <a className="cs-btn cs-btn--primary cs-btn--sm nav-cta" href={DEMO_URL}>Probar la demo</a>
+        <button type="button" className="menu" aria-expanded={open} aria-controls="menu-secciones" aria-label="Menú"
+          onClick={() => setOpen((v) => !v)}>
+          {open ? <X size={22} aria-hidden /> : <Menu size={22} aria-hidden />}
         </button>
       </div>
     </header>
   );
 }
 
-function Hero() {
+/** Section divider: the next section's ground rising in an S-curve, with an orange and a blue ribbon (the logo's swoosh). */
+function Swoosh({ to }: { to: "white" | "alt" }) {
   return (
-    <section className="hero">
-      <div className="hero-sky" aria-hidden>
-        <span className="sun paper" />
-        <span className="cloud paper" style={{ left: "44%", top: "6%" }} />
-        <span className="cloud paper" style={{ left: "2%", bottom: "26%", transform: "scale(.7)" }} />
-      </div>
-      <div className="wrap hero-grid">
-        <div className="hero-copy" data-reveal>
-          <p className="eyebrow"><ScanLine size={16} aria-hidden />ESP32-CAM + IA para autolavados</p>
-          <h1>Cada carro, identificado <span className="hl">por su placa</span>.</h1>
-          <p className="lead">
-            SparkleWash conecta cámaras ESP32-CAM, lectura de placas con inteligencia artificial y un tablero para tu equipo.
-            Sabes quién llegó, qué paquete lleva, quién lo está lavando y cuándo se fue.
-          </p>
-          <div className="cta-row">
-            <a className="btn btn-coral btn-lg" href={DEMO_URL}><PlayCircle size={20} aria-hidden />Probar la demo en vivo</a>
-            <a className="btn btn-paper btn-lg" href="#video">Ver el video</a>
-          </div>
-          <ul className="trust">
-            <li><Check size={16} aria-hidden />Consola web, sin instalar nada</li>
-            <li><Check size={16} aria-hidden />App para iPhone y iPad</li>
-            <li><Check size={16} aria-hidden />En español</li>
-          </ul>
-        </div>
-        <div className="hero-art" aria-hidden>
-          <img className="hero-cam paper" src="/landing/art/esp32-cam.svg" alt="" width="300" height="430" />
-          <figure className="frame paper hero-screen">
-            <span className="tape" style={{ left: 24, top: -14 }} />
-            <span className="tape" style={{ right: 30, top: -12, transform: "rotate(7deg)" }} />
-            <img src="/landing/screens/en-vivo.jpg" alt="" width="2560" height="1600" />
-          </figure>
-          <figure className="frame phone paper hero-phone">
-            <img src="/landing/screens/revision-movil.jpg" alt="" width="780" height="1688" />
-          </figure>
-          <span className="plate-chip paper">P903377 <small>94%</small></span>
-          <img className="hero-car paper" src="/landing/art/car.svg" alt="" width="380" height="190" />
-        </div>
-      </div>
-      <div className="hills" aria-hidden>
-        <svg viewBox="0 0 1440 200" preserveAspectRatio="none" className="paper"><path d="M0 110 Q240 30 520 100 T1040 80 T1440 70 V200 H0 Z" fill="#7fa98a" /></svg>
-        <svg viewBox="0 0 1440 140" preserveAspectRatio="none" className="paper"><path d="M0 70 Q360 0 760 60 T1440 40 V140 H0 Z" fill="#0f766e" /></svg>
-      </div>
-    </section>
-  );
-}
-
-function Torn({ color, flip }: { color: string; flip?: boolean }) {
-  return (
-    <div className={`torn ${flip ? "flip" : ""}`} aria-hidden>
-      <svg viewBox="0 0 1440 40" preserveAspectRatio="none">
-        <path d="M0 40 L0 18 L40 24 L90 12 L130 22 L190 10 L240 20 L300 8 L350 22 L410 14 L470 24 L530 9 L580 20 L640 12 L700 24 L760 10 L820 21 L880 13 L940 25 L1000 11 L1060 22 L1120 9 L1180 20 L1240 12 L1300 23 L1360 10 L1440 20 L1440 40 Z" fill={color} />
+    <div className={`swoosh swoosh--${to}`} aria-hidden data-reveal="swoosh">
+      <svg viewBox="0 0 1440 120" preserveAspectRatio="none" focusable="false">
+        <path className="swoosh-fill" d="M0 120 V84 C 250 84 380 44 640 44 C 900 44 1080 98 1440 70 V120 Z" />
+        <path className="swoosh-ribbon swoosh-ribbon--orange" d="M0 70 C 250 70 380 30 640 30" vectorEffect="non-scaling-stroke" />
+        <path className="swoosh-ribbon swoosh-ribbon--blue" d="M640 30 C 900 30 1080 84 1440 56" vectorEffect="non-scaling-stroke" />
       </svg>
     </div>
   );
 }
 
-function VideoSection() {
+function Hero() {
   return (
-    <section id="video" className="video-section">
-      <div className="wrap">
-        <div className="section-head light" data-reveal>
-          <p className="eyebrow">Video · 1 minuto</p>
-          <h2>Mira cómo funciona</h2>
-          <p>De la cámara en la entrada al tablero de tu equipo, contado con las pantallas reales de SparkleWash.</p>
+    <section className="hero cs-showroom" data-parallax-root>
+      <div className="cs-wrap hero-grid">
+        <div className="hero-copy" data-reveal="stagger">
+          <p className="cs-eyebrow cs-eyebrow--tagline">Automotive Care</p>
+          <h1>Cada auto sale como del showroom.</h1>
+          <p className="lead">
+            Car Spa es el sistema para autolavados y centros de detallado premium: la cámara de la entrada lee la placa,
+            tu equipo confirma el servicio en la tablet, cada trabajo avanza en un tablero en vivo y la caja imprime el ticket y cobra.
+          </p>
+          <div className="cta-row">
+            <a className="cs-btn cs-btn--primary cs-btn--lg hero-cta" href={DEMO_URL}><PlayCircle size={20} aria-hidden />Probar la demo en vivo</a>
+            <a className="cs-btn cs-btn--ghost cs-btn--lg" href={REGISTER_URL}><Building2 size={18} aria-hidden />Registrar mi autolavado</a>
+          </div>
+          <ul className="trust">
+            <li><Check size={16} aria-hidden />Consola web, sin instalar nada</li>
+            <li><Check size={16} aria-hidden />App para iPhone y iPad</li>
+            <li><Check size={16} aria-hidden />Caja para Windows</li>
+            <li><Check size={16} aria-hidden />En español</li>
+          </ul>
         </div>
-        <div className="video-frame paper" data-reveal>
-          <span className="tape" style={{ left: 40, top: -16 }} />
-          <span className="tape" style={{ right: 50, top: -14, transform: "rotate(6deg)" }} />
-          <video controls preload="metadata" playsInline poster="/landing/video/poster.jpg" width="1920" height="1080">
-            <source src="/landing/video/como-funciona.mp4" type="video/mp4" />
-            <track kind="captions" srcLang="es" label="Español" src="/landing/video/como-funciona.es.vtt" />
-            Tu navegador no puede reproducir este video. <a href="/landing/video/como-funciona.mp4">Descárgalo aquí</a>.
-          </video>
+        <div className="hero-art" data-reveal>
+          <div className="layer layer--back" aria-hidden>
+            <span className="ribbon ribbon--orange" />
+            <span className="ribbon ribbon--blue" />
+          </div>
+          <div className="layer layer--mid">
+            {/* Scene slot: the lead mounts W2's hero scene (a wide car) here; the logo is the static fallback. */}
+            <div data-scene-slot="hero" className="scene-slot scene-slot--hero">
+              <HeroScene lang="es" hideCaption />
+            </div>
+          </div>
+          <div className="layer layer--front" aria-hidden>
+            <span className="plate-chip"><span className="plate-text">P903377</span><span className="cs-chip cs-chip--live">94 %</span></span>
+            <span className="status-chip"><span className="dot" />Lavando · 12 min</span>
+          </div>
         </div>
-        <details className="transcript">
-          <summary>Leer la transcripción</summary>
-          <ol>
-            <li>Una ESP32-CAM en la entrada toma una foto cada medio segundo.</li>
-            <li>YOLO encuentra el carro, el OCR lee la placa y tres fotos votan el resultado.</li>
-            <li>Tu equipo confirma la placa, el vehículo y el paquete con un toque.</li>
-            <li>Cada carro avanza en el tablero, con tiempos en vivo y su equipo asignado.</li>
-            <li>La cámara de salida avisa cuando el carro se va, y cada placa guarda su historial.</li>
-            <li>Quick, Essential, Renew y Supreme Spa: el precio sale solo según el vehículo.</li>
-          </ol>
-        </details>
       </div>
+      <Swoosh to="white" />
     </section>
   );
 }
 
 const STEPS = [
-  { icon: Camera, color: "#8fd3f4", title: "La cámara mira", body: "Una ESP32-CAM en la entrada toma una foto cada medio segundo y la sirve por Wi-Fi." },
-  { icon: Cpu, color: "#f8c14a", title: "La IA lee la placa", body: "Un gateway con YOLO encuentra el vehículo, el OCR lee la placa y varias fotos votan para evitar errores." },
-  { icon: ShieldCheck, color: "#f97362", title: "Tu equipo confirma", body: "En la tablet, alguien compara la placa con la foto, elige el tipo de vehículo y el paquete. Un toque abre el trabajo." },
-  { icon: Kanban, color: "#7fa98a", title: "El trabajo avanza", body: "Llegó, en cola, lavando, listo: con tiempos en vivo. La cámara de salida avisa cuando el carro se va." },
+  { icon: Camera, title: "La cámara lee la placa",
+    body: "Una ESP32-CAM en la entrada toma una foto cada medio segundo. Un gateway con YOLO encuentra el vehículo, el OCR lee la placa y varias fotos votan para evitar errores." },
+  { icon: ShieldCheck, title: "Tu equipo confirma",
+    body: "En la tablet, alguien compara la placa con la foto, elige el tipo de vehículo y el paquete. Un toque abre el trabajo." },
+  { icon: Kanban, title: "El servicio avanza",
+    body: "Llegó, en cola, lavando, listo: con tiempos en vivo y quién está asignado. La cámara de salida avisa cuando el auto se va." },
+  { icon: Receipt, title: "Se cobra en la caja",
+    body: "Car Spa para escritorio imprime el ticket de trabajo de cada vehículo, cobra y factura con los mismos datos." },
 ];
 
 function HowItWorks() {
   return (
     <section id="como-funciona" className="section">
-      <div className="wrap">
-        <div className="section-head" data-reveal>
-          <p className="eyebrow">Cómo funciona</p>
-          <h2>De la entrada a la salida, sin libretas</h2>
+      <div className="cs-wrap">
+        <div className="section-head" data-reveal="stagger">
+          <p className="cs-eyebrow">Cómo funciona</p>
+          <h2>De la entrada al ticket, sin libretas</h2>
           <p>La cámara hace el trabajo repetitivo. Tu equipo solo confirma lo que importa.</p>
         </div>
-        <ol className="steps">
-          {STEPS.map(({ icon: Icon, color, title, body }, i) => (
-            <li key={title} className="step-card paper" data-reveal style={{ ["--tilt" as string]: `${i % 2 ? 1.2 : -1.2}deg`, transitionDelay: `${i * 80}ms` }}>
-              <span className="step-num">{i + 1}</span>
-              <span className="step-icon paper" style={{ background: color }}><Icon size={26} aria-hidden /></span>
+        <ol className="steps" data-reveal="stagger">
+          {STEPS.map(({ icon: Icon, title, body }, i) => (
+            <li key={title} className="cs-card step-card lift">
+              <span className="step-num" aria-hidden>{i + 1}</span>
+              <span className="step-icon"><Icon size={24} aria-hidden /></span>
               <h3>{title}</h3>
               <p>{body}</p>
             </li>
           ))}
         </ol>
+        {/* Scene slot: "De la cámara al ticket". The static fallback is the same journey as a list. */}
+        <div data-scene-slot="how-it-works" className="scene-slot scene-slot--how" data-reveal>
+          <Suspense
+            fallback={
+              <>
+              <ol className="flow" aria-label="De la cámara al ticket">
+                <li className="flow-node">
+                  <span className="flow-icon"><Camera size={20} aria-hidden /></span>
+                  <strong>Entrada</strong>
+                  <span className="flow-note">ESP32-CAM · una foto cada 0,5 s</span>
+                </li>
+                <li className="flow-node">
+                  <span className="plate-chip plate-chip--sm"><span className="plate-text">P903377</span></span>
+                  <strong>Placa leída</strong>
+                  <span className="flow-note">94 % de confianza · confirmada</span>
+                </li>
+                <li className="flow-node">
+                  <span className="cs-chip cs-chip--due"><Kanban size={14} aria-hidden />Lavando</span>
+                  <strong>En la bahía</strong>
+                  <span className="flow-note">12 min · equipo asignado</span>
+                </li>
+                <li className="flow-node">
+                  <span className="flow-icon flow-icon--accent"><Printer size={20} aria-hidden /></span>
+                  <strong>Ticket en la caja</strong>
+                  <span className="flow-note">Impreso, cobrado y facturado</span>
+                </li>
+              </ol>
+            
+              </>
+            }
+          >
+            <HowItWorksScene lang="es" />
+          </Suspense>
+        </div>
       </div>
     </section>
   );
 }
 
-const APP_FEATURES = [
-  { icon: Tablet, color: "#bfe3f5", title: "Pantalla dividida",
-    body: "En el iPad ves las secciones, la lista y el detalle a la vez. En el iPhone, la misma consola en una mano." },
-  { icon: WifiOff, color: "#f6d6a8", title: "Sigue sin internet",
-    body: "Confirma llegadas y mueve trabajos sin señal: los cambios se guardan en el dispositivo y se sincronizan al volver la conexión." },
-  { icon: Bluetooth, color: "#cfe8d5", title: "Cámaras por Bluetooth",
-    body: "Configura el Wi-Fi de cada ESP32-CAM desde la app, sin cables ni editar código." },
-  { icon: Camera, color: "#f3c4b8", title: "En vivo en tu red",
-    body: "La app encuentra las cámaras en el Wi-Fi del autolavado: mira la imagen y enciende el flash para ajustar el ángulo." },
-];
-
-function AppSection() {
+function Polish() {
   return (
-    <section id="app" className="section">
-      <div className="wrap">
-        <div className="section-head" data-reveal>
-          <p className="eyebrow">App para iPhone y iPad</p>
-          <h2>La misma consola, en el bolsillo de tu equipo</h2>
-          <p>Entra con la misma cuenta de Google y verás los mismos datos que en la consola web, en español.</p>
+    <section id="detallado" className="section polish cs-showroom" aria-labelledby="detallado-titulo">
+      <div className="cs-wrap polish-grid">
+        <div className="polish-copy" data-reveal="stagger">
+          <p className="cs-eyebrow">Detallado premium</p>
+          <h2 id="detallado-titulo">Del polvo al brillo de showroom</h2>
+          <p>
+            Tus servicios de detallado ya vienen cargados: al confirmar el tipo de vehículo se aplica el precio de tu lista,
+            y cada auto queda registrado con su placa, su equipo y su tiempo.
+          </p>
+          <ul className="polish-list">
+            <li><Check size={18} aria-hidden />Quién lo atendió y cuánto tardó, en cada visita</li>
+            <li><Check size={18} aria-hidden />El historial de cada placa, ideal para clientes frecuentes</li>
+            <li><Check size={18} aria-hidden />Nada se abre sin que tu equipo lo confirme</li>
+          </ul>
         </div>
-        <ul className="steps">
-          {APP_FEATURES.map(({ icon: Icon, color, title, body }, i) => (
-            <li key={title} className="step-card paper" data-reveal style={{ ["--tilt" as string]: `${i % 2 ? -1 : 1}deg`, transitionDelay: `${i * 80}ms` }}>
-              <span className="step-icon paper" style={{ background: color }}><Icon size={26} aria-hidden /></span>
-              <h3>{title}</h3>
-              <p>{body}</p>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
-const DESKTOP_FEATURES = [
-  { icon: Printer, text: "Un ticket de trabajo impreso por cada vehículo, listo para el mostrador." },
-  { icon: Check, text: "Cobra los lavados en caja, con tus servicios y tus precios." },
-  { icon: FileText, text: "Facturación electrónica (DTE) sin salir del punto de venta." },
-  { icon: RefreshCw, text: "Se sincroniza con la app de iPhone y la consola web a través de la API de SparkleWash." },
-];
-
-function DesktopSection() {
-  return (
-    <section id="escritorio" className="section desktop" aria-labelledby="escritorio-titulo">
-      <div className="wrap">
-        <div className="desktop-card paper" data-reveal>
-          <span className="step-icon paper desktop-icon" style={{ background: "#cfe8d5" }}><Monitor size={30} aria-hidden /></span>
-          <div className="desktop-body">
-            <p className="eyebrow">Para Windows</p>
-            <h2 id="escritorio-titulo">SparkleWash para escritorio</h2>
-            <p className="desktop-lead">El punto de venta de tu caja: imprime el ticket de cada vehículo, cobra y factura, con los mismos datos que ve tu equipo en el celular.</p>
-            <ul className="desktop-list">
-              {DESKTOP_FEATURES.map(({ icon: Icon, text }) => (
-                <li key={text}><Icon size={18} aria-hidden />{text}</li>
-              ))}
-            </ul>
-            <div className="cta-row">
-              <a className="btn btn-coral btn-lg" data-testid="download-windows" href={DESKTOP_DOWNLOAD_URL} download rel="noopener">
-                <Download size={20} aria-hidden />Descargar para Windows
-              </a>
-              <a className="btn btn-paper btn-lg" href={DESKTOP_RELEASES_URL} rel="noopener">Todas las versiones</a>
-            </div>
-            <p className="desktop-req">Requiere Windows 10 u 11 (64 bits).</p>
-            <p className="desktop-note">
-              Windows SmartScreen puede mostrar una advertencia porque el instalador aún no está firmado. Si aparece, elige
-              {" "}<strong>Más información → Ejecutar de todas formas</strong>.
-            </p>
-          </div>
+        {/* Scene slot: before/after polish wipe. Static fallback: a still before/after panel. */}
+        <div data-scene-slot="polish" className="scene-slot scene-slot--polish" data-reveal>
+          <Suspense
+            fallback={
+              <>
+              <div className="before-after" role="img" aria-label="Antes y después de un detallado: de una superficie opaca a un acabado con brillo">
+                <span className="ba-half ba-before"><span className="ba-label">Antes</span></span>
+                <span className="ba-half ba-after"><span className="ba-label">Después</span><span className="glint" /></span>
+                <span className="ba-handle" />
+              </div>
+            
+              </>
+            }
+          >
+            <PolishScene locale="es" />
+          </Suspense>
         </div>
       </div>
+      <Swoosh to="alt" />
     </section>
   );
 }
@@ -289,24 +314,24 @@ function DesktopSection() {
 function CameraSection() {
   return (
     <section id="camara" className="section camera">
-      <div className="wrap">
-        <div className="section-head" data-reveal>
-          <p className="eyebrow">El hardware</p>
+      <div className="cs-wrap">
+        <div className="section-head" data-reveal="stagger">
+          <p className="cs-eyebrow">El hardware</p>
           <h2>La ESP32-CAM: pequeña, barata y suficiente</h2>
           <p>Un módulo de unos 10 USD con cámara y Wi-Fi. No necesita computadora en cada bahía: solo corriente y señal.</p>
         </div>
         <div className="camera-grid">
           <div className="board-wrap" data-reveal>
-            <img className="board paper" src="/landing/art/esp32-cam.svg" alt="Ilustración del módulo ESP32-CAM con su cámara, chip ESP32-S, LED de flash y ranura microSD" width="300" height="430" />
-            <span className="callout paper" style={{ left: "-4%", top: "8%" }}><Camera size={16} aria-hidden />Cámara OV2640 · 2 MP</span>
-            <span className="callout paper" style={{ right: "-6%", top: "22%" }}><Lightbulb size={16} aria-hidden />Flash LED para la noche</span>
-            <span className="callout paper" style={{ left: "-8%", top: "48%" }}><Wifi size={16} aria-hidden />ESP32-S · Wi-Fi</span>
-            <span className="callout paper" style={{ right: "-4%", top: "76%" }}>microSD opcional</span>
+            <img className="board" data-float src="/landing/art/esp32-cam.svg" alt="Ilustración del módulo ESP32-CAM con su cámara, chip ESP32-S, LED de flash y ranura microSD" width="300" height="430" loading="lazy" />
+            <span className="callout" style={{ left: "-2%", top: "8%" }}><Camera size={16} aria-hidden />Cámara OV2640 · 2 MP</span>
+            <span className="callout" style={{ right: "-4%", top: "24%" }}><Lightbulb size={16} aria-hidden />Flash LED para la noche</span>
+            <span className="callout" style={{ left: "-6%", top: "50%" }}><Wifi size={16} aria-hidden />ESP32-S · Wi-Fi</span>
+            <span className="callout" style={{ right: "-2%", top: "76%" }}>microSD opcional</span>
           </div>
-          <div className="camera-copy" data-reveal>
+          <div className="camera-copy" data-reveal="stagger">
             <h3>Qué hace cada parte</h3>
             <div className="split">
-              <div className="split-card paper">
+              <div className="cs-card split-card lift">
                 <h4><Camera size={18} aria-hidden />La cámara</h4>
                 <ul>
                   <li>Toma fotos de 800×600 en JPEG.</li>
@@ -314,7 +339,7 @@ function CameraSection() {
                   <li>Reporta su estado en <code>/status</code> y enciende el flash con <code>/flash?on=1</code>.</li>
                 </ul>
               </div>
-              <div className="split-card paper">
+              <div className="cs-card split-card lift">
                 <h4><Cpu size={18} aria-hidden />El gateway</h4>
                 <ul>
                   <li>Una mini PC o Raspberry Pi en tu red.</li>
@@ -332,8 +357,8 @@ function CameraSection() {
             </ul>
           </div>
         </div>
-        <div className="install" data-reveal>
-          <div className="install-parts paper">
+        <div className="install" data-reveal="stagger">
+          <div className="cs-card install-parts">
             <h3>Lo que necesitas por cámara</h3>
             <ul>
               <li><strong>ESP32-CAM (AI-Thinker)</strong> con cámara OV2640</li>
@@ -343,18 +368,18 @@ function CameraSection() {
             </ul>
           </div>
           <ol className="install-steps">
-            <li className="paper">
-              <span>1</span>
+            <li className="cs-card lift">
+              <span className="install-num">1</span>
               <h4>Carga el firmware</h4>
               <p>Arduino IDE, placa <em>AI Thinker ESP32-CAM</em>, librerías <code>esp32cam</code> y <code>NimBLE-Arduino</code> 1.4.x, particiones «Huge APP». Sube <code>esp32_cam_server.ino</code> con GPIO0 a tierra; no hay que editar el código.</p>
             </li>
-            <li className="paper">
-              <span>2</span>
+            <li className="cs-card lift">
+              <span className="install-num">2</span>
               <h4>Conéctala por Bluetooth</h4>
-              <p>Enciéndela con BOOT presionado. En la app SparkleWash del iPhone o iPad elige la cámara y escribe tu Wi-Fi: queda guardado y aparece sola en la red (<code>sparklecam-entrance-cam.local</code>).</p>
+              <p>Enciéndela con BOOT presionado. En la app Car Spa del iPhone o iPad elige la cámara y escribe tu Wi-Fi: queda guardado y aparece sola en la red (<code>sparklecam-entrance-cam.local</code>).</p>
             </li>
-            <li className="paper">
-              <span>3</span>
+            <li className="cs-card lift">
+              <span className="install-num">3</span>
               <h4>Monta y prueba</h4>
               <p>Desde la app ves la imagen en vivo y enciendes el flash para comprobar que la placa se lea bien. Luego apunta el gateway a la cámara y listo.</p>
             </li>
@@ -367,28 +392,29 @@ function CameraSection() {
 
 function LotDiagram() {
   return (
-    <svg className="lot paper" viewBox="0 0 560 220" role="img" aria-label="Diagrama del lugar: cámara de entrada, cámara en la bahía y cámara de salida">
-      <rect x="0" y="0" width="560" height="220" rx="18" fill="#e9dcc5" />
-      <rect x="20" y="70" width="520" height="80" rx="12" fill="#cdbb9b" />
-      <path d="M40 110 H520" stroke="#f6efe4" strokeWidth="4" strokeDasharray="18 14" />
-      <rect x="200" y="20" width="160" height="180" rx="14" fill="#8fd3f4" opacity=".55" />
-      <text x="280" y="42" textAnchor="middle" fontWeight="800" fontSize="15" fill="#13213a">BAHÍA DE LAVADO</text>
+    <svg className="lot" viewBox="0 0 560 220" role="img" aria-label="Diagrama del lugar: cámara de entrada, cámara en la bahía y cámara de salida">
+      <rect x="0" y="0" width="560" height="220" rx="18" fill="#EEF2F8" />
+      <rect x="20" y="70" width="520" height="80" rx="12" fill="#C9D2E0" />
+      <path d="M40 110 H520" stroke="#FFFFFF" strokeWidth="4" strokeDasharray="18 14" />
+      <rect x="200" y="20" width="160" height="180" rx="14" fill="#E8F0FF" stroke="#4D8DFF" strokeWidth="2" opacity=".9" />
+      <text x="280" y="42" textAnchor="middle" fontWeight="800" fontSize="15" fill="#0142A8">BAHÍA DE LAVADO</text>
       {[
-        { x: 70, label: "Entrada", color: "#f97362" },
-        { x: 280, label: "Bahía", color: "#f8c14a" },
-        { x: 490, label: "Salida", color: "#7fa98a" },
+        { x: 70, label: "Entrada", color: "#FB5A00" },
+        { x: 280, label: "Bahía", color: "#0142A8" },
+        { x: 490, label: "Salida", color: "#03515B" },
       ].map(({ x, label, color }) => (
         <g key={label}>
-          <path d={`M${x} 172 L${x - 34} 120 L${x + 34} 120 Z`} fill={color} opacity=".35" />
-          <rect x={x - 16} y="168" width="32" height="26" rx="6" fill="#13213a" />
+          <path d={`M${x} 172 L${x - 34} 120 L${x + 34} 120 Z`} fill={color} opacity=".22" />
+          <rect x={x - 16} y="168" width="32" height="26" rx="6" fill="#0B1530" />
           <circle cx={x} cy="181" r="7" fill={color} />
-          <text x={x} y="212" textAnchor="middle" fontWeight="800" fontSize="14" fill="#13213a">{label}</text>
+          <text x={x} y="212" textAnchor="middle" fontWeight="800" fontSize="14" fill="#0B1530">{label}</text>
         </g>
       ))}
       <g transform="translate(110 88)">
-        <rect width="70" height="40" rx="10" fill="#f97362" /><rect x="8" y="8" width="54" height="14" rx="4" fill="#bfe8fb" />
+        <rect width="70" height="40" rx="10" fill="#0142A8" /><rect x="8" y="8" width="54" height="14" rx="4" fill="#E8F0FF" />
+        <rect x="0" y="30" width="70" height="4" fill="#FB5A00" />
       </g>
-      <path d="M190 108 l14 0 m-6 -6 l6 6 l-6 6" stroke="#13213a" strokeWidth="3" fill="none" strokeLinecap="round" />
+      <path d="M190 108 l14 0 m-6 -6 l6 6 l-6 6" stroke="#0B1530" strokeWidth="3" fill="none" strokeLinecap="round" />
     </svg>
   );
 }
@@ -399,7 +425,7 @@ const SIZES: Record<string, [number, number]> = {
 
 const SCREENS = [
   { id: "en-vivo", icon: LayoutDashboard, label: "En vivo", title: "Todo el lugar de un vistazo",
-    body: "Lo que ven las cámaras en este momento, cuántos carros esperan revisión, cuántos están en las bahías y alertas de presión o jabón." },
+    body: "Lo que ven las cámaras en este momento, cuántos autos esperan revisión, cuántos están en las bahías y alertas de presión o jabón." },
   { id: "revision", icon: ScanLine, label: "Revisión", title: "Confirmar con la foto al lado",
     body: "La placa leída, su nivel de confianza y la foto. Si la cámara dudó, lo dice. Eliges vehículo y paquete y el precio sale solo." },
   { id: "tablero", icon: Kanban, label: "Trabajos", title: "Un tablero que se mueve solo",
@@ -422,14 +448,14 @@ function Screens() {
     tabs.current[next]?.focus();
   }
   return (
-    <section id="pantallas" className="section screens">
-      <div className="wrap">
-        <div className="section-head" data-reveal>
-          <p className="eyebrow">Pantallas reales</p>
+    <section id="pantallas" className="section screens cs-showroom">
+      <div className="cs-wrap">
+        <div className="section-head" data-reveal="stagger">
+          <p className="cs-eyebrow">Pantallas reales</p>
           <h2>Hecho para la tablet junto a las bahías</h2>
           <p>Estas son capturas de la consola tal como la usa tu equipo, en modo demo.</p>
         </div>
-        <div className="tabs" role="tablist" aria-label="Pantallas de la consola" onKeyDown={onKey}>
+        <div className="tabs" role="tablist" aria-label="Pantallas de la consola" onKeyDown={onKey} data-reveal>
           {SCREENS.map(({ id, icon: Icon, label }, i) => (
             <button key={id} ref={(el) => { tabs.current[i] = el; }} type="button" role="tab" id={`tab-${id}`}
               aria-selected={active === id} aria-controls="screen-panel" tabIndex={active === id ? 0 : -1}
@@ -438,21 +464,145 @@ function Screens() {
             </button>
           ))}
         </div>
-        <div className="screen-panel" id="screen-panel" role="tabpanel" aria-labelledby={`tab-${active}`}>
-          <figure className="frame paper screen-shot" key={current.id}>
-            <span className="tape" style={{ left: 30, top: -14 }} />
-            <span className="tape" style={{ right: 40, top: -12, transform: "rotate(6deg)" }} />
-            <img src={`/landing/screens/${current.id}.jpg`} alt={`Pantalla "${current.label}" de la consola SparkleWash`}
-              width={SIZES[current.id][0]} height={SIZES[current.id][1]} />
-          </figure>
+        <div className="screen-panel" id="screen-panel" role="tabpanel" aria-labelledby={`tab-${active}`} data-reveal>
+          <div className="screen-float" data-float>
+            <figure className="frame screen-shot" key={current.id}>
+              <img src={`/landing/screens/${current.id}.jpg`} alt={`Pantalla "${current.label}" de la consola Car Spa`}
+                width={SIZES[current.id][0]} height={SIZES[current.id][1]} loading="lazy" />
+            </figure>
+          </div>
           <div className="screen-copy">
             <h3>{current.title}</h3>
             <p>{current.body}</p>
-            <a className="btn btn-ink" href={DEMO_URL}>Abrir esta pantalla en la demo<ArrowRight size={18} aria-hidden /></a>
-            <figure className="frame phone paper screen-phone" aria-hidden>
-              <img src="/landing/screens/tablero-movil.jpg" alt="" width="780" height="1520" loading="lazy" />
-            </figure>
+            <a className="cs-btn cs-btn--primary" href={DEMO_URL}>Abrir esta pantalla en la demo<ArrowRight size={18} aria-hidden /></a>
+            <div className="screen-phone-float" data-float aria-hidden>
+              <figure className="frame phone screen-phone">
+                <img src="/landing/screens/tablero-movil.jpg" alt="" width="780" height="1520" loading="lazy" />
+              </figure>
+            </div>
             <p className="note"><MonitorSmartphone size={16} aria-hidden />También en el celular, y como app para iPhone y iPad.</p>
+          </div>
+        </div>
+      </div>
+      <Swoosh to="white" />
+    </section>
+  );
+}
+
+const APP_FEATURES = [
+  { icon: Tablet, title: "Pantalla dividida",
+    body: "En el iPad ves las secciones, la lista y el detalle a la vez. En el iPhone, la misma consola en una mano." },
+  { icon: WifiOff, title: "Sigue sin internet",
+    body: "Confirma llegadas y mueve trabajos sin señal: los cambios se guardan en el dispositivo y se sincronizan al volver la conexión." },
+  { icon: Bluetooth, title: "Cámaras por Bluetooth",
+    body: "Configura el Wi-Fi de cada ESP32-CAM desde la app, sin cables ni editar código." },
+  { icon: Camera, title: "En vivo en tu red",
+    body: "La app encuentra las cámaras en el Wi-Fi del autolavado: mira la imagen y enciende el flash para ajustar el ángulo." },
+];
+
+function AppSection() {
+  return (
+    <section id="app" className="section">
+      <div className="cs-wrap">
+        <div className="section-head" data-reveal="stagger">
+          <p className="cs-eyebrow">App para iPhone y iPad</p>
+          <h2>La misma consola, en el bolsillo de tu equipo</h2>
+          <p>Entra con la misma cuenta de Google y verás los mismos datos que en la consola web, en español.</p>
+        </div>
+        <div className="app-grid">
+          <ul className="features" data-reveal="stagger">
+            {APP_FEATURES.map(({ icon: Icon, title, body }) => (
+              <li key={title} className="cs-card feature-card lift">
+                <span className="step-icon"><Icon size={24} aria-hidden /></span>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </li>
+            ))}
+          </ul>
+          {/* Scene slot: the iPhone/iPad board. Static fallback: the real console on a phone. */}
+          <div data-scene-slot="mobile" className="scene-slot scene-slot--mobile" data-reveal>
+            <Suspense
+              fallback={
+                <>
+                <div className="phone-float" data-float>
+                  <figure className="frame phone mobile-phone">
+                    <img src="/landing/screens/revision-movil.jpg" alt="La pantalla Revisión de Car Spa en un teléfono: placa leída, foto y paquete" width="780" height="1688" loading="lazy" />
+                  </figure>
+                </div>
+              
+                </>
+              }
+            >
+              <MobileBoardScene locale="es" />
+            </Suspense>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const DESKTOP_FEATURES = [
+  { icon: Printer, text: "Un ticket de trabajo impreso por cada vehículo, listo para el mostrador." },
+  { icon: Check, text: "Cobra los servicios en caja, con tus paquetes y tus precios." },
+  { icon: FileText, text: "Facturación electrónica (DTE) sin salir del punto de venta." },
+  { icon: RefreshCw, text: "Se sincroniza con la app de iPhone y la consola web a través de la API de Car Spa." },
+];
+
+function DesktopSection() {
+  return (
+    <section id="escritorio" className="section desktop" aria-labelledby="escritorio-titulo">
+      <div className="cs-wrap">
+        <div className="desktop-card cs-showroom" data-reveal>
+          <div className="desktop-body">
+            <p className="cs-eyebrow">Para Windows</p>
+            <h2 id="escritorio-titulo">Car Spa para escritorio</h2>
+            <p className="desktop-lead">El punto de venta de tu caja: imprime el ticket de cada vehículo, cobra y factura, con los mismos datos que ve tu equipo en el celular.</p>
+            <ul className="desktop-list">
+              {DESKTOP_FEATURES.map(({ icon: Icon, text }) => (
+                <li key={text}><Icon size={18} aria-hidden />{text}</li>
+              ))}
+            </ul>
+            <div className="cta-row">
+              <a className="cs-btn cs-btn--primary cs-btn--lg" data-testid="download-windows" href={DESKTOP_DOWNLOAD_URL} download rel="noopener">
+                <Download size={20} aria-hidden />Descargar para Windows
+              </a>
+              <a className="cs-btn cs-btn--ghost cs-btn--lg" href={MANUAL_URL}><BookOpen size={18} aria-hidden />Manual de uso</a>
+            </div>
+            <p className="desktop-req">
+              Requiere Windows 10 u 11 (64 bits). <a href={DESKTOP_RELEASES_URL} rel="noopener">Todas las versiones</a>
+            </p>
+            <p className="desktop-note">
+              Windows SmartScreen puede mostrar una advertencia porque el instalador aún no está firmado. Si aparece, elige
+              {" "}<strong>Más información → Ejecutar de todas formas</strong>.
+            </p>
+          </div>
+          {/* Scene slot: the printed work ticket. Static fallback: a still ticket (no prices on the public page). */}
+          <div data-scene-slot="desktop-ticket" className="scene-slot scene-slot--ticket">
+            <Suspense
+              fallback={
+                <>
+                <div className="ticket-float" data-float>
+                  <div className="ticket" role="img" aria-label="Ejemplo de ticket de trabajo impreso: placa P903377, camioneta, Essential Spa, atendido por Rosa">
+                    <img src="/brand/car-spa-logo.svg" alt="" width="132" height="75" />
+                    <p className="ticket-title">Ticket de trabajo <span>#0142</span></p>
+                    <dl>
+                      <div><dt>Placa</dt><dd className="ticket-plate">P903377</dd></div>
+                      <div><dt>Vehículo</dt><dd>Camioneta / SUV</dd></div>
+                      <div><dt>Paquete</dt><dd>Essential Spa</dd></div>
+                      <div><dt>Equipo</dt><dd>Rosa M.</dd></div>
+                      <div><dt>Entrada</dt><dd>10:42</dd></div>
+                    </dl>
+                    <span className="ticket-code" />
+                    <p className="ticket-thanks">¡Gracias por tu visita!</p>
+                  </div>
+                </div>
+              
+                </>
+              }
+            >
+              <DesktopTicketScene lang="es" />
+            </Suspense>
           </div>
         </div>
       </div>
@@ -473,6 +623,8 @@ const FAQ: { q: string; a: ReactNode }[] = [
     a: "Solo la foto de evidencia de cada llegada, para que el personal pueda compararla. Las consultas requieren iniciar sesión con una cuenta de Google autorizada." },
   { q: "¿Y si se cae el internet?",
     a: "Las cámaras y el gateway trabajan en tu red local. Si la API no responde, el gateway reintenta con el mismo identificador de evento, así que no se duplican llegadas. En la app de iPhone y iPad el equipo puede seguir confirmando llegadas y moviendo trabajos; los cambios se sincronizan solos al volver la conexión." },
+  { q: "¿Hay un manual para la caja?",
+    a: <>Sí. El <a href={MANUAL_URL}>manual de Car Spa para escritorio</a> explica paso a paso cómo instalarlo, abrir la caja, imprimir tickets y cobrar.</> },
   { q: "¿Tengo varios autolavados?",
     a: "Cada autolavado se registra por separado, con sus propias cámaras, bahías, equipo y zona horaria. Nadie de un autolavado ve los datos de otro." },
   { q: "¿Está en otros idiomas?",
@@ -482,14 +634,14 @@ const FAQ: { q: string; a: ReactNode }[] = [
 function Faq() {
   return (
     <section id="preguntas" className="section faq">
-      <div className="wrap narrow">
-        <div className="section-head" data-reveal>
-          <p className="eyebrow">Preguntas frecuentes</p>
+      <div className="cs-wrap narrow">
+        <div className="section-head" data-reveal="stagger">
+          <p className="cs-eyebrow">Preguntas frecuentes</p>
           <h2>Lo que nos preguntan</h2>
         </div>
-        <div className="faq-list">
+        <div className="faq-list" data-reveal="stagger">
           {FAQ.map(({ q, a }) => (
-            <details key={q} className="faq-item paper">
+            <details key={q} className="faq-item">
               <summary>{q}<ChevronDown size={20} aria-hidden /></summary>
               <p>{a}</p>
             </details>
@@ -502,20 +654,24 @@ function Faq() {
 
 function FinalCta() {
   return (
-    <section className="final">
-      <div className="hills" aria-hidden>
-        <svg viewBox="0 0 1440 160" preserveAspectRatio="none" className="paper"><path d="M0 80 Q280 10 600 70 T1440 50 V160 H0 Z" fill="#7fa98a" /></svg>
-        <svg viewBox="0 0 1440 110" preserveAspectRatio="none" className="paper"><path d="M0 50 Q360 0 760 44 T1440 30 V110 H0 Z" fill="#0f766e" /></svg>
-      </div>
-      <div className="wrap final-inner" data-reveal>
-        <h2>Pruébalo con carros simulados, ahora mismo</h2>
-        <p>La demo corre en tu navegador: llegan carros, lees placas, abres trabajos y ves la cámara de salida en acción. Cuando estés listo, registra tu autolavado y vincula tus cámaras.</p>
-        <p className="final-login">¿Ya tienes cuenta? <a href={APP_URL}>Entrar al sistema</a></p>
-        <div className="cta-row center">
-          <a className="btn btn-coral btn-lg" href={DEMO_URL}><PlayCircle size={20} aria-hidden />Abrir la demo</a>
-          <a className="btn btn-paper btn-lg" href={REGISTER_URL}><Building2 size={18} aria-hidden />Registrar mi autolavado</a>
+    <section className="section final">
+      <div className="cs-wrap">
+        <div className="final-card cs-showroom" data-reveal="stagger">
+          <div data-scene-slot="logo-intro" className="scene-slot scene-slot--logo">
+            <Suspense fallback={<img src="/brand/car-spa-logo-ondark.svg" alt="Car Spa — Automotive Care" width="260" height="147" />}>
+              <LogoIntroScene locale="es" />
+            </Suspense>
+          </div>
+          <p className="cs-eyebrow cs-eyebrow--tagline">Automotive Care</p>
+          <h2>Pruébalo con autos simulados, ahora mismo</h2>
+          <p>La demo corre en tu navegador: llegan autos, lees placas, abres trabajos y ves la cámara de salida en acción. Cuando estés listo, registra tu autolavado y vincula tus cámaras.</p>
+          <div className="cta-row center">
+            <a className="cs-btn cs-btn--primary cs-btn--lg" href={DEMO_URL}><PlayCircle size={20} aria-hidden />Abrir la demo</a>
+            <a className="cs-btn cs-btn--ghost cs-btn--lg" href={REGISTER_URL}><Building2 size={18} aria-hidden />Registrar mi autolavado</a>
+          </div>
+          <p className="final-login">¿Ya tienes cuenta? <a href={APP_URL}>Entrar al sistema</a></p>
+          <p className="final-login">¿Usas Windows en la caja? <a href="#escritorio">Descargar Car Spa para escritorio</a></p>
         </div>
-        <p className="final-login">¿Usas Windows en la caja? <a href="#escritorio">Descargar SparkleWash para escritorio</a></p>
       </div>
     </section>
   );
@@ -523,11 +679,19 @@ function FinalCta() {
 
 function Footer() {
   return (
-    <footer className="footer">
-      <div className="wrap footer-inner">
-        <Logo />
-        <p>Cámaras ESP32-CAM, lectura de placas y un tablero para tu equipo.</p>
-        <p className="small">© {new Date().getFullYear()} SparkleWash</p>
+    <footer className="footer cs-showroom">
+      <div className="cs-wrap footer-inner">
+        <div className="footer-brand">
+          <img src="/brand/car-spa-logo-ondark.svg" alt="Car Spa — Automotive Care" width="200" height="113" loading="lazy" />
+          <p>Detallado automotriz premium: cámaras ESP32-CAM, lectura de placas, un tablero para tu equipo y la caja.</p>
+        </div>
+        <nav aria-label="Pie de página" className="footer-links">
+          <a className="cs-link-underline" href={MANUAL_URL}><BookOpen size={16} aria-hidden />Manual del escritorio</a>
+          <a className="cs-link-underline" href={APP_URL}>Consola</a>
+          <a className="cs-link-underline" href={DEMO_URL}>Probar la demo</a>
+          <a className="cs-link-underline" href="#preguntas">Preguntas frecuentes</a>
+        </nav>
+        <p className="small">© {new Date().getFullYear()} Car Spa</p>
       </div>
     </footer>
   );

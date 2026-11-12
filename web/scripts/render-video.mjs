@@ -1,15 +1,17 @@
-// Renders video/explainer.html to an MP4 (H.264) + poster, frame by frame.
+// Renders video/explainer.html to an MP4 (H.264) + poster, frame by frame, into video/out/ (git-ignored).
+// The landing page no longer embeds the video (it uses CSS scenes), so the output stays out of the site bundle.
 // Needs: playwright (Chromium) and ffmpeg on PATH. Usage: node scripts/render-video.mjs [--fps 30] [--preview]
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const OUT = join(ROOT, "public/landing/video");
+const OUT = join(ROOT, "video/out");
+await mkdir(OUT, { recursive: true });
 const fps = Number(process.argv[process.argv.indexOf("--fps") + 1]) || 30;
 const preview = process.argv.includes("--preview");
 const TYPES = { ".html": "text/html", ".css": "text/css", ".svg": "image/svg+xml", ".jpg": "image/jpeg", ".woff2": "font/woff2", ".woff": "font/woff", ".js": "text/javascript" };

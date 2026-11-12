@@ -117,7 +117,7 @@ describe("registration and sessions", () => {
     await user.clear(screen.getByLabelText("Teléfono (opcional)"));
     await user.click(screen.getByRole("button", { name: "Probar el registro en la demo" }));
 
-    expect(await screen.findByText("¡Bienvenido a SparkleWash, Lavado La Ceiba!")).toBeInTheDocument();
+    expect(await screen.findByText("¡Bienvenido a Car Spa, Lavado La Ceiba!")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Vincula la cámara de la entrada/ })).toBeInTheDocument();
     expect(screen.getAllByText("Lavado La Ceiba").length).toBeGreaterThan(0);
   });
@@ -135,5 +135,14 @@ describe("registration and sessions", () => {
     window.history.replaceState(null, "", "/app/?demo=1");
     render(<App />);
     expect(await screen.findAllByRole("link", { name: /Administración/ })).not.toHaveLength(0);
+  });
+
+  it("shows the Car Spa brand in the console", async () => {
+    window.history.replaceState(null, "", "/app/?demo=1");
+    render(<App />);
+    expect(await screen.findByText("Car Spa Escalón")).toBeInTheDocument();
+    const marks = document.querySelectorAll<HTMLImageElement>(".brand-mark img");
+    expect([...marks].map((img) => img.getAttribute("src"))).toEqual(["/brand/car-spa-mark-ondark.svg", "/brand/car-spa-mark.svg"]);
+    await waitFor(() => expect(document.title).toMatch(/ · Car Spa$/));
   });
 });

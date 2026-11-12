@@ -1,6 +1,6 @@
 // Spanish is the console's default language. Keys are grouped by screen.
 export const es = {
-  "app.name": "SparkleWash",
+  "app.name": "Car Spa",
   "app.console": "Consola del personal",
   "nav.floor": "En vivo",
   "nav.review": "Revisión",
@@ -193,7 +193,7 @@ export const es = {
   "dismiss.not-a-customer": "No es cliente",
   "dismiss.other": "Otro",
 
-  "signin.newCarwash": "¿Tu autolavado aún no usa SparkleWash?",
+  "signin.newCarwash": "¿Tu autolavado aún no usa Car Spa?",
   "signin.registerCta": "Registrar mi autolavado",
   "register.title": "Registra tu autolavado",
   "register.body": "Crea la cuenta de tu negocio. Tu cuenta de Google será la del administrador.",
@@ -219,7 +219,7 @@ export const es = {
   "admin.tab.cameras": "Cámaras",
   "admin.tab.team": "Equipo",
   "admin.tab.employees": "Empleados",
-  "admin.welcome": "¡Bienvenido a SparkleWash, {name}!",
+  "admin.welcome": "¡Bienvenido a Car Spa, {name}!",
   "admin.checklist": "Tres pasos para empezar:",
   "admin.step.camera": "Vincula la cámara de la entrada",
   "admin.step.team": "Invita a tu equipo",
@@ -255,7 +255,7 @@ export const es = {
   "device.enabled": "{name} activada",
   "device.disabledToast": "{name} desactivada",
   "device.firmware": "Firmware",
-  "device.neverHelp": "Enciéndela manteniendo BOOT presionado y abre la app SparkleWash en el iPhone o iPad: Administración › Cámaras › {name} › Configurar Wi-Fi por Bluetooth.",
+  "device.neverHelp": "Enciéndela manteniendo BOOT presionado y abre la app Car Spa en el iPhone o iPad: Administración › Cámaras › {name} › Configurar Wi-Fi por Bluetooth.",
   "device.updateBadge": "Actualizar a 1.2",
   "device.updateHelp": "Esta cámara usa {version}. La versión 1.2 se configura por Bluetooth desde la app de iPhone/iPad (sin editar el código) y aparece sola en la red. Grábala una vez por USB con esp32_cam_server.ino.",
   "link.idTaken": "Ya hay una cámara con el ID {cameraId}. Usa otro, por ejemplo {suggestion}.",
@@ -275,7 +275,7 @@ export const es = {
   "link.copy": "Copiar",
   "link.copied": "Copiado",
   "link.command": "Comando del gateway",
-  "link.steps": "1) Con la app SparkleWash para iPhone/iPad, configura el Wi-Fi de la cámara por Bluetooth (ID: {cameraId}). 2) Ejecuta en el gateway:",
+  "link.steps": "1) Con la app Car Spa para iPhone/iPad, configura el Wi-Fi de la cámara por Bluetooth (ID: {cameraId}). 2) Ejecuta en el gateway:",
   "link.done": "Ya la guardé",
   "link.cancel": "Cancelar",
   "link.invalid": "Nombre de 2 a 60 caracteres; ID con letras, números, - o _.",

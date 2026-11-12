@@ -7,8 +7,8 @@ export default defineConfig({
   build: {
     outDir: "build",
     rollupOptions: {
-      // "/" is the public landing page; "/app/" is the staff console.
-      input: { landing: "index.html", app: "app/index.html" },
+      // "/" is the public landing page; "/app/" is the staff console; "/manual/" is the desktop user manual.
+      input: { landing: "index.html", app: "app/index.html", manual: "manual/index.html" },
     },
   },
   server: {

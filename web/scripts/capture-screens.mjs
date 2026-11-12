@@ -1,4 +1,4 @@
-// Captures real console screens (Spanish, demo data) for the landing page and the explainer video.
+// Captures real console screens (Spanish, demo data) for the landing page (and the archived explainer video).
 // Usage: npm run build && npx vite preview --port 4173 & node scripts/capture-screens.mjs
 import { chromium } from "playwright";
 import { fileURLToPath } from "node:url";

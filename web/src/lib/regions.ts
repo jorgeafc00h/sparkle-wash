@@ -1,5 +1,5 @@
 // Countries and time zones offered at registration. The API accepts any ISO country code and IANA zone;
-// these are the markets SparkleWash targets first.
+// these are the markets Car Spa targets first.
 export const COUNTRIES = ["SV", "GT", "HN", "NI", "CR", "PA", "MX", "CO", "DO", "PR", "US", "ES"] as const;
 
 export const TIME_ZONES = [

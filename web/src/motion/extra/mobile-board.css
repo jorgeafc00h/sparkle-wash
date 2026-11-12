@@ -1,0 +1,294 @@
+/* MobileBoardScene: a tablet and a phone (frames built in CSS, no logos) showing the job board.
+   One 16 s cycle, four 4 s stages: Llegó → En cola → Lavando → Listo (+ "Por cobrar").
+   Sizes are in cqw (the scene is a size container) so the composition scales as one picture.
+   Base styles are the reduced-motion still frame: the job is done and unpaid. */
+
+.cs-x-board {
+  container-type: inline-size;
+  width: 100%;
+  /* The console screens use the design tokens; these match the captures (sampled) so the overlays sit inside them. */
+  --cs-x-b-screen: var(--cs-navy-900, #0B1530);
+  --cs-x-b-col: var(--cs-navy-800, #0F1D40);
+  --cs-x-b-col-line: #24365E;
+  --cs-x-b-card: var(--cs-navy-700, #13234A);
+  --cs-x-b-card-line: #2B3960;
+  --cs-x-b-text: var(--cs-white, #FFFFFF);
+  --cs-x-b-muted: var(--cs-mist-300, #B7C3D9);
+  --cs-x-b-action: #79A1F9; /* the console's primary button in the captures */
+  --cs-x-b-on-action: var(--cs-navy-900, #0B1530);
+  --cs-x-b-bezel: #070D1F;
+  --cs-x-b-ease: cubic-bezier(.45, 0, .2, 1);
+}
+
+.cs-x-b-stage { position: relative; aspect-ratio: 100 / 60; }
+
+/* ---------- device frames ---------- */
+.cs-x-b-tablet, .cs-x-b-phone {
+  position: absolute;
+  background: var(--cs-x-b-bezel);
+  box-shadow:
+    inset 0 0 0 1px var(--cs-navy-500, #2A3F72),
+    inset 0 0 0 .3cqw #050A17,
+    0 2.6cqw 5.2cqw rgba(0, 0, 0, .42);
+}
+.cs-x-b-tablet { left: 0; top: 1cqw; width: 80cqw; padding: 1.7cqw; border-radius: 3.2cqw; }
+.cs-x-b-phone { right: 1.5cqw; bottom: 0; width: 22cqw; padding: .85cqw; border-radius: 3.6cqw; z-index: 2; }
+
+.cs-x-b-screen { position: relative; overflow: hidden; background: var(--cs-x-b-screen); isolation: isolate; }
+.cs-x-b-tablet .cs-x-b-screen { aspect-ratio: 16 / 10; border-radius: 1.4cqw; }
+.cs-x-b-phone .cs-x-b-screen { aspect-ratio: 780 / 1520; border-radius: 2.8cqw; }
+
+.cs-x-b-shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; max-width: none; }
+/* Tablet: 16:10 window onto the 2:1 capture, right-aligned, so the console sidebar (old brand) stays out. */
+.cs-x-b-tablet .cs-x-b-shot { object-position: 100% 0; }
+.cs-x-b-scrim { position: absolute; inset: 0; background: rgba(11, 21, 48, .28); }
+
+.cs-x-b-cam { position: absolute; left: .62cqw; top: 50%; width: .46cqw; height: .46cqw; margin-top: -.23cqw; border-radius: 50%; background: #1B2A55; }
+.cs-x-b-island { position: absolute; top: 1.6cqw; left: 50%; width: 6cqw; height: 1.55cqw; margin-left: -3cqw; border-radius: 1cqw; background: #000; }
+
+/* ---------- the job card (shared by both screens; sizes in em) ---------- */
+.cs-x-b-card {
+  position: absolute; z-index: 1;
+  display: flex; flex-direction: column;
+  background: var(--cs-x-b-card); color: var(--cs-x-b-text);
+  border: 1px solid var(--cs-x-b-card-line); border-radius: .95em;
+  box-shadow: 0 0 0 .14em var(--cs-orange-500, #FB5A00), 0 1.2em 2.4em rgba(0, 0, 0, .5);
+  line-height: 1.2;
+  animation: 16s var(--cs-x-b-ease) infinite;
+}
+/* Tablet: sits exactly on the capture's card grid (16:10 crop of 2560×1280: cards 20.75 % wide, 24.81 % apart). */
+.cs-x-b-card--tablet {
+  left: 3.69%; top: 25.5%; width: 20.75%; height: 31.5%;
+  padding: 1.05em 1.1em; font-size: .98cqw;
+  transform: translateX(358.8%); /* still frame: in "Listo" */
+  animation-name: cs-x-b-move;
+}
+/* Phone: covers the capture's first card inside the lanes overlay. */
+.cs-x-b-card--phone {
+  left: 3.48%; top: 19.07%; width: 62.38%; height: 74.6%;
+  padding: .95em 1em; font-size: .74cqw;
+  animation-name: cs-x-b-lift;
+}
+
+.cs-x-b-row { display: flex; align-items: center; justify-content: space-between; gap: .4em; }
+.cs-x-b-plate {
+  position: relative; display: inline-block; padding: .3em .55em .3em .95em;
+  background: #FAFBFF; color: var(--cs-navy-900, #0B1530); border-radius: .3em;
+  font: 700 1em/1.2 var(--font-mono, "JetBrains Mono", ui-monospace, Menlo, monospace); letter-spacing: .08em;
+  box-shadow: inset 0 0 0 .08em #C9D2E0;
+}
+.cs-x-b-plate::before { content: ""; position: absolute; left: .35em; top: .3em; bottom: .3em; width: .22em; border-radius: .1em; background: var(--cs-blue-600, #0142A8); }
+.cs-x-b-timer {
+  display: inline-flex; align-items: center; gap: .1em; white-space: nowrap; color: var(--cs-x-b-muted);
+  font: 500 .92em/1.2 var(--font-mono, "JetBrains Mono", ui-monospace, Menlo, monospace);
+}
+.cs-x-b-timer svg { width: 1em; height: 1em; margin-right: .2em; }
+.cs-x-b-pkg { margin-top: .75em; font: 700 1.12em/1.2 var(--font-body, "Inter Variable", "Inter", system-ui, sans-serif); }
+.cs-x-b-cls { margin-top: .25em; color: var(--cs-x-b-muted); font-size: .92em; }
+.cs-x-b-crew { margin-top: .7em; display: grid; justify-items: start; align-items: center; min-height: 1.9em; }
+.cs-x-b-crew > * { grid-area: 1 / 1; }
+.cs-x-b-nobody { color: var(--cs-x-b-muted); font-size: .92em; }
+.cs-x-b-avatar {
+  display: inline-grid; place-items: center; width: 1.9em; height: 1.9em; border-radius: 50%;
+  background: var(--cs-navy-600, #1B2A55); color: var(--cs-mist-200, #D5DDEA);
+  font-size: .82em; font-weight: 700; letter-spacing: .02em;
+  animation: cs-x-b-crew 16s var(--ease-out, cubic-bezier(.2, .7, .2, 1)) infinite;
+}
+.cs-x-b-foot { margin-top: auto; display: grid; justify-items: start; align-items: center; }
+.cs-x-b-foot > * { grid-area: 1 / 1; }
+
+.cs-x-b-action {
+  position: relative; display: inline-flex; align-items: center; gap: .35em;
+  padding: .55em .9em; border-radius: .45em; overflow: hidden;
+  background: var(--cs-x-b-action); color: var(--cs-x-b-on-action); font-weight: 700; white-space: nowrap;
+  opacity: 0; /* still frame: the job is done, so no action */
+  animation: cs-x-b-act 16s linear infinite;
+}
+.cs-x-b-action svg { width: 1em; height: 1em; }
+.cs-x-b-card--phone .cs-x-b-action { animation-name: cs-x-b-act-tap; }
+.cs-x-b-tap {
+  position: absolute; left: 50%; top: 50%; width: 2.4em; height: 2.4em; margin: -1.2em 0 0 -1.2em;
+  border-radius: 50%; background: rgba(255, 255, 255, .7); opacity: 0; pointer-events: none;
+  animation: cs-x-b-tap 16s ease-out infinite;
+}
+.cs-x-b-due {
+  display: inline-flex; align-items: center; min-height: 2.1em; padding: 0 .85em; border-radius: 999px;
+  background: var(--cs-orange-500, #FB5A00); color: var(--color-on-accent, #0B1530);
+  font-weight: 700; white-space: nowrap;
+  animation: cs-x-b-due 16s var(--ease-out, cubic-bezier(.2, .7, .2, 1)) infinite;
+}
+
+/* Stage-dependent text: one label per stage, stacked in one grid cell. */
+.cs-x-b-stack { display: inline-grid; justify-items: start; }
+.cs-x-b-stack > * { grid-area: 1 / 1; }
+.cs-x-b-min { justify-items: end; }
+.cs-x-b-q {
+  opacity: 0;
+  animation: cs-x-b-q 16s linear infinite;
+  animation-delay: calc(var(--i, 0) * 4s - 16s);
+}
+.cs-x-b-q[data-last] { opacity: 1; }
+
+/* Ticking seconds: digit strips moved in whole-line steps. */
+.cs-x-b-digit { display: inline-block; height: 1.2em; line-height: 1.2em; overflow: hidden; vertical-align: bottom; }
+.cs-x-b-strip { display: block; line-height: 1.2em; }
+.cs-x-b-ones { animation: cs-x-b-ones 16s linear infinite; }
+.cs-x-b-tens { animation: cs-x-b-tens 16s linear infinite; }
+
+/* ---------- phone lanes: an overlay on the capture's column area that scrolls column by column ---------- */
+.cs-x-b-lanes { position: absolute; left: 4.23%; right: 0; top: 22.9%; height: 35.53%; overflow: hidden; background: var(--cs-x-b-screen); }
+.cs-x-b-strip-cols {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  transform: translateX(-220.08%); /* still frame: "Listo" column */
+  animation: cs-x-b-slide 16s var(--cs-x-b-ease) infinite;
+}
+.cs-x-b-col {
+  flex: 0 0 69.34%; margin-right: 4.02%; height: 97.4%;
+  background: var(--cs-x-b-col); border: 1px solid var(--cs-x-b-col-line); border-radius: 1.05cqw;
+  padding: .8cqw 1.3cqw;
+}
+.cs-x-b-col-head { display: inline-flex; align-items: center; gap: .45em; color: var(--cs-x-b-text); font: 700 .8cqw/1.2 var(--font-body, "Inter Variable", "Inter", system-ui, sans-serif); }
+.cs-x-b-col-dot { width: .6em; height: .6em; border-radius: 50%; background: var(--cs-mist-300, #B7C3D9); }
+.cs-x-b-col-dot[data-i="1"] { background: var(--cs-blue-400, #4D8DFF); }
+.cs-x-b-col-dot[data-i="2"] { background: var(--cs-orange-500, #FB5A00); }
+.cs-x-b-col-dot[data-i="3"] { background: var(--cs-teal-500, #3F838C); }
+
+/* ---------- caption: the four states as real text, with a sliding indicator ---------- */
+.cs-x-b-caption {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-3, 12px) var(--space-4, 16px);
+  margin-top: var(--space-5, 24px);
+}
+.cs-x-b-steps { position: relative; width: min(100%, 30rem); }
+.cs-x-b-steps ol {
+  position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, 1fr);
+  margin: 0; padding: 0; list-style: none;
+}
+.cs-x-b-steps li {
+  display: flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 var(--space-2, 8px);
+  font: 600 var(--text-sm, .875rem)/1.2 var(--font-body, "Inter Variable", "Inter", system-ui, sans-serif);
+  color: var(--cs-mist-200, #D5DDEA); text-align: center;
+}
+.cs-x-b-steps::before { /* the track */
+  content: ""; position: absolute; inset: 0; border-radius: var(--radius-pill, 999px);
+  background: var(--cs-navy-800, #0F1D40); box-shadow: inset 0 0 0 1px var(--cs-navy-600, #1B2A55);
+}
+.cs-x-b-steps-bar {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 25%; border-radius: var(--radius-pill, 999px);
+  background: var(--cs-navy-600, #1B2A55); box-shadow: inset 0 -3px 0 var(--cs-orange-500, #FB5A00);
+  transform: translateX(300%); /* still frame: "Listo" */
+  animation: cs-x-b-bar 16s var(--cs-x-b-ease) infinite;
+}
+.cs-x-b-chip {
+  display: inline-flex; align-items: center; min-height: 32px; padding: 0 var(--space-3, 12px);
+  border-radius: var(--radius-pill, 999px); background: var(--cs-orange-500, #FB5A00); color: var(--color-on-accent, #0B1530);
+  font: 700 var(--text-xs, .8125rem)/1 var(--font-body, "Inter Variable", "Inter", system-ui, sans-serif);
+  animation: cs-x-b-due 16s var(--ease-out, cubic-bezier(.2, .7, .2, 1)) infinite;
+}
+
+/* ---------- keyframes (16 s: stages at 0, 25, 50, 75 %) ---------- */
+@keyframes cs-x-b-move {
+  0% { opacity: 0; transform: translate(0, -12%) scale(1.05); }
+  4%, 20% { opacity: 1; transform: translate(0, 0) scale(1); }
+  22.5% { transform: translate(59.8%, -7%) scale(1.06); }
+  25%, 45% { transform: translate(119.6%, 0) scale(1); }
+  47.5% { transform: translate(179.4%, -7%) scale(1.06); }
+  50%, 70% { transform: translate(239.2%, 0) scale(1); }
+  72.5% { transform: translate(299%, -7%) scale(1.06); }
+  75%, 95% { opacity: 1; transform: translate(358.8%, 0) scale(1); }
+  99%, 100% { opacity: 0; transform: translate(358.8%, 0) scale(.97); }
+}
+@keyframes cs-x-b-lift {
+  0% { opacity: 0; transform: translateY(-10%) scale(1.04); }
+  4%, 20.5% { opacity: 1; transform: translateY(0) scale(1); }
+  22.5% { transform: translateY(-3%) scale(1.04); }
+  25%, 45.5% { transform: translateY(0) scale(1); }
+  47.5% { transform: translateY(-3%) scale(1.04); }
+  50%, 70.5% { transform: translateY(0) scale(1); }
+  72.5% { transform: translateY(-3%) scale(1.04); }
+  75%, 94% { opacity: 1; transform: translateY(0) scale(1); }
+  97%, 100% { opacity: 0; transform: translateY(0) scale(.97); }
+}
+@keyframes cs-x-b-slide {
+  0%, 21% { transform: translateX(0); }
+  25%, 46% { transform: translateX(-73.36%); }
+  50%, 71% { transform: translateX(-146.72%); }
+  75%, 95% { transform: translateX(-220.08%); }
+  100% { transform: translateX(0); }
+}
+@keyframes cs-x-b-bar {
+  0%, 21% { transform: translateX(0); }
+  25%, 46% { transform: translateX(100%); }
+  50%, 71% { transform: translateX(200%); }
+  75%, 95% { transform: translateX(300%); }
+  100% { transform: translateX(0); }
+}
+@keyframes cs-x-b-q {
+  0% { opacity: 0; }
+  1.5%, 24% { opacity: 1; }
+  25.5%, 100% { opacity: 0; }
+}
+@keyframes cs-x-b-act {
+  0% { opacity: 0; }
+  2%, 73.5% { opacity: 1; }
+  75%, 100% { opacity: 0; }
+}
+@keyframes cs-x-b-act-tap {
+  0% { opacity: 0; transform: scale(1); }
+  2% { opacity: 1; }
+  16.5% { transform: scale(1); } 17.5% { transform: scale(.92); } 19% { transform: scale(1); }
+  41.5% { transform: scale(1); } 42.5% { transform: scale(.92); } 44% { transform: scale(1); }
+  66.5% { transform: scale(1); } 67.5% { transform: scale(.92); } 69% { transform: scale(1); }
+  73.5% { opacity: 1; }
+  75%, 100% { opacity: 0; transform: scale(1); }
+}
+@keyframes cs-x-b-tap {
+  0%, 16.9% { opacity: 0; transform: scale(.2); }
+  17.5% { opacity: .75; transform: scale(.45); }
+  20.5% { opacity: 0; transform: scale(2.6); }
+  20.6%, 41.9% { opacity: 0; transform: scale(.2); }
+  42.5% { opacity: .75; transform: scale(.45); }
+  45.5% { opacity: 0; transform: scale(2.6); }
+  45.6%, 66.9% { opacity: 0; transform: scale(.2); }
+  67.5% { opacity: .75; transform: scale(.45); }
+  70.5% { opacity: 0; transform: scale(2.6); }
+  70.6%, 100% { opacity: 0; transform: scale(.2); }
+}
+@keyframes cs-x-b-due {
+  0%, 77% { opacity: 0; transform: scale(.6); }
+  80% { opacity: 1; transform: scale(1.08); }
+  82%, 94% { opacity: 1; transform: scale(1); }
+  97%, 100% { opacity: 0; transform: scale(.9); }
+}
+/* Seconds since the job arrived: 00–15 over the cycle (strip lines 0…9, then 0…6). */
+/* One step = one 1.2em line (the strips hold 0…9, 0…6 and 0…1). Em lengths, not percentages: Chrome's
+   compositor did not apply percentage translates on these paused/seeked strips. */
+@keyframes cs-x-b-ones {
+  0% { transform: translateY(0); animation-timing-function: steps(10, end); }
+  62.5% { transform: translateY(-12em); animation-timing-function: steps(6, end); }
+  100% { transform: translateY(-19.2em); }
+}
+@keyframes cs-x-b-tens {
+  0% { transform: translateY(0); animation-timing-function: steps(1, end); }
+  62.5%, 100% { transform: translateY(-1.2em); }
+}
+@keyframes cs-x-b-crew {
+  0%, 24% { opacity: 0; transform: scale(.5); }
+  26.5% { opacity: 1; transform: scale(1.12); }
+  28%, 95% { opacity: 1; transform: scale(1); }
+  98%, 100% { opacity: 0; transform: scale(1); }
+}
+
+.cs-x-b-sec { white-space: nowrap; }
+/* Below ≈ 5 px the ticking digits are only noise: keep the minutes. */
+@container (max-width: 700px) { .cs-x-b-sec { display: none; } }
+
+/* Narrow scenes: give the phone more of the picture. */
+@container (max-width: 560px) {
+  .cs-x-b-stage { aspect-ratio: 100 / 66; }
+  .cs-x-b-tablet { width: 84cqw; }
+  .cs-x-b-phone { width: 27cqw; right: 0; }
+  .cs-x-b-card--tablet { font-size: 1.03cqw; }
+  .cs-x-b-card--phone { font-size: .91cqw; }
+  .cs-x-b-col-head { font-size: .98cqw; }
+  .cs-x-b-island { width: 7.4cqw; height: 1.9cqw; margin-left: -3.7cqw; top: 1.9cqw; }
+}

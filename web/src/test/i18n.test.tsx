@@ -32,6 +32,20 @@ describe("i18n", () => {
     for (const value of Object.values(en)) expect(value.trim()).not.toBe("");
   });
 
+  it("names the product Car Spa and keeps deployed identifiers", () => {
+    expect(es["app.name"]).toBe("Car Spa");
+    expect(en["app.name"]).toBe("Car Spa");
+    // The iOS app generates its strings from these files, so these exact texts are shared with it.
+    expect(es["signin.newCarwash"]).toBe("¿Tu autolavado aún no usa Car Spa?");
+    expect(es["admin.welcome"]).toBe("¡Bienvenido a Car Spa, {name}!");
+    expect(es["device.neverHelp"]).toContain("abre la app Car Spa en el iPhone o iPad");
+    expect(es["link.steps"]).toContain("Con la app Car Spa para iPhone/iPad");
+    for (const dict of [es, en]) for (const [key, value] of Object.entries(dict)) expect(value, key).not.toMatch(/SparkleWash/);
+    // Environment variables are configuration, not branding.
+    expect(es["team.configuredHelp"]).toContain("SPARKLEWASH_STAFF_ROLES");
+    expect(en["team.configuredHelp"]).toContain("SPARKLEWASH_STAFF_ROLES");
+  });
+
   it("fills placeholders and plurals", () => {
     expect(translator("es")("floor.review", { count: 1 })).toBe("Revisar 1 llegada");
     expect(translator("es")("floor.review", { count: 3 })).toBe("Revisar 3 llegadas");

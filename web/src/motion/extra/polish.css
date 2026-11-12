@@ -1,0 +1,259 @@
+/* PolishScene: dull & dusty → foam wash → machine polish → wipe to deep gloss. 12 s loop.
+   Timeline (% of 12 s): foam 8–30 · pad 33–58 · wipe 58–70 · light sweep 70–81 · reflections and sparkles 74–92 ·
+   the dull, dusty layers fade back in 95–100.
+   "Reveals" use a window that slides (translateX) while its content slides back by the same amount, so the art
+   stays put and only the edge moves: transform-only wipes. Both halves share keyframe stops and easing.
+   Base styles are the reduced-motion still frame: the glossy car with its reflections. */
+
+.cs-x-polish {
+  container-type: inline-size;
+  width: 100%;
+  --cs-x-p-ease: cubic-bezier(.45, 0, .4, 1);
+}
+
+.cs-x-p-stage {
+  position: relative; overflow: hidden; isolation: isolate;
+  aspect-ratio: 9 / 4;
+  border-radius: var(--radius-lg, 22px);
+  background: var(--cs-navy-900, #0B1530);
+  box-shadow: inset 0 0 0 1px var(--cs-navy-600, #1B2A55);
+}
+/* Studio floor: a flat, slightly lighter plane, and one soft local light behind the car. */
+.cs-x-p-stage::before {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 22%;
+  background: var(--cs-navy-800, #0F1D40); box-shadow: 0 -1px 0 rgba(183, 195, 217, .08);
+}
+.cs-x-p-stage::after {
+  content: ""; position: absolute; left: 14%; right: 14%; top: 8%; bottom: 18%; z-index: -1;
+  background: radial-gradient(closest-side, rgba(77, 141, 255, .12), rgba(77, 141, 255, 0));
+}
+.cs-x-p-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.cs-x-p-car { position: absolute; z-index: 1; left: 8%; width: 84%; bottom: 16%; aspect-ratio: 600 / 190; /* overridden inline from MUSCLE_CAR_VIEWBOX */ }
+.cs-x-p-car .cs-m-car { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* Car treatments: dull clear coat, dust confined to the silhouette, a white silhouette for light. */
+.cs-x-p-dull { filter: saturate(.3) brightness(.56) contrast(.9) sepia(.2); }
+.cs-x-p-white { filter: brightness(0) invert(1); }
+.cs-x-p-dull .cs-m-car__shadow, .cs-x-p-dust .cs-m-car__shadow, .cs-x-p-white .cs-m-car__shadow,
+.cs-x-p-white .cs-m-car__wheel { display: none; }
+.cs-x-p-dust { opacity: .9; }
+
+/* ---------- reveal windows ---------- */
+.cs-x-p-win, .cs-x-p-refl { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.cs-x-p-win-in, .cs-x-p-refl-in { position: absolute; inset: 0; }
+.cs-x-p-win { transform: translateX(101%); animation: 12s var(--cs-x-p-ease) infinite; }
+.cs-x-p-win-in { transform: translateX(-101%); animation: 12s var(--cs-x-p-ease) infinite; }
+.cs-x-p-win--dust { animation-name: cs-x-p-win-dust; }
+.cs-x-p-win--dust .cs-x-p-win-in { animation-name: cs-x-p-in-dust; }
+.cs-x-p-win--matte { animation-name: cs-x-p-win-matte; }
+.cs-x-p-win--matte .cs-x-p-win-in { animation-name: cs-x-p-in-matte; }
+
+/* Mirror finish: two soft studio-light reflections that drift along the paint. */
+.cs-x-p-refl {
+  opacity: .24;
+  -webkit-mask-image: linear-gradient(100deg, transparent 0 19%, #000 22.5%, transparent 26.5%, transparent 58%, rgba(0, 0, 0, .7) 61%, transparent 63.5%);
+  mask-image: linear-gradient(100deg, transparent 0 19%, #000 22.5%, transparent 26.5%, transparent 58%, rgba(0, 0, 0, .7) 61%, transparent 63.5%);
+  animation: cs-x-p-refl 12s linear infinite;
+}
+.cs-x-p-refl-in { animation: cs-x-p-refl-in 12s linear infinite; }
+
+/* Light sweep: MuscleCar's own body-clipped sheen, driven across the paint. */
+.cs-x-p-gloss .cs-m-car__sweep { animation: cs-x-p-sweep 12s cubic-bezier(.4, 0, .2, 1) infinite; }
+
+/* ---------- foam pass ---------- */
+.cs-x-p-track { position: absolute; left: 0; width: 100%; pointer-events: none; transform: translateX(101%); }
+.cs-x-p-track--foam { top: 20%; bottom: 6%; animation: cs-x-p-win-dust 12s var(--cs-x-p-ease) infinite; }
+.cs-x-p-foam { position: absolute; top: 0; bottom: 0; left: -6%; width: 12%; opacity: 0; animation: cs-x-p-foam 12s linear infinite; }
+.cs-x-p-foam span, .cs-x-p-foam b {
+  position: absolute; aspect-ratio: 1; border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: cs-x-p-churn 1.1s ease-in-out infinite alternate;
+}
+.cs-x-p-foam span { /* same flat tone everywhere, so overlapping circles fuse into one cloud */
+  background: radial-gradient(circle at 42% 36%, #FFFFFF 0 30%, #EAF1FC 62%, #D6E1F2 100%);
+}
+.cs-x-p-foam b { /* bubbles: open rings with a glint */
+  border: 1px solid rgba(255, 255, 255, .85);
+  background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, .9) 0 14%, rgba(255, 255, 255, .12) 26%);
+}
+.cs-x-p-foam span:nth-child(3n) { animation-delay: -.4s; }
+.cs-x-p-foam span:nth-child(3n + 1) { animation-delay: -.75s; }
+
+/* ---------- polishing pad (door, centred from the wheel positions) ---------- */
+.cs-x-p-pad-at { position: absolute; width: 8.6%; aspect-ratio: 1; transform: translate(-50%, -50%); }
+.cs-x-p-pad-move, .cs-x-p-orbit { position: absolute; inset: 0; }
+.cs-x-p-pad-move { opacity: 0; animation: cs-x-p-pad-move 12s var(--cs-x-p-ease) infinite; }
+.cs-x-p-orbit { animation: cs-x-p-orbit 12s linear infinite; }
+.cs-x-p-pad {
+  position: absolute; top: 0; left: 18%; width: 100%; height: 100%; border-radius: 50%;
+  background:
+    repeating-conic-gradient(rgba(255, 255, 255, .09) 0 6deg, rgba(120, 40, 0, .08) 6deg 12deg),
+    radial-gradient(circle, var(--cs-orange-300, #FF7A2E) 0 34%, var(--cs-orange-500, #FB5A00) 62%, #D84C00 100%);
+  box-shadow: 0 0 0 3px var(--cs-navy-700, #13234A), 0 0 0 4px rgba(183, 195, 217, .35), 0 6px 14px rgba(0, 0, 0, .5);
+  animation: cs-x-p-spin 12s linear infinite;
+}
+.cs-x-p-pad::before { /* backing-plate hub */
+  content: ""; position: absolute; inset: 33%; border-radius: 50%;
+  background: var(--cs-navy-800, #0F1D40); box-shadow: 0 0 0 2px var(--cs-mist-300, #B7C3D9);
+}
+.cs-x-p-pad::after { /* a mark on the hub so the spin reads */
+  content: ""; position: absolute; left: 48%; top: 35%; width: 4%; height: 12%; border-radius: 2px; background: var(--cs-mist-200, #D5DDEA);
+}
+.cs-x-p-swirl {
+  position: absolute; inset: -20%; border-radius: 50%; opacity: 0;
+  border: 1.5px solid rgba(255, 255, 255, .45); box-shadow: 0 0 18px rgba(255, 255, 255, .22), inset 0 0 18px rgba(255, 255, 255, .16);
+  animation: cs-x-p-swirl 12s ease-in-out infinite;
+}
+
+/* ---------- the final wipe: a light edge on the paint, riding the matte layer's edge ---------- */
+/* The window starts 6 % to the left so the band (centred at 6 % of it) sits exactly on the reveal edge;
+   the white car inside is shifted back by the same 6 %. */
+.cs-x-p-edge {
+  position: absolute; top: 0; bottom: 0; left: -6%; width: 100%; overflow: hidden; pointer-events: none; opacity: 0;
+  -webkit-mask-image: linear-gradient(97deg, transparent 0, rgba(0, 0, 0, .3) 3%, #000 6%, rgba(0, 0, 0, .3) 9%, transparent 13%);
+  mask-image: linear-gradient(97deg, transparent 0, rgba(0, 0, 0, .3) 3%, #000 6%, rgba(0, 0, 0, .3) 9%, transparent 13%);
+  animation: cs-x-p-edge 12s var(--cs-x-p-ease) infinite;
+}
+.cs-x-p-edge-in { position: absolute; inset: 0; animation: cs-x-p-in-matte 12s var(--cs-x-p-ease) infinite; }
+.cs-x-p-edge-in .cs-m-car { left: 6%; right: -6%; width: 100%; }
+
+/* ---------- sparkles once the clear coat shines ---------- */
+.cs-x-p-spark {
+  position: absolute; width: 3.2%; aspect-ratio: 1; margin: -1.6% 0 0 -1.6%; overflow: visible;
+  opacity: .8; transform: scale(.65) rotate(0deg);
+  animation: cs-x-p-spark 12s ease-in-out infinite;
+  animation-delay: calc(9.4s + var(--d, 0s) - 12s);
+}
+
+/* ---------- caption: the three stages as real text with progress lines ---------- */
+.cs-x-p-caption ol {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4, 16px);
+  margin: var(--space-5, 24px) 0 0; padding: 0; list-style: none;
+}
+.cs-x-p-caption li { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: var(--space-3, 12px) var(--space-2, 8px); }
+.cs-x-p-bar {
+  grid-column: 1 / -1; position: relative; height: 3px; border-radius: 2px; overflow: hidden;
+  background: var(--cs-navy-600, #1B2A55);
+}
+.cs-x-p-fill {
+  position: absolute; inset: 0; border-radius: inherit; background: var(--cs-orange-500, #FB5A00);
+  transform-origin: left center; transform: scaleX(1);
+  animation: cs-x-p-f0 12s var(--cs-x-p-ease) infinite;
+}
+.cs-x-p-caption li:nth-child(2) .cs-x-p-fill { animation-name: cs-x-p-f1; }
+.cs-x-p-caption li:nth-child(3) .cs-x-p-fill { animation-name: cs-x-p-f2; }
+.cs-x-p-num {
+  font: 500 var(--text-xs, .8125rem)/1 var(--font-eyebrow, "Montserrat", system-ui, sans-serif);
+  letter-spacing: .18em; color: var(--cs-mist-300, #B7C3D9);
+}
+.cs-x-p-step {
+  font: 600 clamp(1rem, .9rem + .45vw, 1.25rem)/1.2 var(--font-display, "Saira Variable", "Saira", system-ui, sans-serif);
+  color: var(--cs-white, #FFFFFF);
+}
+
+@container (max-width: 560px) {
+  .cs-x-p-stage { aspect-ratio: 16 / 10; }
+  .cs-x-p-car { left: 2%; width: 96%; bottom: 17%; }
+  .cs-x-p-stage::before { height: 23%; }
+  .cs-x-p-caption ol { gap: var(--space-3, 12px); }
+}
+
+/* ---------- keyframes ---------- */
+@keyframes cs-x-p-win-dust {
+  0%, 8% { transform: translateX(0); opacity: 1; }
+  30%, 94.9% { transform: translateX(101%); opacity: 1; }
+  95% { transform: translateX(0); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes cs-x-p-in-dust {
+  0%, 8% { transform: translateX(0); }
+  30%, 94.9% { transform: translateX(-101%); }
+  95%, 100% { transform: translateX(0); }
+}
+@keyframes cs-x-p-win-matte {
+  0%, 58% { transform: translateX(0); opacity: 1; }
+  70%, 94.9% { transform: translateX(101%); opacity: 1; }
+  95% { transform: translateX(0); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes cs-x-p-in-matte {
+  0%, 58% { transform: translateX(0); }
+  70%, 94.9% { transform: translateX(-101%); }
+  95%, 100% { transform: translateX(0); }
+}
+@keyframes cs-x-p-foam {
+  0%, 5% { opacity: 0; }
+  9%, 28% { opacity: 1; }
+  32%, 100% { opacity: 0; }
+}
+@keyframes cs-x-p-churn {
+  from { transform: translate(-50%, -50%) scale(.9); }
+  to { transform: translate(-50%, -50%) scale(1.07); }
+}
+@keyframes cs-x-p-pad-move {
+  0%, 32% { opacity: 0; transform: translate(-36%, -40%) scale(.8); }
+  36% { opacity: 1; transform: translate(-36%, 0) scale(1); }
+  53% { opacity: 1; transform: translate(36%, 0) scale(1); }
+  57%, 100% { opacity: 0; transform: translate(36%, -40%) scale(.85); }
+}
+@keyframes cs-x-p-orbit {
+  0%, 35% { transform: rotate(0deg); }
+  55%, 100% { transform: rotate(-720deg); }
+}
+@keyframes cs-x-p-spin {
+  0%, 33% { transform: rotate(0deg); }
+  57%, 100% { transform: rotate(2160deg); }
+}
+@keyframes cs-x-p-swirl {
+  0%, 35% { opacity: 0; transform: scale(.6); }
+  39% { opacity: .55; transform: scale(1); }
+  44% { opacity: .25; transform: scale(1.2); }
+  49% { opacity: .55; transform: scale(1); }
+  54% { opacity: .3; transform: scale(1.25); }
+  58%, 100% { opacity: 0; transform: scale(1.4); }
+}
+@keyframes cs-x-p-edge {
+  0%, 56.5% { transform: translateX(0); opacity: 0; }
+  58% { transform: translateX(0); opacity: .9; }
+  68.5% { opacity: .9; }
+  70%, 94.9% { transform: translateX(101%); opacity: 0; }
+  95%, 100% { transform: translateX(0); opacity: 0; }
+}
+@keyframes cs-x-p-sweep {
+  0%, 70% { transform: translateX(0); }
+  81%, 100% { transform: translateX(880px); } /* MuscleCar: ≈ 860 viewBox units carry the sheen across the paint */
+}
+@keyframes cs-x-p-refl {
+  0%, 70% { opacity: 0; transform: translateX(-6%); }
+  75% { opacity: .3; }
+  90% { opacity: .3; }
+  94%, 100% { opacity: 0; transform: translateX(7%); }
+}
+@keyframes cs-x-p-refl-in {
+  0%, 70% { transform: translateX(6%); }
+  94%, 100% { transform: translateX(-7%); }
+}
+@keyframes cs-x-p-spark {
+  0% { opacity: 0; transform: scale(0) rotate(0deg); }
+  3% { opacity: 1; transform: scale(1) rotate(45deg); }
+  7%, 100% { opacity: 0; transform: scale(0) rotate(90deg); }
+}
+@keyframes cs-x-p-f0 {
+  0% { transform: scaleX(0); opacity: 1; }
+  30%, 94% { transform: scaleX(1); opacity: 1; }
+  98% { transform: scaleX(1); opacity: 0; }
+  100% { transform: scaleX(0); opacity: 0; }
+}
+@keyframes cs-x-p-f1 {
+  0%, 33% { transform: scaleX(0); opacity: 1; }
+  58%, 94% { transform: scaleX(1); opacity: 1; }
+  98% { transform: scaleX(1); opacity: 0; }
+  100% { transform: scaleX(0); opacity: 0; }
+}
+@keyframes cs-x-p-f2 {
+  0%, 58% { transform: scaleX(0); opacity: 1; }
+  74%, 94% { transform: scaleX(1); opacity: 1; }
+  98% { transform: scaleX(1); opacity: 0; }
+  100% { transform: scaleX(0); opacity: 0; }
+}

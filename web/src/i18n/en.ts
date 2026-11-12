@@ -1,7 +1,7 @@
 import type { MessageKey } from "./es";
 
 export const en: Record<MessageKey, string> = {
-  "app.name": "SparkleWash",
+  "app.name": "Car Spa",
   "app.console": "Staff console",
   "nav.floor": "Live floor",
   "nav.review": "Review",
@@ -194,7 +194,7 @@ export const en: Record<MessageKey, string> = {
   "dismiss.not-a-customer": "Not a customer",
   "dismiss.other": "Other",
 
-  "signin.newCarwash": "Is your carwash not on SparkleWash yet?",
+  "signin.newCarwash": "Is your carwash not on Car Spa yet?",
   "signin.registerCta": "Register my carwash",
   "register.title": "Register your carwash",
   "register.body": "Create your business account. Your Google account becomes the admin.",
@@ -220,7 +220,7 @@ export const en: Record<MessageKey, string> = {
   "admin.tab.cameras": "Cameras",
   "admin.tab.team": "Team",
   "admin.tab.employees": "Employees",
-  "admin.welcome": "Welcome to SparkleWash, {name}!",
+  "admin.welcome": "Welcome to Car Spa, {name}!",
   "admin.checklist": "Three steps to get started:",
   "admin.step.camera": "Link the entrance camera",
   "admin.step.team": "Invite your team",
@@ -256,7 +256,7 @@ export const en: Record<MessageKey, string> = {
   "device.enabled": "{name} enabled",
   "device.disabledToast": "{name} disabled",
   "device.firmware": "Firmware",
-  "device.neverHelp": "Power it on holding BOOT and open the SparkleWash app on iPhone or iPad: Admin › Cameras › {name} › Set up Wi-Fi over Bluetooth.",
+  "device.neverHelp": "Power it on holding BOOT and open the Car Spa app on iPhone or iPad: Admin › Cameras › {name} › Set up Wi-Fi over Bluetooth.",
   "device.updateBadge": "Update to 1.2",
   "device.updateHelp": "This camera runs {version}. Version 1.2 is set up over Bluetooth from the iPhone/iPad app (no code editing) and shows up on the network by itself. Flash esp32_cam_server.ino once over USB.",
   "link.idTaken": "A camera with ID {cameraId} already exists. Use another one, e.g. {suggestion}.",
@@ -276,7 +276,7 @@ export const en: Record<MessageKey, string> = {
   "link.copy": "Copy",
   "link.copied": "Copied",
   "link.command": "Gateway command",
-  "link.steps": "1) With the SparkleWash iPhone/iPad app, set up the camera's Wi-Fi over Bluetooth (ID: {cameraId}). 2) Run on the gateway:",
+  "link.steps": "1) With the Car Spa iPhone/iPad app, set up the camera's Wi-Fi over Bluetooth (ID: {cameraId}). 2) Run on the gateway:",
   "link.done": "I saved it",
   "link.cancel": "Cancel",
   "link.invalid": "Name of 2 to 60 characters; ID with letters, digits, - or _.",

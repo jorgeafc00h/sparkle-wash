@@ -1,4 +1,4 @@
-// Mirrors the SparkleWash API records (camelCase JSON from ASP.NET Core).
+// Mirrors the Car Spa API records (camelCase JSON from ASP.NET Core).
 
 export type JobStatus = "arrived" | "queued" | "in_progress" | "completed" | "cancelled";
 export type Role = "viewer" | "operator" | "admin";

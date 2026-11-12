@@ -1,0 +1,16 @@
+/* MuscleCar and MuscleCarFront: static states and the wheel spin. Scenes own every other movement. */
+.cs-m-car, .cs-m-front { display: block; height: auto; overflow: visible; }
+.cs-m-car__spin { transform-box: fill-box; transform-origin: center; }
+.cs-m-car--turning .cs-m-car__spin { animation: cs-m-car-spin .7s linear infinite; }
+
+/* Concealed headlights: doors flip up about their top edge; the lamps light behind them. */
+.cs-m-front__door { transform-box: fill-box; transform-origin: 50% 0; }
+.cs-m-front__glow, .cs-m-front__lit { opacity: 0; }
+.cs-m-front--on .cs-m-front__door { transform: scaleY(.06); }
+.cs-m-front--on .cs-m-front__glow, .cs-m-front--on .cs-m-front__lit { opacity: 1; }
+
+@keyframes cs-m-car-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-m-car--turning .cs-m-car__spin { animation: none; }
+}

@@ -1,0 +1,239 @@
+/* Car Spa design system — "showroom & signal".
+   Deep navy showroom sections, crisp white work surfaces, and the logo's orange and royal blue used as
+   signals rather than washes. Three layers: primitive tokens → semantic tokens → component classes.
+   Import this file once per entry point (landing, console, manual); it also self-hosts the fonts.
+   Contrast notes are WCAG 2.x ratios. Never put white text on orange (3.2:1): use --color-on-accent. */
+
+/* Fonts (self-hosted with @fontsource, no CDN). Saira and Inter carry unicode-range subsets (the browser downloads
+   only what a page uses). Montserrat is only for short uppercase labels, so it ships the Latin subset alone, which
+   covers Spanish and English (á é í ó ú ñ ü ¿ ¡). */
+@import "@fontsource-variable/saira/wght.css";
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource/montserrat/latin-300.css";
+@import "@fontsource/montserrat/latin-500.css";
+
+/* ---------- 1. Primitives (raw values; never use them for meaning directly in components) ---------- */
+:root {
+  --cs-orange-500: #FB5A00;
+  --cs-orange-300: #FF7A2E;
+  --cs-orange-50: #FFF1E8;
+  --cs-orange-800: #9A3412;
+  --cs-blue-600: #0142A8;
+  --cs-blue-800: #012F78;
+  --cs-blue-400: #4D8DFF;
+  --cs-blue-50: #E8F0FF;
+  --cs-navy-900: #0B1530;
+  --cs-navy-800: #0F1D40;
+  --cs-navy-700: #13234A;
+  --cs-navy-600: #1B2A55;
+  --cs-navy-500: #2A3F72;
+  --cs-teal-700: #03515B;
+  --cs-teal-500: #3F838C;
+  --cs-teal-50: #E7F3F3;
+  --cs-white: #FFFFFF;
+  --cs-gray-50: #F5F7FA;
+  --cs-gray-100: #EEF2F8;
+  --cs-gray-200: #E3E8F0;
+  --cs-gray-300: #C9D2E0;
+  --cs-gray-600: #4A5468;
+  --cs-gray-700: #374151;
+  --cs-gray-900: #111827;
+  --cs-mist-300: #B7C3D9;
+  --cs-mist-200: #D5DDEA;
+
+  /* Type */
+  --font-display: "Saira Variable", "Saira", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-eyebrow: "Montserrat", "Inter Variable", system-ui, sans-serif; /* 300 for the tagline, 500 for labels */
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --text-xs: .8125rem;   /* 13px */
+  --text-sm: .875rem;    /* 14px */
+  --text-base: 1rem;     /* 16px */
+  --text-lg: 1.125rem;   /* 18px */
+  --text-xl: 1.375rem;   /* 22px */
+  --text-2xl: 1.75rem;   /* 28px */
+  --text-3xl: 2.25rem;   /* 36px */
+  --text-4xl: 3rem;      /* 48px */
+  --text-5xl: 3.75rem;   /* 60px */
+  /* Fluid headings between 360 px and 1280 px wide. */
+  --text-h1: clamp(2.25rem, 1.663rem + 2.609vw, 3.75rem);
+  --text-h2: clamp(1.75rem, 1.457rem + 1.304vw, 2.5rem);
+  --text-h3: clamp(1.25rem, 1.152rem + .435vw, 1.5rem);
+  --leading-tight: 1.05;
+  --leading-snug: 1.25;
+  --leading-body: 1.6;
+  --tracking-eyebrow: .22em;
+  --tracking-tagline: .3em;
+
+  /* Space (4 px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+  --space-10: 128px;
+
+  /* Radius, elevation */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+  --shadow-1: 0 12px 32px rgba(11, 21, 48, .12);
+  --shadow-2: 0 18px 44px rgba(11, 21, 48, .2);
+
+  /* Motion (everything is switched off under prefers-reduced-motion, see the end of this file) */
+  --dur-tap: 160ms;
+  --dur-enter: 280ms;
+  --dur-beat: 600ms;
+  --ease-out: cubic-bezier(.2, .7, .2, 1);
+}
+
+/* ---------- 2. Semantic tokens (light theme by default) ---------- */
+:root {
+  --color-bg: var(--cs-white);
+  --color-surface: var(--cs-white);
+  --color-surface-alt: var(--cs-gray-50);
+  --color-border: var(--cs-gray-200);
+  --color-border-strong: var(--cs-gray-300);
+  --color-text: var(--cs-gray-900);           /* 17.7:1 on white */
+  --color-text-muted: var(--cs-gray-600);     /* 7.6:1 on white, 7.1:1 on gray-50 */
+  --color-brand: var(--cs-blue-600);          /* 9.0:1 on white */
+  --color-brand-strong: var(--cs-blue-800);
+  --color-brand-soft: var(--cs-blue-50);
+  --color-on-brand: var(--cs-white);
+  --color-accent: var(--cs-orange-500);       /* signal: CTAs, one per view */
+  --color-accent-hover: var(--cs-orange-300);
+  --color-accent-soft: var(--cs-orange-50);
+  --color-on-accent: var(--cs-navy-900);      /* 5.6:1 on orange-500; NEVER white (3.2:1) */
+  --color-link: var(--cs-blue-600);
+  --color-link-hover: var(--cs-blue-800);
+  --color-focus: var(--cs-blue-600);
+  --color-success: var(--cs-teal-700);        /* 9.0:1 on white */
+  --color-success-soft: var(--cs-teal-50);
+  --color-warning: var(--cs-orange-800);      /* 7.3:1 on white */
+  --color-warning-soft: var(--cs-orange-50);
+  --color-eyebrow: var(--cs-teal-700);
+  --color-showroom-bg: var(--cs-navy-900);
+  --color-showroom-text: var(--cs-white);     /* 18:1 on navy-900 */
+  --color-showroom-muted: var(--cs-mist-300); /* 10:1 on navy-900 */
+  color-scheme: light;
+}
+
+/* Navy "showroom" sections: the same semantic names, remapped for a dark ground. */
+.cs-showroom {
+  --color-bg: var(--cs-navy-900);
+  --color-surface: var(--cs-navy-800);
+  --color-surface-alt: var(--cs-navy-700);
+  --color-border: var(--cs-navy-600);
+  --color-border-strong: var(--cs-navy-500);
+  --color-text: var(--cs-white);
+  --color-text-muted: var(--cs-mist-300);     /* 10:1 on navy-900, 7.8:1 on navy-600 */
+  --color-brand: var(--cs-blue-400);          /* 5.6:1 on navy-900 */
+  --color-brand-strong: var(--cs-mist-200);
+  --color-brand-soft: var(--cs-navy-700);
+  --color-on-brand: var(--cs-navy-900);
+  --color-link: var(--cs-mist-200);           /* links on navy stay near-white and underlined */
+  --color-link-hover: var(--cs-white);
+  --color-focus: var(--cs-orange-300);        /* 6.9:1 on navy-900 */
+  --color-success: color-mix(in srgb, var(--cs-teal-500) 50%, var(--cs-white));
+  --color-success-soft: color-mix(in srgb, var(--cs-teal-500) 22%, transparent);
+  --color-warning: var(--cs-orange-300);      /* 6.9:1 on navy-900 */
+  --color-warning-soft: color-mix(in srgb, var(--cs-orange-500) 18%, transparent);
+  --color-eyebrow: var(--cs-mist-300);
+  background: var(--color-showroom-bg);
+  color: var(--color-showroom-text);
+  color-scheme: dark;
+}
+
+/* ---------- 3. Component classes ---------- */
+.cs-wrap { width: min(1200px, 100% - 2 * var(--space-5)); margin-inline: auto; }
+@media (max-width: 480px) { .cs-wrap { width: calc(100% - 2 * var(--space-4)); } }
+
+.cs-eyebrow {
+  display: inline-flex; align-items: center; gap: var(--space-2); margin: 0;
+  font-family: var(--font-eyebrow); font-weight: 500; font-size: var(--text-xs);
+  letter-spacing: var(--tracking-eyebrow); text-transform: uppercase; color: var(--color-eyebrow);
+}
+.cs-eyebrow--tagline { font-weight: 300; font-size: var(--text-sm); letter-spacing: var(--tracking-tagline); }
+
+/* Buttons: pill, ≥44 px, label never wraps under the icon. Shadow and sheen layers animate by opacity/transform only. */
+.cs-btn {
+  --btn-bg: var(--color-surface); --btn-fg: var(--color-text); --btn-border: var(--color-border-strong);
+  position: relative; isolation: isolate; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: 48px; padding: 0 var(--space-5); border-radius: var(--radius-pill);
+  border: 2px solid var(--btn-border); background: var(--btn-bg); color: var(--btn-fg);
+  font: 700 var(--text-base)/1.2 var(--font-body); text-decoration: none; cursor: pointer; white-space: nowrap;
+  transition: transform var(--dur-tap) var(--ease-out);
+}
+.cs-btn::after { /* hover elevation, faded in */
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; box-shadow: var(--shadow-2);
+  opacity: 0; transition: opacity var(--dur-enter) var(--ease-out); pointer-events: none;
+}
+.cs-btn:hover { transform: translateY(-2px); }
+.cs-btn:hover::after { opacity: 1; }
+.cs-btn:active { transform: translateY(1px) scale(.98); }
+.cs-btn:active::after { opacity: 0; }
+.cs-btn svg { flex-shrink: 0; }
+.cs-btn--lg { min-height: 56px; padding: 0 var(--space-6); font-size: var(--text-lg); }
+.cs-btn--sm { min-height: 44px; padding: 0 var(--space-4); font-size: var(--text-sm); }
+
+.cs-btn--primary { --btn-bg: var(--color-accent); --btn-fg: var(--color-on-accent); --btn-border: var(--color-accent); }
+.cs-btn--primary:hover { --btn-bg: var(--color-accent-hover); --btn-border: var(--color-accent-hover); }
+.cs-btn--primary::before { /* the sheen: a soft white band that sweeps across on hover/focus */
+  content: ""; position: absolute; top: -20%; bottom: -20%; left: 0; width: 40%; z-index: 1; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent);
+  transform: translateX(-160%) skewX(-18deg); opacity: 0;
+}
+.cs-btn--primary:hover::before, .cs-btn--primary:focus-visible::before {
+  animation: cs-sheen 900ms var(--ease-out) 1;
+}
+@keyframes cs-sheen {
+  0% { transform: translateX(-160%) skewX(-18deg); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateX(320%) skewX(-18deg); opacity: 0; }
+}
+.cs-btn--secondary { --btn-bg: var(--color-brand); --btn-fg: var(--color-on-brand); --btn-border: var(--color-brand); }
+.cs-btn--secondary:hover { --btn-bg: var(--color-brand-strong); --btn-border: var(--color-brand-strong); }
+.cs-btn--ghost { --btn-bg: transparent; --btn-fg: var(--color-text); --btn-border: var(--color-brand); }
+.cs-btn--ghost:hover { --btn-bg: var(--color-brand-soft); }
+
+/* Status chips: always text (and usually an icon), never colour alone. */
+.cs-chip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 var(--space-3);
+  border-radius: var(--radius-pill); font: 700 var(--text-xs)/1 var(--font-body); white-space: nowrap;
+  background: var(--color-surface-alt); color: var(--color-text-muted);
+}
+.cs-chip--live { background: var(--color-success-soft); color: var(--color-success); }   /* 7.9:1 */
+.cs-chip--due { background: var(--color-warning-soft); color: var(--color-warning); }    /* 6.6:1 */
+.cs-chip--offline { background: var(--color-brand-soft); color: var(--color-brand); }    /* 7.8:1 */
+
+.cs-card {
+  position: relative; background: var(--color-surface); color: var(--color-text);
+  border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-5);
+}
+.cs-card--raised { box-shadow: var(--shadow-1); }
+
+/* Animated underline for navigation-style links (inline prose links keep a real underline). */
+.cs-link-underline { position: relative; text-decoration: none; }
+.cs-link-underline::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; border-radius: 2px;
+  background: currentColor; transform: scaleX(0); transform-origin: right center;
+  transition: transform var(--dur-enter) var(--ease-out);
+}
+.cs-link-underline:hover::after, .cs-link-underline:focus-visible::after { transform: scaleX(1); transform-origin: left center; }
+
+/* Visible focus ring everywhere: 3 px in the scope's focus colour. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--color-focus); outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-btn, .cs-btn::after, .cs-link-underline::after { transition: none; }
+  .cs-btn:hover, .cs-btn:active { transform: none; }
+  .cs-btn--primary::before { animation: none !important; }
+}

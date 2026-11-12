@@ -1,7 +1,7 @@
 WEBVTT
 
 00:00.500 --> 00:06.000
-Así funciona SparkleWash en un minuto.
+Así funciona Car Spa en un minuto.
 
 00:06.500 --> 00:14.000
 Una ESP32-CAM en la entrada toma una foto cada medio segundo.
@@ -22,4 +22,4 @@ La cámara de salida avisa cuando el carro se va, y cada placa guarda su histori
 Quick, Essential, Renew y Supreme Spa: el precio sale solo según el vehículo.
 
 00:57.500 --> 01:04.000
-SparkleWash: cámaras, placas y trabajos en un solo lugar.
+Car Spa: cámaras, placas y trabajos en un solo lugar.

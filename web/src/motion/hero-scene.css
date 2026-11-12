@@ -1,0 +1,147 @@
+/* HeroScene "Brillo": one 8 s loop. Front view 0–4 s (doors open, lamps glow, hood sheen), side view 4–7.4 s
+   (rolls in, settles, sweep, rolls off), front view returns for the seamless wrap. */
+.cs-m-hero {
+  --cs-m-loop: 8s;
+  border-radius: var(--radius-lg, 22px);
+  background: var(--m-n8);
+  border: 1px solid var(--m-n6);
+  overflow: hidden;
+  color: var(--m-w);
+  aspect-ratio: 4 / 3;
+  min-height: 240px;
+  isolation: isolate;
+}
+.cs-m-hero__stage { position: absolute; inset: 0; container-type: inline-size; overflow: hidden; }
+
+/* Showroom floor: a hairline and a soft pool of light under the car; nothing washes the frame. */
+.cs-m-hero__floor {
+  position: absolute; left: 6%; right: 6%; bottom: 21%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(183, 195, 217, .28) 20%, rgba(183, 195, 217, .28) 80%, transparent);
+}
+.cs-m-hero__pool {
+  position: absolute; left: 8%; right: 8%; bottom: 10%; height: 40%;
+  background: radial-gradient(closest-side, rgba(77, 141, 255, .16), rgba(77, 141, 255, 0));
+}
+
+/* Brand mark (top left) with a glint that follows the swooshes' own shape. */
+.cs-m-hero__brand {
+  position: absolute; left: 6%; top: 7%; width: 20%; max-width: 132px; aspect-ratio: 1992 / 872;
+  animation: cs-m-in-left .9s var(--cs-m-ease) .1s both;
+}
+.cs-m-hero__mark { display: block; width: 100%; height: auto; }
+.cs-m-hero__glint {
+  position: absolute; inset: 0; overflow: hidden;
+  -webkit-mask: url("/brand/car-spa-mark-ondark.svg") center / contain no-repeat;
+  mask: url("/brand/car-spa-mark-ondark.svg") center / contain no-repeat;
+}
+.cs-m-hero__glint > span {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 45%;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .85), rgba(255, 255, 255, 0));
+  transform: translateX(-120%);
+  animation: cs-m-hero-glint var(--cs-m-loop) var(--cs-m-ease) infinite;
+}
+
+/* ---------- front view ---------- */
+.cs-m-hero__front {
+  position: absolute; left: 13%; width: 74%; bottom: 18.6%;
+  transform-origin: 50% 100%;
+  animation: cs-m-hero-front var(--cs-m-loop) linear infinite;
+}
+.cs-m-hero .cs-m-front__door { animation: cs-m-hero-door var(--cs-m-loop) cubic-bezier(.5, 0, .2, 1) infinite; }
+.cs-m-hero .cs-m-front__glow,
+.cs-m-hero .cs-m-front__lit { animation: cs-m-hero-lamp var(--cs-m-loop) linear infinite; }
+.cs-m-hero .cs-m-front__sweep { animation: cs-m-hero-front-sweep var(--cs-m-loop) cubic-bezier(.45, .05, .25, 1) infinite; }
+
+/* ---------- side view ---------- */
+.cs-m-hero__side {
+  position: absolute; left: 4%; width: 92%; bottom: 18%;
+  transform: translateX(-125%); /* parked offstage: also the reduced-motion state */
+  animation: cs-m-hero-drive var(--cs-m-loop) linear infinite;
+}
+.cs-m-hero .cs-m-car__spin { animation: cs-m-hero-wheels var(--cs-m-loop) linear infinite; }
+.cs-m-hero .cs-m-car__body {
+  transform-box: fill-box; transform-origin: 50% 100%;
+  animation: cs-m-hero-settle var(--cs-m-loop) ease-in-out infinite;
+}
+.cs-m-hero .cs-m-car__sweep { animation: cs-m-hero-side-sweep var(--cs-m-loop) cubic-bezier(.45, .05, .25, 1) infinite; }
+
+/* ---------- foam ---------- */
+.cs-m-hero__foam { position: absolute; inset: 0; pointer-events: none; }
+.cs-m-hero__bubble {
+  position: absolute; bottom: var(--y, 22%); width: var(--s); height: var(--s); border-radius: 50%;
+  border: 1.5px solid rgba(232, 240, 255, .85);
+  background: radial-gradient(circle at 32% 30%, rgba(255, 255, 255, .55) 0 18%, rgba(255, 255, 255, .08) 19%);
+  transform: translateY(-7cqi); opacity: .55; /* resting state for reduced motion */
+  animation: cs-m-hero-bubble var(--cs-m-loop) ease-out var(--d) infinite both;
+}
+
+/* ---------- caption and control ---------- */
+.cs-m-hero__caption {
+  position: absolute; left: 6%; right: 6%; bottom: 5%;
+  font-size: var(--text-xs, .8125rem); line-height: 1.35; font-weight: 500;
+  color: var(--m-m3);
+}
+.cs-m-hero__toggle { position: absolute; top: 12px; right: 12px; z-index: 2; }
+
+/* ---------- keyframes (percentages of the 8 s loop) ---------- */
+@keyframes cs-m-hero-front {
+  0%, 46% { opacity: 1; transform: none; }
+  52% { opacity: 0; transform: scale(.96); }
+  90% { opacity: 0; transform: translateY(2cqi) scale(.97); }
+  97%, 100% { opacity: 1; transform: none; }
+}
+@keyframes cs-m-hero-door {
+  0%, 7% { transform: scaleY(1); }
+  17%, 56% { transform: scaleY(.06); }
+  60%, 100% { transform: scaleY(1); }
+}
+@keyframes cs-m-hero-lamp {
+  0%, 12% { opacity: 0; }
+  14% { opacity: .6; }
+  15.5% { opacity: .2; }
+  19%, 56% { opacity: 1; }
+  60%, 100% { opacity: 0; }
+}
+@keyframes cs-m-hero-front-sweep {
+  0%, 21% { transform: translateX(0); }
+  39%, 100% { transform: translateX(680px); }
+}
+@keyframes cs-m-hero-glint {
+  0%, 24% { transform: translateX(-120%); }
+  36%, 100% { transform: translateX(240%); }
+}
+@keyframes cs-m-hero-drive {
+  0%, 50% { transform: translateX(-125%); animation-timing-function: cubic-bezier(.12, .7, .3, 1); }
+  66% { transform: translateX(0); }
+  78% { transform: translateX(0); animation-timing-function: cubic-bezier(.6, 0, .9, .5); }
+  92%, 100% { transform: translateX(135%); }
+}
+@keyframes cs-m-hero-wheels {
+  0%, 50% { transform: rotate(-1150deg); animation-timing-function: cubic-bezier(.12, .7, .3, 1); }
+  66% { transform: rotate(0deg); }
+  78% { transform: rotate(0deg); animation-timing-function: cubic-bezier(.6, 0, .9, .5); }
+  92%, 100% { transform: rotate(1260deg); }
+}
+@keyframes cs-m-hero-settle {
+  0%, 65.5% { transform: none; }
+  68.5% { transform: translateY(1.4px) rotate(.7deg); }
+  72% { transform: translateY(-.4px) rotate(-.22deg); }
+  75%, 78% { transform: none; }
+  80% { transform: translateY(.8px) rotate(-.6deg); }
+  85%, 100% { transform: none; }
+}
+@keyframes cs-m-hero-side-sweep {
+  0%, 67% { transform: translateX(0); }
+  77%, 100% { transform: translateX(860px); }
+}
+@keyframes cs-m-hero-bubble {
+  0% { opacity: 0; transform: translateY(0) scale(.5); }
+  3% { opacity: .9; }
+  22% { opacity: 0; transform: translateY(-20cqi) scale(1.15); }
+  100% { opacity: 0; transform: translateY(-20cqi) scale(1.15); }
+}
+
+@media (max-width: 480px) {
+  .cs-m-hero__front { left: 9%; width: 82%; }
+  .cs-m-hero__brand { width: 24%; }
+}
