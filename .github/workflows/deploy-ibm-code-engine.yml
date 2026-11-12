@@ -60,7 +60,7 @@ jobs:
             echo 'Protected app settings must include the matching Google client ID and a staff-role allowlist.' >&2
             exit 1
           fi
-          # Optional, non-secret: other first-party clients (SparkleWash Desktop, iOS) whose ID tokens the API accepts.
+          # Optional, non-secret: other first-party clients (Car Spa Desktop, iOS) whose ID tokens the API accepts.
           if [[ -n "$SPARKLEWASH_GOOGLE_EXTRA_CLIENT_IDS" ]]; then
             for id in ${SPARKLEWASH_GOOGLE_EXTRA_CLIENT_IDS//,/ }; do
               if [[ ! "$id" =~ ^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$ ]]; then

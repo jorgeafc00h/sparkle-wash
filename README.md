@@ -1,13 +1,13 @@
-# SparkleWash
+# Car Spa
 
-SparkleWash is a carwash operations prototype with a .NET 10 API, React workboard, and SwiftUI iOS app. Its active workflow starts with a plate observation, staff confirmation, and a detailing job. The API records job time, whole-carwash totals, employee assignments, and inventory movements. Camera hardware, payment checkout, and deployment still need acceptance work; see [the parity change](openspec/changes/complete-platform-parity/tasks.md).
+Car Spa (formerly SparkleWash) is a carwash operations prototype with a .NET 10 API, React workboard, and SwiftUI iOS app. Its active workflow starts with a plate observation, staff confirmation, and a detailing job. The API records job time, whole-carwash totals, employee assignments, and inventory movements. Camera hardware, payment checkout, and deployment still need acceptance work; see [the parity change](openspec/changes/complete-platform-parity/tasks.md).
 
 ## Active code
 
 - API: `backend/src/carwash-api/Program.cs`, `ArrivalStore.cs`, `JobStore.cs`, and `OperationsStore.cs`
 - Web: `frontend/src/main.tsx` → `OperationsApp.tsx`
 - iOS: `SparkleWash-iOS/Views/OperationsView.swift`; edit `SparkleWash-iOS/project.yml` for project changes
-- Desktop (Electron + React, SparkleWash build of FACTURAS SIMPLES `App.Desktop`): `backend/desktop`. Punto de venta prints one work ticket per car (`OT-C1-000001`), sends walk-ins and payments to `/api/jobs/walk-in` and `/api/jobs/{id}/payments`, and follows changes from iOS/web over `/api/events`. Contract: `backend/desktop/docs/SPARKLEWASH_INTEGRATION.md`; run with `npm run dev:electron --prefix backend/desktop`
+- Desktop (Electron + React, Car Spa build of FACTURAS SIMPLES `App.Desktop`): `backend/desktop`. Punto de venta prints one work ticket per car (`OT-C1-000001`), sends walk-ins and payments to `/api/jobs/walk-in` and `/api/jobs/{id}/payments`, and follows changes from iOS/web over `/api/events`. Contract: `backend/desktop/docs/SPARKLEWASH_INTEGRATION.md`; run with `npm run dev:electron --prefix backend/desktop`
 - Shared package menu and prices: `backend/contracts/v1/service-packages.json`
 - Implemented behavior: `openspec/specs/`; planned behavior: `openspec/changes/complete-platform-parity/`
 - HTTP routes: `docs/openapi.yaml`
@@ -47,8 +47,8 @@ Staff routes require a configured Google client ID and staff allowlist on the AP
 
 ## Staff sign-in (Google)
 
-- `SPARKLEWASH_GOOGLE_CLIENT_ID` — Google Web/OAuth client ID registered for SparkleWash. The web `OperationsApp.tsx` uses `VITE_GOOGLE_CLIENT_ID`; the iOS app reads `GIDClientID` / `GIDServerClientID` from `project.yml` InfoPlist strings.
-- `SPARKLEWASH_STAFF_ROLES` — semicolon-delimited `google-subject-id=role` mappings (viewer, operator, admin). The app verifies the Google ID token on the backend, then checks the Google subject against this allowlist to issue a SparkleWash session.
+- `SPARKLEWASH_GOOGLE_CLIENT_ID` — Google Web/OAuth client ID registered for Car Spa. The web `OperationsApp.tsx` uses `VITE_GOOGLE_CLIENT_ID`; the iOS app reads `GIDClientID` / `GIDServerClientID` from `project.yml` InfoPlist strings.
+- `SPARKLEWASH_STAFF_ROLES` — semicolon-delimited `google-subject-id=role` mappings (viewer, operator, admin). The app verifies the Google ID token on the backend, then checks the Google subject against this allowlist to issue a Car Spa session.
 - `SPARKLEWASH_GOOGLE_CLIENT_ID` and `SPARKLEWASH_STAFF_ROLES` are optional for local development; when absent, all `/api/auth/google` calls return 503 and the apps show a public package catalog.
 
 ## Current API behavior
@@ -188,7 +188,7 @@ On November 5, 2026, both Bicep templates compiled with Bicep CLI 0.48.1 and
 the subscription `what-if` preview returned the expected three resources:
 resource group, Consumption environment, and container app. That preview used
 Microsoft's public sample image, so it validates the ARM configuration only;
-the SparkleWash GHCR digest still needs to be published and deployed before
+the Car Spa GHCR digest still needs to be published and deployed before
 cloud smoke testing.
 
 [Azure deployment preview](https://learn.microsoft.com/en-us/azure/azure-resource-manager/templates/deploy-what-if)
@@ -242,7 +242,7 @@ az deployment sub what-if --location eastus2 \
 ### Azure pilot with persistent data
 
 Use the resource group template `deploy/azure/demo.bicep` with an existing
-Azure Files SMB share dedicated to SparkleWash. Set `storageAccountName`,
+Azure Files SMB share dedicated to Car Spa. Set `storageAccountName`,
 `storageShareName`, and the secure `storageAccountKey` parameter. The share
 mounts at `/app/data` for the container's unprivileged user. Azure Files
 adds storage and transaction charges to the Consumption app.

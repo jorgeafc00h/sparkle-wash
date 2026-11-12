@@ -1,7 +1,7 @@
 import XCTest
 @testable import SparkleKit
 
-/// Runs against a real SparkleWash API when SPARKLEWASH_API_URL is set (CI starts one; see .github/workflows/ios.yml).
+/// Runs against a real Car Spa API when SPARKLEWASH_API_URL is set (CI starts one; see .github/workflows/ios.yml).
 /// Covers what doesn't need a Google account: public endpoints, auth errors and device-style ingestion.
 final class IntegrationTests: XCTestCase {
     private var config: ServerConfig!

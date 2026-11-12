@@ -1,4 +1,4 @@
-# SparkleWash Desktop: Google OAuth
+# Car Spa Desktop: Google OAuth
 
 No secrets in this file. The client secret lives only in the git-ignored `desktop/.env.local`
 (`VITE_GOOGLE_CLIENT_SECRET`), next to `VITE_GOOGLE_CLIENT_ID`.

@@ -42,7 +42,7 @@ export function GoogleSignInPendingDialog() {
     >
       <div data-testid="google-signin-pending" className="space-y-2 text-sm text-brand-700">
         <p>Abrimos la página de inicio de sesión de Google en tu navegador.</p>
-        <p>Elige tu cuenta, acepta los permisos y luego vuelve a SparkleWash.</p>
+        <p>Elige tu cuenta, acepta los permisos y luego vuelve a Car Spa.</p>
       </div>
     </Modal>
   );

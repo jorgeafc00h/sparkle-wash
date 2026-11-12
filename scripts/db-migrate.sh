@@ -6,7 +6,7 @@ if [[ -z "${SPARKLEWASH_MIGRATION_DATABASE_URL:-}" ]]; then
   exit 2
 fi
 if ! command -v psql >/dev/null 2>&1; then
-  echo "psql is required to apply SparkleWash database migrations." >&2
+  echo "psql is required to apply Car Spa database migrations." >&2
   exit 2
 fi
 if ! command -v python3 >/dev/null 2>&1; then

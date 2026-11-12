@@ -1,4 +1,4 @@
-# Deploying SparkleWash to Oracle Cloud ARM Free Tier
+# Deploying Car Spa to Oracle Cloud ARM Free Tier
 
 ## Architecture Decision
 

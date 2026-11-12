@@ -91,9 +91,9 @@ export default function WelcomePage() {
           <div className="max-w-xl mx-auto lg:mx-0 w-full">
             {/* Brand mark + wordmark */}
             <div className="flex items-center gap-4 mb-8">
-              <BrandMark size={64} className="shrink-0 rounded-2xl drop-shadow-xl" />
+              <BrandMark size={56} className="shrink-0 drop-shadow-xl" />
               <h1 className="text-4xl xl:text-5xl font-bold tracking-tight">
-                Sparkle<span className="text-sky-400">Wash</span>
+                Car <span className="text-orange-400">Spa</span>
               </h1>
             </div>
 

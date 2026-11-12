@@ -8,7 +8,7 @@ test.describe('Auth — Guest Login', () => {
     await page.waitForLoadState('domcontentloaded');
 
     await expect(page.getByTestId('welcome')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('SparkleWash').first()).toBeVisible();
+    await expect(page.getByText('Car Spa').first()).toBeVisible();
   });
 
   test('clicking Comenzar como Invitado navigates to onboarding', async ({ page }) => {

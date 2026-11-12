@@ -233,7 +233,7 @@ public class FsRawPrinter {
     if (!OpenPrinter(printerName.Normalize(), out hPrinter, IntPtr.Zero)) return "OpenPrinter:" + Marshal.GetLastWin32Error();
     try {
       DOCINFOA di = new DOCINFOA();
-      di.pDocName = "SparkleWash POS Receipt";
+      di.pDocName = "Car Spa POS Receipt";
       di.pDataType = "RAW";
       if (!StartDocPrinter(hPrinter, 1, di)) return "StartDocPrinter:" + Marshal.GetLastWin32Error();
       try {

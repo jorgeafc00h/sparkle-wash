@@ -16,12 +16,12 @@
 "admin.tab.employees" = "Employees";
 "admin.tab.team" = "Team";
 "admin.title" = "Admin";
-"admin.welcome" = "Welcome to SparkleWash, {name}!";
+"admin.welcome" = "Welcome to Car Spa, {name}!";
 "alert.highPressure" = "High water pressure";
 "alert.lowPressure" = "Low water pressure";
 "alert.lowSoapLevel" = "Soap running low";
 "app.console" = "Staff console";
-"app.name" = "SparkleWash";
+"app.name" = "Car Spa";
 "bays.none" = "No bay telemetry yet";
 "bays.outOfRange" = "Out of range";
 "bays.pressure" = "Pressure";
@@ -86,7 +86,7 @@
 "device.fps" = "Photos/s";
 "device.key" = "Key";
 "device.never" = "Waiting for first connection";
-"device.neverHelp" = "Power it on holding BOOT and open the SparkleWash app on iPhone or iPad: Admin › Cameras › {name} › Set up Wi-Fi over Bluetooth.";
+"device.neverHelp" = "Power it on holding BOOT and open the Car Spa app on iPhone or iPad: Admin › Cameras › {name} › Set up Wi-Fi over Bluetooth.";
 "device.offline" = "No signal · seen {ago}";
 "device.online" = "Online";
 "device.reads" = "Reads";
@@ -215,7 +215,7 @@
 "link.name" = "Name";
 "link.namePlaceholder" = "Entrance camera";
 "link.role" = "Role";
-"link.steps" = "1) With the SparkleWash iPhone/iPad app, set up the camera's Wi-Fi over Bluetooth (ID: {cameraId}). 2) Run on the gateway:";
+"link.steps" = "1) With the Car Spa iPhone/iPad app, set up the camera's Wi-Fi over Bluetooth (ID: {cameraId}). 2) Run on the gateway:";
 "link.stepsLegacy" = "Firmware 1.1? Set CAMERA_ID = {cameraId} in the sketch.";
 "link.title" = "Link an ESP32-CAM";
 "nav.admin" = "Admin";
@@ -320,7 +320,7 @@
 "signin.body" = "Review camera arrivals, track plates and move jobs through the wash.";
 "signin.demo" = "Explore the demo";
 "signin.demoNote" = "The demo simulates ESP32 cameras in your browser. Nothing is saved.";
-"signin.newCarwash" = "Is your carwash not on SparkleWash yet?";
+"signin.newCarwash" = "Is your carwash not on Car Spa yet?";
 "signin.notConfigured" = "Google sign-in isn't set up for this build. Set {variable} to connect to the API.";
 "signin.notStaff" = "This Google account is not on the staff list.";
 "signin.or" = "or";

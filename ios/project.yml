@@ -38,7 +38,7 @@ targets:
     info:
       path: SparkleWash/Info.plist
       properties:
-        CFBundleDisplayName: SparkleWash
+        CFBundleDisplayName: Car Spa
         CFBundleDevelopmentRegion: es
         CFBundleLocalizations: [es, en]
         UILaunchScreen:
@@ -52,9 +52,9 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: google-sign-in
             CFBundleURLSchemes: [$(GOOGLE_REDIRECT_SCHEME)]
-        NSLocalNetworkUsageDescription: SparkleWash se conecta a las cámaras ESP32 de tu autolavado en la red Wi-Fi local para verlas en vivo y revisarlas.
+        NSLocalNetworkUsageDescription: Car Spa se conecta a las cámaras ESP32 de tu autolavado en la red Wi-Fi local para verlas en vivo y revisarlas.
         NSBonjourServices: [_sparklewash._tcp, _http._tcp]
-        NSBluetoothAlwaysUsageDescription: SparkleWash usa Bluetooth para enviar el Wi-Fi a una cámara nueva en modo configuración.
+        NSBluetoothAlwaysUsageDescription: Car Spa usa Bluetooth para enviar el Wi-Fi a una cámara nueva en modo configuración.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
   SparkleWashTests:

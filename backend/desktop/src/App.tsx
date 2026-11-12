@@ -31,7 +31,7 @@ function AppLoading() {
         <path d="M18 3 A15 15 0 0 1 33 18" stroke="#0ea5e9" strokeWidth="3" strokeLinecap="round"/>
       </svg>
       <p style={{ fontFamily: "'IBM Plex Sans', system-ui, sans-serif", fontSize: 14, color: '#64748b', margin: 0 }}>
-        SparkleWash
+        Car Spa
       </p>
     </div>
   );

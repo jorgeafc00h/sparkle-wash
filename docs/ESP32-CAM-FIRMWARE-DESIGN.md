@@ -1,4 +1,4 @@
-# ESP-IDF Firmware — SparkleWash IoT Station Node (Phase 3 Design)
+# ESP-IDF Firmware — Car Spa IoT Station Node (Phase 3 Design)
 
 ## Hardware Bill of Materials
 

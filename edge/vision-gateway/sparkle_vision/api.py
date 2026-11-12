@@ -45,7 +45,7 @@ def build_observation(camera_id: str, event: PlateEvent, photo: bytes | None) ->
 
 
 class SparkleWashClient:
-    """Talks to the SparkleWash API as one camera.
+    """Talks to the Car Spa API as one camera.
 
     device_key   per-device key from the admin view (Administración > Cámaras). Preferred: it is bound
                  to one carwash and one camera id, and can be rotated or disabled on its own.

@@ -1,4 +1,4 @@
-# SparkleWash — Icon & Brand Assets
+# Car Spa — Icon & Brand Assets
 
 ## Icons
 Generate SVG logos at multiple resolutions:

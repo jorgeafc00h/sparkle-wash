@@ -1,7 +1,7 @@
 # Phase 5 — Complete: .NET 10 Backend API
 
 ## Summary
-Phase 5 implements the full .NET 10 backend for SparkleWash:
+Phase 5 implements the full .NET 10 backend for Car Spa:
 
 | File | Purpose |
 |------|---------|

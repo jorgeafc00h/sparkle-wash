@@ -1,10 +1,10 @@
-# SparkleWash edge vision: ESP32-CAM plate recognition
+# Car Spa edge vision: ESP32-CAM plate recognition
 
 Cameras at the entrance and wash bays read licence plates and report them to the API, which
 turns them into arrivals (new cars) or sightings on a job already in progress.
 
 ```
-ESP32-CAM ──JPEG over Wi-Fi──▶ vision gateway (Python + OpenCV) ──HTTPS──▶ SparkleWash API ──▶ staff console
+ESP32-CAM ──JPEG over Wi-Fi──▶ vision gateway (Python + OpenCV) ──HTTPS──▶ Car Spa API ──▶ staff console
  /cam-hi.jpg                    1. YOLOv3 (cv2.dnn) finds vehicles       POST /api/arrivals/observations
                                 2. plate region (YOLO plate model or     ├─ plate has an open job → sighting linked to job
                                    contour heuristic)                    └─ unknown plate → pending arrival for staff review
@@ -16,7 +16,7 @@ ESP32-CAM ──JPEG over Wi-Fi──▶ vision gateway (Python + OpenCV) ──
 This follows the ESP32-CAM + Python OpenCV + YOLOv3 approach: the ESP32 only captures frames
 (it has no room for a YOLO network), and a PC, mini-PC or Raspberry Pi on the same network fetches
 `/cam-hi.jpg`, decodes it with `cv2.imdecode`, and runs YOLOv3 through `cv2.dnn.readNetFromDarknet`
-with a 416×416 blob, 0.5 confidence and 0.3 NMS thresholds. SparkleWash adds plate localisation,
+with a 416×416 blob, 0.5 confidence and 0.3 NMS thresholds. Car Spa adds plate localisation,
 OCR, multi-frame voting and idempotent API delivery on top.
 
 ## 1. Flash the camera (`esp32-cam/`)

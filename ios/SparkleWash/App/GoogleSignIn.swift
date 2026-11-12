@@ -4,7 +4,7 @@ import SparkleKit
 import UIKit
 
 /// Google sign-in with ASWebAuthenticationSession + PKCE (no SDK). Returns a Google ID token that the
-/// SparkleWash API verifies (its SPARKLEWASH_GOOGLE_CLIENT_ID must include this iOS client ID).
+/// Car Spa API verifies (its SPARKLEWASH_GOOGLE_CLIENT_ID must include this iOS client ID).
 @MainActor
 final class GoogleSignIn: NSObject, ASWebAuthenticationPresentationContextProviding {
     enum Failure: Error { case cancelled, noIdToken }

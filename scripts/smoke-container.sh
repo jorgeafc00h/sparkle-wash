@@ -28,7 +28,7 @@ start() {
 }
 
 start
-curl --fail --silent --show-error "$base_url/" | grep -F 'SparkleWash - Carwash Productivity Dashboard' >/dev/null
+curl --fail --silent --show-error "$base_url/" | grep -F 'Car Spa - Operations Dashboard' >/dev/null
 curl --fail --silent --show-error "$base_url/readyz" | jq -e '.status == "ready"' >/dev/null
 curl --fail --silent --show-error "$base_url/api/packages" | jq -e '.packages | length == 4' >/dev/null
 status=$(curl --fail --silent --show-error -o /dev/null -w '%{http_code}' \

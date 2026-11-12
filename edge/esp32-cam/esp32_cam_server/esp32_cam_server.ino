@@ -1,4 +1,4 @@
-// SparkleWash ESP32-CAM (AI-Thinker) frame server.
+// Car Spa ESP32-CAM (AI-Thinker) frame server.
 //
 // Same pattern as the classic ESP32-CAM + Python/OpenCV/YOLO setup: the board only
 // captures and serves JPEGs; detection, plate OCR and tracking run on the vision

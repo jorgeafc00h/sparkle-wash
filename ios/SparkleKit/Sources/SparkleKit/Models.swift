@@ -1,6 +1,6 @@
 import Foundation
 
-// Mirrors the SparkleWash API's JSON (ASP.NET Core, camelCase). Optional fields are the ones the API
+// Mirrors the Car Spa API's JSON (ASP.NET Core, camelCase). Optional fields are the ones the API
 // may omit or send as null; decoding is lenient where older servers lack a field.
 
 public enum Role: String, Codable, CaseIterable, Sendable { case viewer, `operator`, admin }

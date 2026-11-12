@@ -2,7 +2,7 @@
 
 ## What We Build This Round
 
-Build and deploy the SparkleWash backend to Oracle Cloud Infrastructure (OCI) ARM Free Tier:
+Build and deploy the Car Spa backend to Oracle Cloud Infrastructure (OCI) ARM Free Tier:
 - Multi-stage OCI image (Debian-slim + .NET 10.0 LTS runtime + Mosquitto broker)
 - Push to OCI container registry (`reg.oraclecloud.com/ocirepo/carwash/sparklewash-api`)
 - Deploy to OCI Container Instances (OCI CI) for always-free ARM64 runtime

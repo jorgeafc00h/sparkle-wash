@@ -941,7 +941,7 @@ public static class Program
         app.MapGet("/openapi.json", () => Results.Json(new
         {
             openapi = "3.1.0",
-            info = new { title = "SparkleWash API", version = "1.2.0" },
+            info = new { title = "Car Spa API", version = "1.2.0" },
             paths = new Dictionary<string, object>
             {
                 ["/api/arrivals/observations"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Camera observation persisted" }, ["200"] = new { description = "Duplicate retry" } } } },
@@ -980,7 +980,7 @@ public static class Program
                 ["/api/inventory/items"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Stock balances and reorder flags" } } }, post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Inventory item created" } } } },
                 ["/api/inventory/items/{id}/movements"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Append-only item movements" } } }, post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Stock receipt, adjustment, or consumption" } } } },
                 ["/api/inventory/items/{id}/reservations"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Stock reserved for a job" } } } },
-                ["/api/auth/google"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Google ID token validated; SparkleWash staff session created" }, ["401"] = new { description = "Invalid token or unmapped Google subject" }, ["503"] = new { description = "Google client ID not configured" } } } },
+                ["/api/auth/google"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Google ID token validated; Car Spa staff session created" }, ["401"] = new { description = "Invalid token or unmapped Google subject" }, ["503"] = new { description = "Google client ID not configured" } } } },
                 ["/api/auth/session"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Current staff session" }, ["401"] = new { description = "No valid staff session" } } }, delete = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Staff session ended" }, ["401"] = new { description = "No valid staff session" } } } },
                 ["/api/payments/n1co/webhook"] = new { post = new { responses = new Dictionary<string, object> { ["202"] = new { description = "Signed event stored for reconciliation; not payment confirmation" }, ["401"] = new { description = "Invalid signature" } } } },
                 ["/healthz"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Healthy" } } } },

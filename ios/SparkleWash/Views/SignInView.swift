@@ -21,7 +21,7 @@ struct SignInView: View {
                     Image(systemName: "drop.fill").font(.title).foregroundStyle(.white)
                         .frame(width: 52, height: 52).background(RoundedRectangle(cornerRadius: 14).fill(Color.brand))
                     VStack(alignment: .leading) {
-                        Text("SparkleWash").font(.title2.weight(.bold))
+                        Text("Car Spa").font(.title2.weight(.bold))
                         Text(t("app.console")).foregroundStyle(.secondary)
                     }
                 }

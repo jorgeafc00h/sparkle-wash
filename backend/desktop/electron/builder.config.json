@@ -22,7 +22,8 @@
     "perMachine": false,
     "allowToChangeInstallationDirectory": false,
     "deleteAppDataOnUninstall": false,
-    "shortcutName": "SparkleWash",
+    "shortcutName": "Car Spa",
+    "uninstallDisplayName": "Car Spa ${version}",
     "artifactName": "SparkleWash-Setup-${version}.exe",
     "installerIcon": "public/icon.ico",
     "uninstallerIcon": "public/icon.ico"
