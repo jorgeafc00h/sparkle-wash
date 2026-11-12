@@ -1,0 +1,39 @@
+/* StepRail: the scene captions as a real ordered list (used by the play-once scenes). */
+.cs-m-rail {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: var(--space-4, 16px);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  counter-reset: none;
+}
+.cs-m-rail__item {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: 1fr auto; /* bars line up across steps */
+  column-gap: var(--space-3, 12px); row-gap: var(--space-2, 8px); align-items: start;
+}
+.cs-m-rail__num {
+  position: relative; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px;
+  border: 1px solid var(--color-border-strong, #C9D2E0);
+  color: var(--color-text, #111827);
+  font: 800 var(--text-sm, .875rem)/1 var(--m-disp);
+}
+.cs-m-rail__num::before { /* the lit number, faded in when the step's beat starts */
+  content: attr(data-n);
+  position: absolute; inset: -1px; display: grid; place-items: center; border-radius: inherit;
+  background: var(--m-o5); color: var(--m-on);
+  animation: cs-m-in-fade .35s var(--cs-m-ease) var(--t0, 0s) both;
+}
+.cs-m-rail__text {
+  color: var(--color-text, #111827);
+  font-size: var(--text-sm, .875rem); line-height: 1.45; font-weight: 500;
+  padding-top: 6px;
+}
+.cs-m-rail__bar {
+  grid-column: 1 / -1; align-self: end; height: 3px; border-radius: 3px; overflow: hidden;
+  background: var(--color-border, #E3E8F0);
+}
+.cs-m-rail__fill {
+  display: block; height: 100%; background: var(--m-o5);
+  transform-origin: 0 50%;
+  animation: cs-m-fill var(--dur, 4s) linear var(--t0, 0s) both;
+}
+
+@keyframes cs-m-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }

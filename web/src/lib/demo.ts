@@ -76,7 +76,7 @@ export class DemoApi implements SparkleApi {
     const { seed = true, tenant } = typeof options === "boolean" ? { seed: options, tenant: undefined } : options;
     this.tenantData = {
       // A registered (fresh) carwash keeps exactly what was typed; the sample carwash gets sample details.
-      id: "demo", name: tenant?.name ?? "SparkleWash Escalón", city: tenant ? tenant.city ?? null : "San Salvador",
+      id: "demo", name: tenant?.name ?? "Car Spa Escalón", city: tenant ? tenant.city ?? null : "San Salvador",
       country: tenant?.country ?? "SV", phone: tenant ? tenant.phone ?? null : "+503 2222-3333",
       timeZone: tenant?.timeZone ?? "America/El_Salvador", createdAt: iso(86400 * 30),
     };

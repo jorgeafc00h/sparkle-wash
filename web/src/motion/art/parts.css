@@ -1,0 +1,54 @@
+/* Shared scene parts. Sizes are in em so each scene scales them with its own (container-relative) font-size. */
+.cs-m-icon { width: 1em; height: 1em; flex: none; }
+
+.cs-m-plate {
+  display: inline-flex; align-items: center; gap: .45em;
+  padding: .28em .6em .28em .3em; border-radius: .35em;
+  background: var(--m-w); color: var(--m-n9);
+  box-shadow: inset 0 0 0 1px var(--m-g3);
+  font: 700 1em/1 var(--m-mono);
+  letter-spacing: .08em; white-space: nowrap;
+}
+.cs-m-plate__band { width: .28em; align-self: stretch; border-radius: .12em; background: var(--m-b6); }
+
+/* Thermal paper ticket */
+.cs-m-ticket {
+  position: relative; padding: 1.1em 1em 1.3em; background: var(--m-w); color: var(--m-n9);
+  font: 500 1em/1.35 var(--m-mono);
+  text-align: center;
+}
+.cs-m-ticket::after { /* torn edge */
+  content: ""; position: absolute; left: 0; right: 0; bottom: -.5em; height: .5em;
+  background:
+    linear-gradient(135deg, var(--m-w) 33.3%, transparent 33.4%) 0 0 / .8em .8em repeat-x,
+    linear-gradient(225deg, var(--m-w) 33.3%, transparent 33.4%) 0 0 / .8em .8em repeat-x;
+}
+.cs-m-ticket p { margin: 0; }
+.cs-m-ticket hr { margin: .55em 0; border: 0; border-top: 1px dashed var(--m-g3); }
+.cs-m-ticket__title { font-weight: 800; letter-spacing: .06em; font-size: .92em; }
+.cs-m-ticket__num { font-weight: 800; font-size: 1.12em; letter-spacing: .04em; margin-top: .2em !important; }
+.cs-m-ticket__plate { font-weight: 800; font-size: 1.3em; letter-spacing: .1em; }
+.cs-m-ticket__paid { font-weight: 800; letter-spacing: .12em; color: var(--m-t7); }
+.cs-m-ticket__note { font-size: .72em; color: var(--m-g6); margin-top: .3em !important; }
+
+/* Receipt printer */
+.cs-m-printer { position: relative; display: flex; flex-direction: column; align-items: center; }
+.cs-m-printer__body {
+  position: relative; width: 100%; height: 3.4em; border-radius: .7em .7em .35em .35em;
+  background: linear-gradient(var(--m-n6), var(--m-n9));
+  border: 1px solid var(--m-n5);
+  box-shadow: 0 .5em 1.2em rgba(0, 0, 0, .35);
+}
+.cs-m-printer__led {
+  position: absolute; right: .9em; top: .9em; width: .5em; height: .5em; border-radius: 50%;
+  background: var(--m-o5); box-shadow: 0 0 .6em rgba(251, 90, 0, .8);
+}
+.cs-m-printer__slot {
+  position: absolute; left: 8%; right: 8%; bottom: .5em; height: .3em; border-radius: .2em; background: #050A18;
+}
+.cs-m-printer__out { width: 78%; margin-top: -.55em; }
+/* The paper is a window that slides out of the slot while the ticket inside counter-moves: the ticket appears
+   line by line from the top, as a thermal printer prints it. Scenes run cs-m-feed + cs-m-feed-in together. */
+.cs-m-printer__paper { overflow: hidden; padding-bottom: .6em; }
+@keyframes cs-m-feed { from { transform: translateY(-101%); } }
+@keyframes cs-m-feed-in { from { transform: translateY(101%); } }

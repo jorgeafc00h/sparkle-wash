@@ -1,0 +1,362 @@
+/* Car Spa manual — walkthrough engine.
+   Real screenshots plus overlays. Only transform and opacity animate (the spotlight dim is a box-shadow
+   on the ring, so it fades with the ring's opacity). Every step sets custom properties on .cs-w:
+   --t0 (start of the step on the CSS timeline), --dur (step length) and the beat delays
+   --md move, --dc click, --dt type, --cps seconds per character, --dtoast, --dout, --zd zoom, plus the
+   zoom camera --zs/--zx/--zy (0 = previous step, 1 = this step).
+   Base styles are the settled frame: .cs-w-static (paused jumps, reduced motion) shows exactly that,
+   .cs-w-live animates into it, .cs-w-paused freezes every animation in place. */
+
+.cs-w {
+  container: cs-w / inline-size;
+  --cs-w-accent: var(--cs-orange-500, #FB5A00);
+  --cs-w-navy: var(--cs-navy-900, #0B1530);
+  --cs-w-ease: var(--ease-out, cubic-bezier(.2, .7, .2, 1));
+  --cs-w-glide: cubic-bezier(.45, .05, .2, 1);
+  --cs-w-font: var(--font-body, "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", sans-serif);
+  --cs-w-display: var(--font-display, "Saira Variable", Saira, system-ui, sans-serif);
+  --t0: 0s; --zs0: 1; --zx0: 0%; --zy0: 0%; --zs1: 1; --zx1: 0%; --zy1: 0%;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  font-family: var(--cs-w-font);
+  color: var(--color-text, #111827);
+}
+.cs-w *, .cs-w *::before, .cs-w *::after { box-sizing: border-box; }
+.cs-w .cs-w-vh {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+/* ---------- Stage ---------- */
+.cs-w .cs-w-screen { position: relative; }
+.cs-w .cs-w-stage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: var(--radius-md, 14px);
+  background: var(--cs-w-navy);
+  box-shadow: 0 0 0 1px rgba(11, 21, 48, .14), var(--shadow-1, 0 12px 32px rgba(11, 21, 48, .12));
+}
+.cs-w .cs-w-frame, .cs-w .cs-w-img, .cs-w .cs-w-layer, .cs-w .cs-w-cursor { position: absolute; inset: 0; }
+.cs-w .cs-w-frame {
+  transform-origin: 0 0;
+  transform: translate(var(--zx1), var(--zy1)) scale(var(--zs1));
+}
+.cs-w .cs-w-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 0;
+  user-select: none;
+}
+.cs-w .cs-w-layer { pointer-events: none; }
+
+/* Highlight: 3px orange ring, soft glow, and the dimmed surroundings as one spread shadow. */
+.cs-w .cs-w-ring {
+  position: absolute;
+  border-radius: 8px;
+  border-radius: clamp(4px, .7cqw, 10px);
+  box-shadow:
+    0 0 0 3px var(--cs-w-accent),
+    0 0 18px 5px rgba(251, 90, 0, .45),
+    0 0 0 200vmax rgba(11, 21, 48, .42);
+}
+.cs-w .cs-w-ring::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 2px solid var(--cs-w-accent);
+  opacity: 0;
+}
+
+/* Typed text: a focused field holding the value. */
+.cs-w .cs-w-typed {
+  position: absolute;
+  transform: translateY(-50%);
+  padding: .28em .5em;
+  border-radius: 4px;
+  background: #fff;
+  color: var(--cs-gray-900, #111827);
+  font: 600 11px/1.25 var(--cs-w-font);
+  font-size: max(10px, 1.05cqw);
+  white-space: pre;
+  box-shadow: 0 0 0 2px var(--cs-blue-400, #4D8DFF), 0 4px 12px rgba(11, 21, 48, .25);
+}
+.cs-w .cs-w-kept { box-shadow: 0 0 0 1px rgba(11, 21, 48, .18), 0 2px 6px rgba(11, 21, 48, .18); }
+.cs-w .cs-w-typed > span { position: relative; }
+.cs-w .cs-w-typed > span::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: .05em;
+  bottom: .05em;
+  width: 2px;
+  background: var(--cs-blue-600, #0142A8);
+  opacity: 0;
+}
+
+/* Pointer: a full-frame track moved with translate(%), so percentages are of the screenshot. */
+.cs-w .cs-w-cursor { transform: translate(var(--tx), var(--ty)); }
+.cs-w .cs-w-cursor svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 18px;
+  width: clamp(14px, 1.8cqw, 24px);
+  height: auto;
+  overflow: visible;
+  transform-origin: 6% 4%;
+  filter: drop-shadow(0 2px 3px rgba(11, 21, 48, .5));
+}
+.cs-w .cs-w-ripple {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 40px;
+  width: clamp(26px, 4.2cqw, 56px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid var(--cs-w-accent);
+  background: rgba(251, 90, 0, .26);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.2);
+}
+.cs-w-static .cs-w-ripple { opacity: .9; transform: translate(-50%, -50%) scale(.5); }
+
+/* Toast: a confirmation chip, opposite the caption. */
+.cs-w .cs-w-toastbar {
+  --cs-w-from: -14px;
+  position: absolute;
+  inset-inline: 0;
+  top: 4%;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  padding: 0 4%;
+  pointer-events: none;
+}
+.cs-w .cs-w-toastbar[data-pos="bottom"] { --cs-w-from: 14px; top: auto; bottom: 5%; }
+.cs-w .cs-w-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: .55em;
+  padding: .5em 1.1em .5em .55em;
+  border-radius: var(--radius-pill, 999px);
+  background: #fff;
+  color: var(--cs-w-navy);
+  font: 600 13px/1.2 var(--cs-w-font);
+  font-size: clamp(12px, 1.3cqw, 15px);
+  box-shadow: 0 10px 28px rgba(11, 21, 48, .3), 0 0 0 1px rgba(11, 21, 48, .06);
+}
+.cs-w .cs-w-toast svg {
+  flex: none;
+  width: 1.6em;
+  height: 1.6em;
+  padding: .3em;
+  border-radius: 50%;
+  background: var(--cs-teal-700, #03515B);
+  color: #fff;
+}
+
+/* Caption: a navy pill over the stage; below it on narrow players. */
+.cs-w .cs-w-cap {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  padding: 0 5% 3.2%;
+  pointer-events: none;
+}
+.cs-w .cs-w-cap[data-pos="top"] { top: 0; bottom: auto; padding: 3.2% 5% 0; }
+.cs-w .cs-w-pill {
+  display: flex;
+  align-items: baseline;
+  gap: .7em;
+  max-width: 46em;
+  margin: 0;
+  padding: .62em 1.2em;
+  border-radius: 1.45em;
+  background: rgba(11, 21, 48, .94);
+  color: #fff;
+  font: 500 15px/1.45 var(--cs-w-font);
+  font-size: clamp(13px, 1.45cqw, 17px);
+  box-shadow: 0 12px 30px rgba(11, 21, 48, .35), 0 0 0 1px rgba(255, 255, 255, .08);
+}
+.cs-w .cs-w-num {
+  flex: none;
+  font: 700 .8em/1 var(--cs-w-display);
+  letter-spacing: .06em;
+  color: var(--cs-orange-300, #FF7A2E);
+}
+@container cs-w (max-width: 559px) {
+  .cs-w .cs-w-cap, .cs-w .cs-w-cap[data-pos="top"] { position: static; padding: 10px 0 0; }
+  .cs-w .cs-w-pill {
+    width: 100%;
+    max-width: none;
+    min-height: 4.4em;
+    border-radius: var(--radius-md, 14px);
+    background: var(--cs-w-navy);
+    box-shadow: none;
+  }
+}
+
+/* ---------- Progress and controls ---------- */
+.cs-w .cs-w-bar { position: relative; height: 6px; margin: 18px 6px 8px; }
+.cs-w .cs-w-track {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--color-border, #E3E8F0);
+}
+.cs-w .cs-w-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--cs-w-accent);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+.cs-w .cs-w-mark {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  border: 2px solid var(--cs-mist-300, #B7C3D9);
+  background: var(--color-surface, #fff);
+}
+.cs-w .cs-w-mark.is-done { border-color: var(--cs-w-accent); background: var(--cs-w-accent); }
+
+.cs-w .cs-w-controls { display: flex; align-items: center; gap: 8px; }
+.cs-w .cs-w-btn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--color-border, #E3E8F0);
+  border-radius: 50%;
+  background: var(--color-surface, #fff);
+  color: var(--color-text, #111827);
+  cursor: pointer;
+  transition: transform var(--dur-tap, 160ms) var(--cs-w-ease);
+}
+.cs-w .cs-w-btn:hover { background: var(--color-surface-alt, #F5F7FA); }
+.cs-w .cs-w-btn:active { transform: scale(.94); }
+.cs-w .cs-w-btn[aria-disabled="true"] { opacity: .4; cursor: default; transform: none; }
+.cs-w .cs-w-btn--main {
+  width: 52px;
+  height: 52px;
+  border-color: transparent;
+  background: var(--cs-w-accent);
+  color: var(--color-on-accent, #0B1530);
+}
+.cs-w .cs-w-btn--main:hover { background: var(--cs-orange-300, #FF7A2E); }
+.cs-w .cs-w-count {
+  margin-left: auto;
+  color: var(--color-text-muted, #4A5468);
+  font: 600 14px/1 var(--cs-w-font);
+  font-variant-numeric: tabular-nums;
+}
+.cs-w button:focus-visible { outline: 3px solid var(--color-focus, #0142A8); outline-offset: 2px; }
+
+/* Step list: every caption, always readable, click to jump. */
+.cs-w .cs-w-steps { display: grid; gap: 2px; margin: 14px 0 0; padding: 0; list-style: none; }
+.cs-w .cs-w-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-sm, 8px);
+  background: transparent;
+  color: var(--color-text, #111827);
+  font: 400 15px/1.45 var(--cs-w-font);
+  text-align: left;
+  cursor: pointer;
+}
+.cs-w .cs-w-step:hover { background: var(--color-surface-alt, #F5F7FA); }
+.cs-w .cs-w-step[aria-current="step"] {
+  background: var(--cs-orange-50, #FFF1E8);
+  color: var(--cs-w-navy);
+  box-shadow: inset 3px 0 0 var(--cs-w-accent);
+}
+.cs-w .cs-w-step-n {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--cs-gray-100, #EEF2F8);
+  color: var(--cs-gray-700, #374151);
+  font: 700 12px/1 var(--cs-w-display);
+}
+.cs-w .cs-w-step[aria-current="step"] .cs-w-step-n { background: var(--cs-w-navy); color: #fff; }
+
+/* ---------- Timeline ---------- */
+.cs-w-live .cs-w-frame.cs-w-z0 { animation: cs-w-zoom-a var(--zd) var(--cs-w-ease) var(--t0) both; }
+.cs-w-live .cs-w-frame.cs-w-z1 { animation: cs-w-zoom-b var(--zd) var(--cs-w-ease) var(--t0) both; }
+.cs-w-live .cs-w-img--in { animation: cs-w-in .6s var(--cs-w-ease) var(--t0) both; }
+.cs-w-live .cs-w-pill { animation: cs-w-rise .36s var(--cs-w-ease) var(--t0) both; }
+.cs-w-live .cs-w-ring {
+  animation:
+    cs-w-ring .42s var(--cs-w-ease) calc(var(--t0) + .1s) both,
+    cs-w-out .3s ease-in calc(var(--t0) + var(--dout)) forwards;
+}
+.cs-w-live .cs-w-ring::after { animation: cs-w-pulse 1.3s ease-out calc(var(--t0) + .55s) 2; }
+.cs-w-live .cs-w-cursor { animation: cs-w-move var(--md) var(--cs-w-glide) calc(var(--t0) + .15s) both; }
+.cs-w-live .cs-w-cursor.is-new {
+  animation:
+    cs-w-move var(--md) var(--cs-w-glide) calc(var(--t0) + .15s) both,
+    cs-w-in .3s ease-out calc(var(--t0) + .1s) both;
+}
+.cs-w-live .cs-w-click svg { animation: cs-w-press .24s ease-out calc(var(--t0) + var(--dc)) both; }
+.cs-w-live .cs-w-ripple { animation: cs-w-ripple .7s var(--cs-w-ease) calc(var(--t0) + var(--dc)) both; }
+.cs-w-live .cs-w-typed:not(.cs-w-kept) { animation: cs-w-in .2s ease-out calc(var(--t0) + var(--dt) - .2s) both; }
+.cs-w-live .cs-w-typed:not(.cs-w-kept) > span {
+  animation: cs-w-in .01s steps(1, end) calc(var(--t0) + var(--dt) + var(--k) * var(--cps)) both;
+}
+.cs-w-live .cs-w-typed:not(.cs-w-kept) > span::after {
+  animation: cs-w-caret var(--cps) steps(1, end) calc(var(--t0) + var(--dt) + var(--k) * var(--cps));
+}
+.cs-w-live .cs-w-typed:not(.cs-w-kept) > span:last-child::after {
+  animation: cs-w-blink 1s steps(1, end) calc(var(--t0) + var(--dt) + var(--k) * var(--cps)) 3;
+}
+.cs-w-live .cs-w-toast {
+  animation:
+    cs-w-toast .4s var(--cs-w-ease) calc(var(--t0) + var(--dtoast)) both,
+    cs-w-out .3s ease-in calc(var(--t0) + var(--dout)) forwards;
+}
+.cs-w-paused, .cs-w-paused *, .cs-w-paused *::before, .cs-w-paused *::after { animation-play-state: paused !important; }
+
+@keyframes cs-w-in { from { opacity: 0; } }
+@keyframes cs-w-out { to { opacity: 0; } }
+@keyframes cs-w-rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes cs-w-ring { from { opacity: 0; transform: scale(1.06); } }
+@keyframes cs-w-pulse { from { opacity: .85; transform: scale(1); } to { opacity: 0; transform: scale(1.05); } }
+@keyframes cs-w-move { from { transform: translate(var(--fx), var(--fy)); } }
+@keyframes cs-w-press { 50% { transform: scale(.8); } }
+@keyframes cs-w-ripple {
+  from { opacity: .95; transform: translate(-50%, -50%) scale(.15); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes cs-w-caret { 0%, 100% { opacity: 1; } }
+@keyframes cs-w-blink { 0% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes cs-w-toast { from { opacity: 0; transform: translateY(var(--cs-w-from)) scale(.96); } }
+@keyframes cs-w-zoom-a { from { transform: translate(var(--zx0), var(--zy0)) scale(var(--zs0)); } }
+@keyframes cs-w-zoom-b { from { transform: translate(var(--zx0), var(--zy0)) scale(var(--zs0)); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-w *, .cs-w *::before, .cs-w *::after { animation: none !important; transition: none !important; }
+}

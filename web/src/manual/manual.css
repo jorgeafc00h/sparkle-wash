@@ -1,0 +1,55 @@
+/* Manual de Car Spa. Tokens come from ../design/tokens.css; literal fallbacks keep it readable if they fail to load. */
+body { margin: 0; background: var(--color-bg, #fff); }
+.mn-page { min-height: 100vh; background: var(--color-bg, #fff); color: var(--color-text, #111827); font-family: var(--font-body, "Inter Variable", system-ui, sans-serif); line-height: 1.65; }
+.mn-skip { position: absolute; left: 8px; top: -120px; z-index: 50; background: var(--cs-white, #fff); color: var(--cs-navy-900, #0B1530); padding: 12px 16px; border-radius: 8px; min-height: 44px; display: inline-flex; align-items: center; font-weight: 700; }
+.mn-skip:focus { top: 8px; }
+.mn-page a:focus-visible, .mn-page summary:focus-visible, .mn-main:focus-visible { outline: 3px solid var(--color-focus, #0142A8); outline-offset: 2px; }
+.mn-header { background: var(--cs-navy-900, #0B1530); color: #fff; position: sticky; top: 0; z-index: 20; }
+.mn-header a:focus-visible { outline-color: var(--cs-orange-300, #FF7A2E); }
+.mn-header__in { max-width: 1280px; margin: 0 auto; padding: 8px 16px; display: flex; align-items: center; gap: 16px; min-height: 64px; }
+.mn-brand { display: inline-flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-family: var(--font-display, "Saira Variable", sans-serif); font-weight: 800; font-size: 1.25rem; min-height: 44px; }
+.mn-header__title { color: var(--cs-mist-300, #B7C3D9); font-size: .875rem; flex: 1; }
+.mn-header__link { background: var(--cs-orange-500, #FB5A00); color: var(--cs-navy-900, #0B1530); font-weight: 700; text-decoration: none; min-height: 44px; padding: 0 18px; border-radius: 999px; display: inline-flex; align-items: center; white-space: nowrap; }
+.mn-layout { max-width: 1280px; margin: 0 auto; padding: 0 16px 64px; display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 40px; }
+.mn-toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; padding: 24px 0; }
+.mn-toc summary { font-family: var(--font-eyebrow, Montserrat, sans-serif); font-weight: 500; letter-spacing: .2em; text-transform: uppercase; font-size: .8125rem; color: var(--cs-teal-700, #03515B); cursor: pointer; min-height: 44px; display: flex; align-items: center; list-style: none; }
+.mn-toc summary::-webkit-details-marker { display: none; }
+.mn-toc__label { margin: 16px 0 4px; font-family: var(--font-display, "Saira Variable", sans-serif); font-weight: 700; font-size: .95rem; color: var(--cs-navy-900, #0B1530); }
+.mn-toc ol { list-style: none; margin: 0; padding: 0; }
+.mn-toc a { display: flex; align-items: center; min-height: 44px; padding: 4px 12px; border-left: 3px solid var(--cs-gray-200, #E3E8F0); color: var(--cs-gray-700, #374151); text-decoration: none; font-size: .9375rem; }
+.mn-toc a:hover { color: var(--cs-blue-600, #0142A8); background: var(--cs-gray-50, #F5F7FA); }
+.mn-toc a[aria-current="true"] { border-left-color: var(--cs-orange-500, #FB5A00); color: var(--cs-navy-900, #0B1530); font-weight: 700; }
+.mn-main { min-width: 0; padding-top: 32px; }
+.mn-eyebrow { margin: 0 0 8px; font-family: var(--font-eyebrow, Montserrat, sans-serif); font-weight: 500; letter-spacing: .2em; font-size: .8125rem; color: var(--cs-teal-700, #03515B); }
+.mn-intro h1 { font-family: var(--font-display, "Saira Variable", sans-serif); font-weight: 800; font-size: clamp(2rem, 4vw, 3rem); line-height: 1.1; margin: 0 0 12px; color: var(--cs-navy-900, #0B1530); }
+.mn-intro p { color: var(--cs-gray-600, #4A5468); max-width: 68ch; }
+.mn-chapter { margin-top: 64px; padding-top: 32px; border-top: 1px solid var(--cs-gray-200, #E3E8F0); scroll-margin-top: 80px; }
+.mn-chapter h2 { font-family: var(--font-display, "Saira Variable", sans-serif); font-weight: 800; font-size: clamp(1.6rem, 3vw, 2.25rem); line-height: 1.15; margin: 0 0 8px; color: var(--cs-navy-900, #0B1530); }
+.mn-lead { font-size: 1.125rem; color: var(--cs-gray-600, #4A5468); max-width: 68ch; margin: 0 0 24px; }
+.mn-video { margin: 0 0 32px; max-width: 960px; }
+.mn-section { margin: 32px 0; max-width: 960px; }
+.mn-section h3 { font-family: var(--font-display, "Saira Variable", sans-serif); font-weight: 700; font-size: 1.375rem; margin: 0 0 8px; color: var(--cs-navy-900, #0B1530); scroll-margin-top: 80px; }
+.mn-section p { max-width: 68ch; margin: 0 0 12px; }
+.mn-steps { list-style: none; counter-reset: s; padding: 0; margin: 16px 0; display: grid; gap: 12px; max-width: 68ch; }
+.mn-steps li { counter-increment: s; position: relative; background: var(--cs-gray-50, #F5F7FA); border: 1px solid var(--cs-gray-200, #E3E8F0); border-radius: 14px; padding: 14px 16px 14px 60px; }
+.mn-steps li::before { content: counter(s); position: absolute; left: 14px; top: 12px; width: 32px; height: 32px; border-radius: 50%; background: var(--cs-orange-500, #FB5A00); color: var(--cs-navy-900, #0B1530); font-weight: 800; display: grid; place-items: center; }
+.mn-figure { margin: 20px 0; }
+.mn-figure img { width: 100%; height: auto; border: 1px solid var(--cs-gray-200, #E3E8F0); border-radius: 14px; box-shadow: 0 12px 32px rgba(11,21,48,.12); display: block; }
+.mn-figure figcaption { font-size: .875rem; color: var(--cs-gray-600, #4A5468); margin-top: 8px; }
+.mn-callout { max-width: 68ch; border-radius: 14px; padding: 14px 16px; margin: 16px 0; border-left: 5px solid; }
+.mn-callout p { margin: 4px 0 0; }
+.mn-callout--info { background: var(--cs-blue-50, #E8F0FF); border-color: var(--cs-blue-600, #0142A8); color: var(--cs-navy-900, #0B1530); }
+.mn-callout--warning { background: var(--cs-orange-50, #FFF1E8); border-color: var(--cs-orange-500, #FB5A00); color: var(--cs-navy-900, #0B1530); }
+.mn-pager { display: flex; justify-content: space-between; gap: 16px; margin-top: 40px; flex-wrap: wrap; }
+.mn-pager a { display: flex; flex-direction: column; min-height: 44px; padding: 12px 18px; border: 2px solid var(--cs-blue-600, #0142A8); border-radius: 14px; color: var(--cs-blue-600, #0142A8); text-decoration: none; font-weight: 700; max-width: 46%; }
+.mn-pager a span { font-family: var(--font-eyebrow, Montserrat, sans-serif); font-size: .75rem; letter-spacing: .18em; text-transform: uppercase; color: var(--cs-gray-600, #4A5468); font-weight: 500; }
+.mn-pager a:hover { background: var(--cs-blue-50, #E8F0FF); }
+@media (max-width: 900px) {
+  .mn-layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .mn-toc { position: static; max-height: none; padding: 12px 0 0; border-bottom: 1px solid var(--cs-gray-200, #E3E8F0); }
+  .mn-header__title { display: none; }
+  .mn-header__in { justify-content: space-between; }
+  .mn-pager a { max-width: 100%; flex: 1 1 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .mn-page * { scroll-behavior: auto !important; transition: none !important; } }
+html { scroll-behavior: smooth; }

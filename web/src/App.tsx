@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Droplets, FlaskConical, Gauge, History, Kanban, LayoutDashboard, LogOut, Menu, Moon, ScanLine, Settings, Sun, type LucideIcon } from "lucide-react";
+import { FlaskConical, Gauge, History, Kanban, LayoutDashboard, LogOut, Menu, Moon, ScanLine, Settings, Sun, type LucideIcon } from "lucide-react";
 import { HttpApi, type SparkleApi } from "./lib/api";
 import { ApiProvider, ToastProvider, useApi, useLive } from "./lib/context";
 import { I18nProvider, useI18n } from "./i18n";
 import type { MessageKey } from "./i18n/es";
-import { LanguageSwitch } from "./components/ui";
+import { BrandMark, LanguageSwitch } from "./components/ui";
 import { DemoApi, type DemoOptions } from "./lib/demo";
 import { SessionProvider } from "./lib/session";
 import { AdminView, type AdminSection } from "./views/Admin";
@@ -130,7 +130,7 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
 
   useEffect(() => {
     const label = NAV.find((n) => n.route === route)?.label;
-    document.title = `${pendingCount ? `(${pendingCount}) ` : ""}${label ? t(label) : ""} · SparkleWash`;
+    document.title = `${pendingCount ? `(${pendingCount}) ` : ""}${label ? t(label) : ""} · ${t("app.name")}`;
   }, [route, pendingCount, t]);
 
   return (
@@ -138,7 +138,7 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
     <div className="shell">
       <nav className="sidebar" aria-label={t("nav.main")}>
         <div className="brand">
-          <span className="brand-mark"><Droplets size={20} aria-hidden /></span>
+          <BrandMark />
           <span>
             <span className="brand-name" style={{ display: "block" }}>{session?.tenant.name ?? t("app.name")}</span>
             <span className="brand-sub">{session ? t(`role.${session.role}`) : t("app.console")}</span>

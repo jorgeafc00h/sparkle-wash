@@ -1,0 +1,130 @@
+/* Shared rules for every motion scene (prefix cs-m-). Only transform and opacity animate.
+   Base styles are always the FINAL frame; keyframes describe where things come from. So with animations removed
+   (reduced motion) every scene rests on its most informative frame. */
+
+.cs-m-scene {
+  /* Design tokens (web/src/design/tokens.css) with literal fallbacks, aliased once so every scene and part can use
+     short names. The scenes work with or without tokens.css loaded. */
+  --m-n9: var(--cs-navy-900, #0B1530);
+  --m-n8: var(--cs-navy-800, #0F1D40);
+  --m-n6: var(--cs-navy-600, #1B2A55);
+  --m-n5: var(--cs-navy-500, #2A3F72);
+  --m-w: var(--cs-white, #FFFFFF);
+  --m-o5: var(--cs-orange-500, #FB5A00);
+  --m-o3: var(--cs-orange-300, #FF7A2E);
+  --m-t7: var(--cs-teal-700, #03515B);
+  --m-t50: var(--cs-teal-50, #E7F3F3);
+  --m-b4: var(--cs-blue-400, #4D8DFF);
+  --m-b6: var(--cs-blue-600, #0142A8);
+  --m-m2: var(--cs-mist-200, #D5DDEA);
+  --m-m3: var(--cs-mist-300, #B7C3D9);
+  --m-g3: var(--cs-gray-300, #C9D2E0);
+  --m-g6: var(--cs-gray-600, #4A5468);
+  --m-on: var(--color-on-accent, #0B1530);
+  --m-mono: var(--font-mono, "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace);
+  --m-disp: var(--font-display, "Saira Variable", system-ui, sans-serif);
+  position: relative;
+  margin: 0;
+  font-family: var(--font-body, "Inter Variable", "Inter", system-ui, sans-serif);
+  --cs-m-ease: var(--ease-out, cubic-bezier(.2, .7, .2, 1));
+}
+
+/* Percent translations are measured against border boxes, so borders never skew a timeline. */
+.cs-m-scene, .cs-m-scene * { box-sizing: border-box; }
+
+/* Offscreen (data-playing="false") or paused by the visitor: freeze every animation in place. */
+/* (Elements and pseudo-elements are separate rules: a selector list mixing them is dropped by some engines.) */
+.cs-m-scene:not([data-playing="true"]) *,
+.cs-m-scene[data-paused="true"] * {
+  animation-play-state: paused !important;
+}
+.cs-m-scene:not([data-playing="true"]) *::before,
+.cs-m-scene:not([data-playing="true"]) *::after,
+.cs-m-scene[data-paused="true"] *::before,
+.cs-m-scene[data-paused="true"] *::after {
+  animation-play-state: paused !important;
+}
+
+/* Promote the big movers only while they actually move. */
+.cs-m-scene[data-playing="true"]:not([data-paused="true"]):not([data-ended="true"]) .cs-m-wc {
+  will-change: transform, opacity;
+}
+
+/* Reduced motion: no animation at all, final frame. The attribute comes from matchMedia; the media query
+   covers the first paint and any page that renders the markup without JavaScript. */
+.cs-m-scene[data-reduced="true"] * {
+  animation: none !important;
+  transition: none !important;
+}
+.cs-m-scene[data-reduced="true"] *::before,
+.cs-m-scene[data-reduced="true"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cs-m-scene * { animation: none !important; transition: none !important; }
+  .cs-m-scene *::before, .cs-m-scene *::after { animation: none !important; transition: none !important; }
+}
+
+.cs-m-sr {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ---------- timeline primitives: --t0 is the beat start, --d an offset inside it, --len the duration ---------- */
+.cs-m-a {
+  animation-duration: var(--len, .6s);
+  animation-delay: calc(var(--t0, 0s) + var(--d, 0s));
+  animation-fill-mode: both;
+  animation-timing-function: var(--cs-m-ease);
+  animation-iteration-count: 1;
+}
+.cs-m-up { animation-name: cs-m-in-up; }
+.cs-m-fade { animation-name: cs-m-in-fade; }
+.cs-m-pop { animation-name: cs-m-in-pop; }
+.cs-m-left { animation-name: cs-m-in-left; }
+.cs-m-right { animation-name: cs-m-in-right; }
+.cs-m-out { animation-name: cs-m-out; }
+.cs-m-blip { animation-name: cs-m-blip; }
+
+/* A beat on a stage: fades in at --t0, out at the end of --dur. The last beat holds. */
+.cs-m-beat { animation: cs-m-beat var(--dur, 4s) linear var(--t0, 0s) both; }
+.cs-m-beat--last { animation-name: cs-m-beat-last; }
+
+/* Invisible clock that reports the end of a play-once timeline (animationend). */
+.cs-m-clock {
+  position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
+  animation: cs-m-clock var(--cs-m-total, 1s) linear both;
+}
+
+@keyframes cs-m-in-up { from { opacity: 0; transform: translateY(14px); } }
+@keyframes cs-m-in-fade { from { opacity: 0; } }
+@keyframes cs-m-in-pop { from { opacity: 0; transform: scale(.82); } }
+@keyframes cs-m-in-left { from { opacity: 0; transform: translateX(-24px); } }
+@keyframes cs-m-in-right { from { opacity: 0; transform: translateX(24px); } }
+@keyframes cs-m-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes cs-m-blip { 0% { opacity: 0; } 18%, 82% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes cs-m-beat { 0% { opacity: 0; } 5%, 94% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes cs-m-beat-last { 0% { opacity: 0; } 5%, 100% { opacity: 1; } }
+@keyframes cs-m-clock { from { opacity: 0; } to { opacity: 0; } }
+
+/* ---------- pause / resume / replay control ---------- */
+.cs-m-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; min-width: 44px; padding: 0 16px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid var(--m-n5);
+  background: rgba(11, 21, 48, .78);
+  color: var(--m-w);
+  font: 600 var(--text-xs, .8125rem)/1 var(--font-body, "Inter Variable", system-ui, sans-serif);
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  transition: background-color var(--dur-tap, 160ms) var(--cs-m-ease), transform var(--dur-tap, 160ms) var(--cs-m-ease);
+}
+.cs-m-toggle:hover { background: var(--m-n6); }
+.cs-m-toggle:active { transform: scale(.97); }
+.cs-m-toggle:focus-visible { outline: 3px solid var(--m-o3); outline-offset: 3px; }
+.cs-m-toggle svg { flex: none; }
+/* Nothing moves under reduced motion, so there is nothing to pause. */
+.cs-m-scene[data-reduced="true"] .cs-m-toggle { display: none; }
+@media (prefers-reduced-motion: reduce) { .cs-m-toggle { display: none; } }

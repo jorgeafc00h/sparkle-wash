@@ -43,13 +43,16 @@ jobs:
           npm test
           npm run build
           # Everything the landing page and console load must be in the upload.
-          for f in index.html app/index.html staticwebapp.config.json favicon.svg \
-                   landing/video/como-funciona.mp4 landing/video/como-funciona.es.vtt landing/video/poster.jpg \
-                   landing/art/car.svg landing/art/esp32-cam.svg \
+          for f in index.html app/index.html manual/index.html staticwebapp.config.json favicon.svg \
+                   manual/img/carspa-tablero.webp manual/img/carspa-bienvenida.webp manual/img/fact-empresas-lista.webp manual/img/pos-anular.webp \
+                   brand/car-spa-logo.svg brand/car-spa-logo-ondark.svg brand/car-spa-mark.svg brand/car-spa-mark-ondark.svg \
+                   brand/og-car-spa.png landing/art/esp32-cam.svg \
                    landing/screens/en-vivo.jpg landing/screens/revision.jpg landing/screens/revision-movil.jpg \
                    landing/screens/tablero.jpg landing/screens/tablero-movil.jpg landing/screens/placas.jpg landing/screens/bahias.jpg; do
             test -s "build/$f" || { echo "missing build/$f"; exit 1; }
           done
+          # The explainer video was replaced by CSS scenes: it must not come back into the upload.
+          if [ -e build/landing/video ]; then echo "build/landing/video should not be deployed"; exit 1; fi
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -68,12 +71,12 @@ jobs:
         env:
           SITE: ${{ steps.builddeploy.outputs.static_web_app_url }}
         run: |
-          for path in / /app/ /landing/video/como-funciona.mp4 /landing/video/como-funciona.es.vtt /landing/screens/en-vivo.jpg /landing/art/esp32-cam.svg /favicon.svg; do
+          for path in / /app/ /manual/ /brand/car-spa-mark-ondark.svg /brand/car-spa-logo-ondark.svg /brand/og-car-spa.png /landing/screens/en-vivo.jpg /landing/art/esp32-cam.svg /favicon.svg; do
             code=$(curl -s -o /dev/null -w "%{http_code}" "$SITE$path")
             echo "$code $path"
             [ "$code" = "200" ] || exit 1
           done
-          curl -sI "$SITE/landing/video/como-funciona.es.vtt" | grep -i "content-type: text/vtt"
+          curl -sI "$SITE/brand/car-spa-mark-ondark.svg" | grep -i "content-type: image/svg+xml"
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'

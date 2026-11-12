@@ -1,0 +1,20 @@
+<!doctype html>
+<!-- Dev-only preview of the walkthrough engine: npx vite --port 5179 --strictPort (from web/), then open
+     /src/manual/walkthrough/demo.html. Not part of any build input. -->
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Car Spa · demo del recorrido animado</title>
+    <style>
+      body { margin: 0; background: var(--color-bg, #F5F7FA); color: var(--color-text, #111827); font-family: var(--font-body, system-ui, sans-serif); }
+      .demo { max-width: 880px; margin: 0 auto; padding: 40px 16px 80px; }
+      .demo h1 { font: 700 clamp(1.6rem, 4vw, 2.2rem)/1.15 var(--font-display, system-ui, sans-serif); margin: 0 0 8px; }
+      .demo p { margin: 0 0 24px; color: var(--color-text-muted, #4A5468); }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./demo.tsx"></script>
+  </body>
+</html>

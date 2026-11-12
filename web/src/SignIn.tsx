@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { AlertTriangle, ArrowLeft, Building2, Droplets, Info, PlayCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Building2, Info, PlayCircle } from "lucide-react";
 import { CarwashFields, type CarwashErrors } from "./components/CarwashForm";
-import { LanguageSwitch } from "./components/ui";
+import { BrandMark, LanguageSwitch } from "./components/ui";
 import { useI18n } from "./i18n";
 import type { MessageKey } from "./i18n/es";
 import { ApiError, HttpApi } from "./lib/api";
@@ -60,7 +60,7 @@ export function SignIn({ onLive, onDemo, expired }: {
       <div className={`card signin-card ${mode === "register" ? "wide" : ""}`}>
         <LanguageSwitch />
         <div className="brand" style={{ padding: 0 }}>
-          <span className="brand-mark"><Droplets size={20} aria-hidden /></span>
+          <BrandMark />
           <span>
             <span className="brand-name" style={{ display: "block" }}>{t("app.name")}</span>
             <span className="brand-sub">{t("app.console")}</span>

@@ -4,6 +4,16 @@ import { confidenceLevel } from "../lib/format";
 import type { JobStatus } from "../lib/types";
 import { errorText, LOCALES, useI18n, type Locale } from "../i18n";
 
+/** The Car Spa mark: the on-dark version (blue → white) in the dark theme, the full-colour one in the light theme. */
+export function BrandMark() {
+  return (
+    <span className="brand-mark" aria-hidden>
+      <img className="brand-mark-dark" src="/brand/car-spa-mark-ondark.svg" alt="" width="46" height="20" />
+      <img className="brand-mark-light" src="/brand/car-spa-mark.svg" alt="" width="46" height="20" />
+    </span>
+  );
+}
+
 export function Plate({ plate, size, onClick }: { plate: string | null; size?: "lg"; onClick?: () => void }) {
   const { t } = useI18n();
   const className = `plate ${size === "lg" ? "plate-lg" : ""}`;

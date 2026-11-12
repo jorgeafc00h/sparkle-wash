@@ -1,0 +1,223 @@
+/* HowItWorksScene "De la cámara al ticket": four 4 s beats, played once. Positions are % of a beat; type is
+   in cqi of the beat, so the same beat scales from the full stage down to a storyboard tile. Phones (≤640 px)
+   get a 4:5 stage and the phone screenshots (the <picture> sources use the same breakpoint). */
+.cs-m-how { color: var(--color-text, #111827); }
+.cs-m-how__frame { position: relative; }
+.cs-m-how__stage {
+  position: relative; aspect-ratio: 16 / 9; overflow: hidden;
+  border-radius: var(--radius-lg, 22px);
+  background: var(--m-n8); border: 1px solid var(--m-n6);
+  color: var(--m-w);
+}
+.cs-m-how__beat { position: absolute; inset: 0; container-type: inline-size; overflow: hidden; }
+.cs-m-how__badge { display: none; }
+.cs-m-how__toggle { position: absolute; top: 12px; right: 12px; z-index: 3; }
+.cs-m-how__caption { margin-top: var(--space-5, 24px); }
+
+/* ---------- beat 1: the entrance camera reads the plate ---------- */
+.cs-m-how__road {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 19%;
+  background: rgba(6, 11, 28, .5); border-top: 1px solid rgba(183, 195, 217, .2);
+}
+.cs-m-how__car {
+  position: absolute; left: 2%; width: 40%; bottom: 18%;
+  animation: cs-m-how-roll 1.5s cubic-bezier(.12, .7, .3, 1) calc(var(--t0) + .2s) both;
+}
+.cs-m-how__car .cs-m-car__spin { animation: cs-m-how-wheels 1.5s cubic-bezier(.12, .7, .3, 1) calc(var(--t0) + .2s) both; }
+.cs-m-how__car .cs-m-car__body {
+  transform-box: fill-box; transform-origin: 50% 100%;
+  animation: cs-m-how-settle .7s ease-in-out calc(var(--t0) + 1.6s) both;
+}
+.cs-m-how__cam { position: absolute; left: 43%; width: 10%; bottom: 19%; }
+.cs-m-how__cam-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.cs-m-how__beam { animation: cs-m-in-fade .6s ease calc(var(--t0) + 1.55s) both; }
+.cs-m-how__flash { opacity: 0; animation: cs-m-how-flash .6s ease-out calc(var(--t0) + 1.6s) both; }
+
+.cs-m-how__read {
+  position: absolute; left: 57%; right: 4%; top: 22%;
+  padding: 1.1em 1.2em; border-radius: .9em; font-size: 1.5cqi;
+  background: var(--m-n9); border: 1px solid var(--m-n6);
+  box-shadow: 0 1em 2.4em rgba(0, 0, 0, .3);
+}
+.cs-m-how__read-head {
+  display: flex; align-items: center; gap: .55em; margin: 0 0 1em;
+  font: 500 .8em/1 var(--font-eyebrow, "Montserrat", sans-serif); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--m-m3);
+}
+.cs-m-how__dot { width: .6em; height: .6em; border-radius: 50%; background: var(--m-o5); }
+.cs-m-how__plate { position: relative; display: inline-flex; font-size: 2.3em; margin: .1em 0 .55em; }
+.cs-m-how__brackets { position: absolute; inset: -.28em; width: calc(100% + .56em); height: calc(100% + .56em); overflow: visible; color: var(--m-o5); }
+.cs-m-how__scan {
+  position: absolute; left: -.2em; right: -.2em; top: 0; height: 2px;
+  background: var(--m-o3); box-shadow: 0 0 .4em rgba(251, 90, 0, .9);
+  opacity: 0; animation: cs-m-how-scan .9s ease-in-out calc(var(--t0) + 2.1s) both;
+}
+.cs-m-how__meter { height: .45em; border-radius: .45em; background: var(--m-n6); overflow: hidden; }
+.cs-m-how__meter > span {
+  display: block; height: 100%; background: var(--m-o5);
+  transform: scaleX(.57); transform-origin: 0 50%;
+  animation: cs-m-how-meter .7s var(--cs-m-ease) calc(var(--t0) + 2.6s) both;
+}
+.cs-m-how__conf { margin: .7em 0 0; font-weight: 700; color: var(--m-o3); font-variant-numeric: tabular-nums; }
+
+/* ---------- device frames around the real console screenshots ---------- */
+.cs-m-device {
+  position: absolute; padding: .9cqi; border-radius: 1.6cqi;
+  background: #060B1C; border: 1px solid var(--m-n5);
+  box-shadow: 0 2cqi 5cqi rgba(0, 0, 0, .35);
+}
+.cs-m-device__screen { position: relative; overflow: hidden; border-radius: .9cqi; background: #0B1220; }
+.cs-m-device__screen img { position: absolute; top: 0; display: block; max-width: none; height: auto; }
+/* Desktop crops drop the console's sidebar and keep the area that matters. */
+.cs-m-device--review { left: 17%; width: 66%; top: 6%; }
+.cs-m-device--review .cs-m-device__screen { aspect-ratio: 720 / 483; }
+.cs-m-device--review img { width: 125%; left: -25%; }
+.cs-m-device--board { left: 8%; width: 84%; top: 5%; }
+.cs-m-device--board .cs-m-device__screen { aspect-ratio: 720 / 345; }
+.cs-m-device--board img { width: 125%; left: -25%; }
+
+.cs-m-how__ring {
+  position: absolute; border: 3px solid var(--m-o5); border-radius: .8cqi;
+  box-shadow: 0 0 0 4px rgba(251, 90, 0, .2), 0 0 2cqi rgba(251, 90, 0, .45);
+}
+.cs-m-how__ring--plate { left: 3.4%; top: 69.3%; width: 55.1%; height: 9.2%; }
+.cs-m-how__tap {
+  position: absolute; width: 4.4cqi; height: 4.4cqi; margin: -2.2cqi 0 0 -2.2cqi; border-radius: 50%;
+  background: rgba(255, 255, 255, .85); opacity: 0;
+  animation: cs-m-how-tap .75s ease-out calc(var(--t0) + var(--d, 0s)) both;
+}
+.cs-m-how__tap--class { left: 10.8%; top: 94.6%; }
+.cs-m-how__tap--advance { left: 10.1%; top: 67%; }
+.cs-m-how__toast {
+  position: absolute; right: 6%; bottom: 8%; margin: 0;
+  display: flex; align-items: center; gap: .55em; padding: .6em 1em; border-radius: 999px; font-size: 1.35cqi;
+  background: var(--m-t7); color: var(--m-w); font-weight: 700;
+  box-shadow: 0 1em 2em rgba(0, 0, 0, .35);
+}
+.cs-m-how__toast .cs-m-plate { font-size: .85em; }
+
+/* ---------- beat 3: the job crosses the board ---------- */
+/* The ring is centred on each board column (the last column is cut by the screenshot, so the ring is a bit narrower). */
+.cs-m-how__lane { position: absolute; left: 0; top: 22.9%; width: 100%; height: 51%; }
+.cs-m-how__ring--col {
+  left: 3.46%; top: 0; width: 21%; height: 100%;
+  transform: translateX(346.9%);
+  animation: cs-m-how-col 2.6s cubic-bezier(.5, 0, .2, 1) calc(var(--t0) + .8s) both;
+}
+.cs-m-how__states {
+  position: absolute; left: 20%; right: 20%; top: 84%; margin: 0; padding: .3em; list-style: none;
+  display: grid; grid-template-columns: repeat(4, 1fr); font-size: 1.25cqi;
+  border-radius: 999px; background: var(--m-n9); border: 1px solid var(--m-n6);
+}
+.cs-m-how__state { position: relative; z-index: 1; text-align: center; padding: .5em .3em; font-weight: 600; color: var(--m-m2); white-space: nowrap; }
+.cs-m-how__puck {
+  position: absolute; top: .3em; bottom: .3em; left: .3em; width: calc((100% - .6em) / 4);
+  border-radius: 999px; border: 2px solid var(--m-o5); box-shadow: 0 0 1.2em rgba(251, 90, 0, .35);
+  transform: translateX(300%);
+  animation: cs-m-how-puck 2.6s cubic-bezier(.5, 0, .2, 1) calc(var(--t0) + .8s) both;
+}
+
+/* ---------- beat 4: charged at the register, the work ticket prints ---------- */
+.cs-m-pos {
+  position: absolute; left: 5%; top: 34%; width: 52%; font-size: 1.65cqi;
+  border-radius: 1em; overflow: hidden;
+  background: var(--m-n9); border: 1px solid var(--m-n6);
+  box-shadow: 0 1.4em 3em rgba(0, 0, 0, .35);
+}
+.cs-m-pos__bar {
+  display: flex; align-items: center; gap: .7em; padding: .75em 1em;
+  border-bottom: 1px solid var(--m-n6); font-weight: 700;
+}
+.cs-m-pos__bar img { height: 1.35em; width: auto; display: block; }
+.cs-m-pos__row { display: flex; align-items: center; gap: .8em; padding: 1.1em 1em; }
+.cs-m-pos__row .cs-m-plate { font-size: 1.1em; }
+.cs-m-pos__class { color: var(--m-m2); }
+.cs-m-pill {
+  display: inline-flex; align-items: center; gap: .35em; padding: .35em .75em; border-radius: 999px;
+  font-size: .85em; font-weight: 700; white-space: nowrap;
+}
+.cs-m-pill--ok { background: var(--m-t7); color: var(--m-w); }
+.cs-m-pos__row .cs-m-pill { margin-left: auto; }
+.cs-m-pos__action { display: grid; padding: 0 1em 1em; }
+.cs-m-pos__charge, .cs-m-pos__paid {
+  grid-area: 1 / 1; display: flex; align-items: center; justify-content: center; gap: .5em;
+  padding: .85em; border-radius: .7em; font-weight: 800; font-size: 1.1em;
+}
+.cs-m-pos__charge {
+  background: var(--m-o5); color: var(--m-on);
+  opacity: 0;
+  animation: cs-m-how-press .35s ease calc(var(--t0) + 1s) both, cs-m-out .25s ease calc(var(--t0) + 1.35s) both;
+}
+.cs-m-pos__paid {
+  background: var(--m-t7); color: var(--m-w);
+  animation: cs-m-in-pop .45s var(--cs-m-ease) calc(var(--t0) + 1.4s) both;
+}
+.cs-m-how__printer { position: absolute; left: 63%; width: 31%; top: 25%; font-size: 1.5cqi; }
+.cs-m-how__printer .cs-m-printer__paper { animation: cs-m-feed 1.5s linear calc(var(--t0) + 1.55s) both; }
+.cs-m-how__printer .cs-m-ticket { animation: cs-m-feed-in 1.5s linear calc(var(--t0) + 1.55s) both; }
+
+/* ---------- keyframes ---------- */
+@keyframes cs-m-how-roll { from { transform: translateX(-112%); } }
+@keyframes cs-m-how-wheels { from { transform: rotate(-1000deg); } }
+@keyframes cs-m-how-settle {
+  0% { transform: none; } 40% { transform: translateY(1.4px) rotate(.7deg); } 75% { transform: translateY(-.3px) rotate(-.2deg); } 100% { transform: none; }
+}
+@keyframes cs-m-how-flash { 0% { opacity: 0; } 18% { opacity: .9; } 100% { opacity: 0; } }
+@keyframes cs-m-how-scan {
+  0% { opacity: 0; transform: translateY(0); } 15% { opacity: 1; } 85% { opacity: 1; transform: translateY(1.5em); } 100% { opacity: 0; transform: translateY(1.5em); }
+}
+@keyframes cs-m-how-meter { from { transform: scaleX(0); } }
+@keyframes cs-m-how-tap {
+  0% { opacity: 0; transform: scale(.3); } 20% { opacity: .9; transform: scale(.55); } 100% { opacity: 0; transform: scale(1.7); }
+}
+@keyframes cs-m-how-col {
+  0% { opacity: 0; transform: translateX(0); } 6%, 22% { opacity: 1; transform: translateX(0); }
+  30%, 48% { transform: translateX(117.8%); } 56%, 74% { transform: translateX(235.9%); } 82%, 100% { opacity: 1; transform: translateX(346.9%); }
+}
+@keyframes cs-m-how-puck {
+  0%, 22% { transform: translateX(0); } 30%, 48% { transform: translateX(100%); } 56%, 74% { transform: translateX(200%); } 82%, 100% { transform: translateX(300%); }
+}
+@keyframes cs-m-how-press { 0% { transform: none; } 45% { transform: scale(.95); } 100% { transform: none; } }
+
+/* ---------- phones: 4:5 stage, phone screenshots, stacked layouts ---------- */
+@media (max-width: 640px) {
+  .cs-m-how__stage { aspect-ratio: 4 / 5; }
+  .cs-m-how__road { bottom: 45%; height: 12%; }
+  .cs-m-how__car { left: 2%; width: 64%; bottom: 56%; }
+  .cs-m-how__cam { left: 70%; width: 17%; bottom: 57%; }
+  .cs-m-how__read { left: 5%; right: 5%; top: 60%; font-size: 3.4cqi; }
+
+  .cs-m-device--review { left: 27%; width: 46%; top: 14%; }
+  .cs-m-device--review .cs-m-device__screen { aspect-ratio: 416 / 690; }
+  .cs-m-device--review img { width: 100%; left: 0; top: -10.14%; }
+  .cs-m-how__ring--plate { left: 8.4%; top: 60.3%; width: 84.4%; height: 8.7%; }
+  .cs-m-how__tap--class { left: 29.8%; top: 88.5%; }
+  .cs-m-how__toast { left: 0; right: 0; bottom: 5%; width: fit-content; margin-inline: auto; font-size: 3.2cqi; }
+
+  .cs-m-device--board { left: 26%; width: 48%; top: 14%; }
+  .cs-m-device--board .cs-m-device__screen { aspect-ratio: 462 / 690; }
+  .cs-m-device--board img { width: 100%; left: 0; top: -10.14%; }
+  .cs-m-how__lane { display: none; }
+  .cs-m-how__tap--advance { left: 25.9%; top: 56.6%; }
+  .cs-m-how__states { left: 4%; right: 4%; top: 83%; font-size: 3cqi; }
+
+  .cs-m-pos { left: 5%; right: 5%; width: auto; top: 15%; font-size: 3.2cqi; }
+  .cs-m-how__printer { left: 21%; width: 58%; top: 50%; font-size: 2.7cqi; }
+}
+
+/* ---------- reduced motion: every beat at once, as a storyboard ---------- */
+.cs-m-how[data-reduced="true"] .cs-m-how__stage {
+  aspect-ratio: auto; overflow: visible; background: none; border: 0; border-radius: 0;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3, 12px);
+}
+.cs-m-how[data-reduced="true"] .cs-m-how__beat {
+  position: relative; inset: auto; aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md, 14px); background: var(--m-n8); border: 1px solid var(--m-n6);
+}
+.cs-m-how[data-reduced="true"] .cs-m-how__badge {
+  position: absolute; left: 8px; top: 8px; z-index: 2; display: block; padding: 2px 9px; border-radius: 8px;
+  background: var(--m-o5); color: var(--m-on); font-weight: 800;
+}
+@media (max-width: 640px) {
+  .cs-m-how[data-reduced="true"] .cs-m-how__beat { aspect-ratio: 4 / 5; }
+}
