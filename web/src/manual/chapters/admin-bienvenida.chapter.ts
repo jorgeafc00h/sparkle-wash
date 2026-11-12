@@ -189,12 +189,6 @@ const chapter: ManualChapter = {
         "cursor": {
           "x": 58.8,
           "y": 38.1
-        },
-        "zoom": {
-          "x": 18.7,
-          "y": 15.6,
-          "w": 80.2,
-          "h": 45.1
         }
       }
     ]

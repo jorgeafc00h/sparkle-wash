@@ -731,7 +731,7 @@ export default function ComprasSettingsPage() {
               </div>
               <p className="text-xs text-brand-500 ml-8">
                 Google generará una contraseña de <strong>16 caracteres</strong> exclusiva para
-                SparkleWash. Escribe <strong>"SparkleWash"</strong> como nombre cuando te lo pida.
+                Car Spa. Escribe <strong>"Car Spa"</strong> como nombre cuando te lo pida.
               </p>
               <button
                 type="button"
