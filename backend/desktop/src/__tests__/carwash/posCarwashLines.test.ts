@@ -7,6 +7,7 @@ import {
   cartHasCarwashJob,
   dominantJobPaymentMethod,
   isChargeableJob,
+  isUntrackedLegacyJob,
   jobBalanceUsd,
 } from '@/services/carwash/posCarwashLines';
 import { TaxCategory } from '@/types/product';
@@ -16,7 +17,7 @@ const job = (over: Partial<CarwashJob> = {}): CarwashJob => ({
   id: 'job-1', arrivalId: 'a', plate: 'P123-456', vehicleClass: 'suv', packageId: 'full', packageName: 'Completo',
   services: [], priceUsd: 12, currency: 'USD', status: 'in_progress', arrivalAt: '2026-10-31T21:00:00Z',
   startedAt: null, completedAt: null, cancelledAt: null, elapsedSeconds: 0, activeSeconds: null, transitions: [], assignments: [],
-  ticketNumber: 'OT-C1-000045', paidUsd: 0, paymentStatus: 'unpaid', ...over,
+  ticketNumber: 'OT-C1-000045', source: 'desktop-pos', payments: [], paidUsd: 0, paymentStatus: 'unpaid', ...over,
 });
 
 describe('quick line', () => {
@@ -42,6 +43,17 @@ describe('quick line', () => {
     expect(isChargeableJob(job())).toBe(true);
     expect(isChargeableJob(job({ paidUsd: 12 }))).toBe(false);
     expect(isChargeableJob(job({ status: 'cancelled' }))).toBe(false);
+  });
+
+  it('jobs opened before payment tracking (no source, no payments) are not receivables', () => {
+    const legacy = job({ source: null, payments: [], status: 'completed' });
+    expect(isUntrackedLegacyJob(legacy)).toBe(true);
+    expect(isChargeableJob(legacy)).toBe(false);
+    // Camera jobs opened since payment tracking are receivables, and so is a legacy job with a recorded payment.
+    expect(isChargeableJob(job({ source: 'camera' }))).toBe(true);
+    const partly = job({ source: undefined, paidUsd: 5, paymentStatus: 'partial',
+      payments: [{ id: 'p', method: 'cash', amountUsd: 5, ticketNumber: null, reference: null, recordedAt: 'x', actor: 'a', idempotencyKey: 'k' }] });
+    expect(isChargeableJob(partly)).toBe(true);
   });
 
   it('the same job cannot be added twice', () => {

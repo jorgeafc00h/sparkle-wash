@@ -50,13 +50,17 @@ Creates a staff-entered arrival (already confirmed, no photo, camera id `pos-cou
 the package/price snapshot, assigns the employee when given, and publishes `jobs` + `arrivals`.
 
 - `201` → `JobView` created. `200` → `JobView` replay of the same key with the same plate/package.
-- `409` → `{ error, job }` when the plate already has an open job or the key was reused differently.
+- `409` → `{ error, job }` when the plate already has an open job, another open job already carries the
+  ticket number, or the key was reused differently. The outbox treats a 409 as delivery only when `job` was
+  opened with this entry's idempotency key, or carries this walk-in's ticket number AND plate.
+- The `pos-counter` arrival never appears in `GET /api/arrivals?pending=true`; when the job cannot be opened it is
+  dismissed.
 - `400` invalid plate/class/package/employee/ticket number. `401`/`403` auth.
 
 ### `POST /api/jobs/{id}/ticket`
 
 Body `{ ticketNumber }`. Write-once: `200` → `JobView` when set or identical; `409` when a different
-ticket number is already set; `404` unknown job. Publishes `jobs`.
+ticket number is already set or another open job carries this one; `404` unknown job. Publishes `jobs`.
 
 ### `POST /api/jobs/{id}/payments`
 

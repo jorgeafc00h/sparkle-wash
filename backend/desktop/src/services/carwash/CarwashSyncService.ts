@@ -4,7 +4,11 @@
 //    `jobs`/`arrivals` change events debounce (~500 ms) a refresh.
 //  - stream down: poll every `pollSeconds` (refresh + outbox flush).
 //  - outbox flushes on start, on every (re)connect, after each local write, on poll.
-//  - 401: ONE silent re-login (Google refresh → /api/auth/google), then signed-out.
+//  - 401: ONE silent re-login (Google refresh → /api/auth/google), shared by every request that
+//    hit the 401 at the same time; signed-out only if it fails or the new session is rejected too.
+//  - a stream that goes quiet for `idleTimeoutMs` (no data, not even the server heartbeat) is a
+//    half-open connection: it is dropped and reconnected, and polling covers the gap.
+//  - stop() fences in-flight work: a refresh or flush that resolves afterwards changes nothing.
 //
 // The service owns no Redux; the slice wires it through `SyncCallbacks`.
 
@@ -30,14 +34,19 @@ export interface SyncDeps {
   outbox?: CarwashOutbox;
   getSettings: () => CarwashSettings;
   getSession: () => CarwashSession | null;
+  /** Outbox scope of the signed-in account; flushes only send that scope's entries. */
+  getScope?: () => string | null;
   openStream?: EventStreamOpener;
   debounceMs?: number;
   backoffMinMs?: number;
   backoffMaxMs?: number;
+  /** No stream data (the API heartbeats every 15 s) for this long → treat the stream as dead. */
+  idleTimeoutMs?: number;
 }
 
 export class CarwashSyncService {
-  private readonly deps: Required<Omit<SyncDeps, 'client' | 'getSettings' | 'getSession'>> & Pick<SyncDeps, 'client' | 'getSettings' | 'getSession'>;
+  private readonly deps: Required<Omit<SyncDeps, 'client' | 'getSettings' | 'getSession' | 'getScope'>> &
+    Pick<SyncDeps, 'client' | 'getSettings' | 'getSession' | 'getScope'>;
   private callbacks: SyncCallbacks;
   private running = false;
   private stream: EventStreamHandle | null = null;
@@ -45,8 +54,11 @@ export class CarwashSyncService {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private backoff: number;
+  /** Set when a silent re-login ran; cleared once a request succeeds with the new session. */
   private reLoginAttempted = false;
+  private reLogin: Promise<boolean> | null = null;
   private generation = 0;
   private status: CarwashSyncStatus = { state: 'signed-out', pending: 0, lastSyncedAt: null, lastError: null };
 
@@ -57,11 +69,13 @@ export class CarwashSyncService {
       client: deps.client,
       getSettings: deps.getSettings,
       getSession: deps.getSession,
+      getScope: deps.getScope,
       outbox: deps.outbox ?? carwashOutbox,
       openStream: deps.openStream ?? defaultEventStreamOpener,
       debounceMs: deps.debounceMs ?? 500,
       backoffMinMs: deps.backoffMinMs ?? 1000,
       backoffMaxMs: deps.backoffMaxMs ?? 30_000,
+      idleTimeoutMs: deps.idleTimeoutMs ?? 45_000,
     };
     this.callbacks = callbacks;
     this.backoff = this.deps.backoffMinMs;
@@ -104,29 +118,48 @@ export class CarwashSyncService {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     if (this.pollTimer) clearInterval(this.pollTimer);
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.reconnectTimer = this.pollTimer = this.debounceTimer = null;
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.reconnectTimer = this.pollTimer = this.debounceTimer = this.idleTimer = null;
     this.backoff = this.deps.backoffMinMs;
     if (emit) this.setStatus({ state: 'signed-out' });
+  }
+
+  /** True while `gen` is still the running generation (stop()/start() bump it). */
+  private current(gen: number): boolean {
+    return this.running && gen === this.generation;
+  }
+
+  private token(): string | null {
+    return this.deps.getSession()?.sessionToken ?? null;
   }
 
   /** Flush the outbox then refresh. Safe to call repeatedly. */
   async syncNow(): Promise<void> {
     if (!this.running) return;
+    const gen = this.generation;
+    const token = this.token();
     try {
       await this.flush();
+      if (!this.current(gen)) return;
       await this.callbacks.refresh();
+      if (!this.current(gen)) return;
+      this.reLoginAttempted = false;
       this.setStatus({ lastSyncedAt: new Date().toISOString(), lastError: null, ...(this.streamLive ? {} : { state: 'polling' as const }) });
     } catch (err) {
-      await this.handleFailure(err);
+      if (this.current(gen)) await this.handleFailure(err, token);
     }
   }
 
   /** Call after enqueuing a local write. */
   async flush(): Promise<FlushResult | null> {
     if (!this.running) return null;
-    const result = await this.deps.outbox.flush(this.deps.client);
-    this.setStatus({ pending: result.remaining });
+    const gen = this.generation;
+    const result = await this.deps.outbox.flush(this.deps.client, this.deps.getScope?.());
+    // Delivered entries are gone from the outbox whatever happened meanwhile, so the store must
+    // still learn about them; only the status belongs to the (possibly stopped) generation.
     this.callbacks.onFlushed(result);
+    if (!this.current(gen)) return result;
+    this.setStatus({ pending: result.remaining });
     if (result.stopped === 'unauthorized') throw new CarwashApiError('Sesión expirada', { status: 401 });
     if (result.stopped === 'network' || result.stopped === 'server') {
       this.setStatus({ state: this.streamLive ? 'live' : 'offline', lastError: 'Sin conexión con el servidor' });
@@ -137,25 +170,31 @@ export class CarwashSyncService {
   /** Call after enqueuing a local write. Never throws; null when not signed in / failed. */
   async afterLocalWrite(): Promise<FlushResult | null> {
     if (!this.running) {
-      this.setStatus({ pending: await this.deps.outbox.pendingCount() });
+      this.setStatus({ pending: await this.deps.outbox.pendingCount(this.deps.getScope?.()) });
       return null;
     }
+    const gen = this.generation;
+    const token = this.token();
     try {
       return await this.flush();
     } catch (err) {
-      await this.handleFailure(err);
+      if (this.current(gen)) await this.handleFailure(err, token);
       return null;
     }
   }
 
-  /** For callers that hit the API themselves (e.g. a manual refresh): routes 401/network handling. */
-  reportFailure(err: unknown): Promise<void> {
-    return this.handleFailure(err);
+  /**
+   * For callers that hit the API themselves (e.g. a manual refresh): routes 401/network handling.
+   * Pass the session token the failed request used, so a 401 from before a re-login is ignored.
+   */
+  reportFailure(err: unknown, tokenUsed?: string | null): Promise<void> {
+    return this.handleFailure(err, tokenUsed);
   }
 
-  private async handleFailure(err: unknown): Promise<void> {
+  private async handleFailure(err: unknown, tokenUsed?: string | null): Promise<void> {
+    if (!this.running) return;
     if (err instanceof CarwashApiError && err.status === 401) {
-      await this.handleUnauthorized();
+      await this.handleUnauthorized(tokenUsed);
       return;
     }
     const isNetwork = err instanceof CarwashApiError && err.isNetwork;
@@ -165,36 +204,72 @@ export class CarwashSyncService {
     });
   }
 
-  private async handleUnauthorized(): Promise<void> {
+  private async handleUnauthorized(tokenUsed?: string | null): Promise<void> {
     if (!this.running) return;
+    // A 401 for a token that has since been replaced (the request left before a re-login finished)
+    // says nothing about the current session.
+    if (tokenUsed !== undefined && tokenUsed !== this.token() && !this.reLogin) return;
+    // Every request that 401s while a re-login runs (stream open, refresh, outbox flush, a
+    // reconnect still holding the old token) waits for that same re-login instead of signing out.
+    if (this.reLogin) {
+      await this.reLogin;
+      return;
+    }
     if (this.reLoginAttempted) {
-      this.stop(false);
-      this.callbacks.onSignedOut();
+      // The fresh session was rejected too (no request has succeeded since the re-login).
+      this.signOut();
       return;
     }
     this.reLoginAttempted = true;
-    let session: CarwashSession | null = null;
+    const gen = this.generation;
+    const attempt = (async (): Promise<boolean> => {
+      let session: CarwashSession | null = null;
+      try {
+        session = await this.callbacks.silentReLogin();
+      } catch {
+        session = null;
+      }
+      if (!this.current(gen)) return false;
+      if (!session) {
+        this.signOut();
+        return false;
+      }
+      this.deps.client.setToken(session.sessionToken);
+      return true;
+    })();
+    this.reLogin = attempt;
+    let ok = false;
     try {
-      session = await this.callbacks.silentReLogin();
-    } catch {
-      session = null;
+      ok = await attempt;
+    } finally {
+      this.reLogin = null;
     }
-    if (!session) {
-      this.stop(false);
-      this.callbacks.onSignedOut();
-      return;
-    }
-    this.deps.client.setToken(session.sessionToken);
-    this.reLoginAttempted = false;
+    if (!ok || !this.current(gen)) return;
     this.closeStream();
     this.connect();
     await this.syncNow();
   }
 
+  private signOut(): void {
+    this.stop(false);
+    this.callbacks.onSignedOut();
+  }
+
   // ── Stream ───────────────────────────────────────────────────────────
   private closeStream(): void {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
     this.stream?.close();
     this.stream = null;
+  }
+
+  /** (Re)arms the half-open-connection watchdog; any stream data, including heartbeats, resets it. */
+  private armIdleTimer(gen: number): void {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = null;
+      this.onStreamDown(gen);
+    }, this.deps.idleTimeoutMs);
   }
 
   private connect(): void {
@@ -202,6 +277,7 @@ export class CarwashSyncService {
     if (!this.running || !session) return;
     this.closeStream();
     const gen = this.generation;
+    const token = session.sessionToken;
     const parser = createSseParser({
       onMessage: (msg) => {
         const topic = parseChangeTopic(msg);
@@ -215,18 +291,21 @@ export class CarwashSyncService {
         onOpen: (status) => {
           if (gen !== this.generation) return;
           if (status === 401) {
-            void this.handleUnauthorized();
+            void this.handleUnauthorized(token);
             return;
           }
           if (status >= 200 && status < 300) {
             this.streamLive = true;
             this.backoff = this.deps.backoffMinMs;
+            this.armIdleTimer(gen);
             this.setStatus({ state: 'live', lastError: null });
             void this.syncNow();
           }
         },
         onData: (text) => {
-          if (gen === this.generation) parser.push(text);
+          if (gen !== this.generation) return;
+          if (this.streamLive) this.armIdleTimer(gen);
+          parser.push(text);
         },
         onEnd: () => this.onStreamDown(gen),
         onError: () => this.onStreamDown(gen),
@@ -258,11 +337,15 @@ export class CarwashSyncService {
 
   private async refreshOnly(): Promise<void> {
     if (!this.running) return;
+    const gen = this.generation;
+    const token = this.token();
     try {
       await this.callbacks.refresh();
+      if (!this.current(gen)) return;
+      this.reLoginAttempted = false;
       this.setStatus({ lastSyncedAt: new Date().toISOString(), lastError: null });
     } catch (err) {
-      await this.handleFailure(err);
+      if (this.current(gen)) await this.handleFailure(err, token);
     }
   }
 

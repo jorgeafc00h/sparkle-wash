@@ -11,7 +11,7 @@ import { getViteEnv } from '@/config/viteEnv';
 import GoogleAuthService from '../../services/auth/GoogleAuthService';
 import { CarwashApiClient, CarwashApiError, type CarwashClientLike } from '../../services/carwash/CarwashApiClient';
 import type { EventStreamOpener } from '../../services/carwash/CarwashEventStream';
-import { carwashOutbox, normalizePlate, type CarwashOutbox, type FlushResult } from '../../services/carwash/CarwashOutbox';
+import { carwashOutbox, entryInScope, normalizePlate, type CarwashOutbox, type FlushResult } from '../../services/carwash/CarwashOutbox';
 import {
   clearCarwashSession,
   defaultCarwashSettings,
@@ -22,6 +22,7 @@ import {
   saveCarwashSettings as persistCarwashSettings,
 } from '../../services/carwash/CarwashSettingsStore';
 import { CarwashSyncService } from '../../services/carwash/CarwashSyncService';
+import { isUntrackedLegacyJob } from '../../services/carwash/posCarwashLines';
 import { nextWorkTicketNumber } from '../../services/carwash/workTicketNumber';
 import {
   NEXT_JOB_STATUSES,
@@ -205,8 +206,11 @@ const carwashSlice = createSlice({
       for (const job of jobs) upsertJob(jobsDraft, { ...job, pendingSync: false, syncError: null });
       state.jobs = capJobs(jobsDraft);
     },
-    marksUpdated(state, action: PayloadAction<{ pendingIds: string[]; errors: Record<string, string> }>) {
+    marksUpdated(state, action: PayloadAction<{ pendingIds: string[]; errors: Record<string, string>; foreignIds?: string[] }>) {
       const pending = new Set(action.payload.pendingIds);
+      // Unsent jobs of another account (or API server) stay in the outbox for that account, off this board.
+      const foreign = new Set((action.payload.foreignIds ?? []).filter((id) => !pending.has(id) && !(id in action.payload.errors)));
+      if (foreign.size > 0) state.jobs = state.jobs.filter((j) => !foreign.has(j.id));
       for (const job of state.jobs) {
         job.pendingSync = pending.has(job.id);
         job.syncError = action.payload.errors[job.id] ?? null;
@@ -214,6 +218,9 @@ const carwashSlice = createSlice({
     },
     jobAddedLocal(state, action: PayloadAction<CarwashJob>) {
       state.jobs = capJobs([action.payload, ...state.jobs.filter((j) => j.id !== action.payload.id)]);
+    },
+    jobRemovedLocal(state, action: PayloadAction<string>) {
+      state.jobs = state.jobs.filter((j) => j.id !== action.payload);
     },
     jobRestored(state, action: PayloadAction<{ job: CarwashJob; error: string }>) {
       const i = state.jobs.findIndex((j) => j.id === action.payload.job.id);
@@ -304,16 +311,32 @@ const a = carwashSlice.actions;
 // ── Runtime plumbing ───────────────────────────────────────────────────
 type Api = { dispatch: (action: any) => any; getState: () => CarwashRoot };
 
+/**
+ * Outbox scope of the signed-in account: the API origin plus the carwash (tenant). Writes queued
+ * under one scope are only ever sent by that scope, never by the next account to sign in on this PC.
+ */
+export function carwashOutboxScope(settings: CarwashSettings, session: CarwashSession | null): string | null {
+  if (!session) return null;
+  const origin = settings.apiBaseUrl.trim().replace(/\/+$/, '').toLowerCase();
+  return `${origin}|${session.tenant?.id ?? `subject:${session.subject}`}`;
+}
+
+const currentScope = (api: Api): string | null =>
+  carwashOutboxScope(api.getState().carwash.settings, api.getState().carwash.session);
+
 async function updateMarks(api: Api): Promise<void> {
   const entries = await deps.outbox.list();
+  const scope = currentScope(api);
   const pendingIds: string[] = [];
+  const foreignIds: string[] = [];
   const errors: Record<string, string> = {};
   for (const e of entries) {
     const id = e.op.kind === 'walk-in' ? e.op.localJobId : e.op.jobId;
-    if (e.failed) errors[id] = e.lastError ?? 'No se pudo sincronizar';
+    if (!entryInScope(e, scope)) foreignIds.push(id);
+    else if (e.failed) errors[id] = e.lastError ?? 'No se pudo sincronizar';
     else pendingIds.push(id);
   }
-  api.dispatch(a.marksUpdated({ pendingIds, errors }));
+  api.dispatch(a.marksUpdated({ pendingIds, errors, foreignIds }));
   const status = api.getState().carwash.sync;
   const pending = pendingIds.length;
   if (status.pending !== pending) api.dispatch(a.syncStatusChanged({ ...status, pending }));
@@ -328,6 +351,7 @@ async function applyFlush(api: Api, result: FlushResult): Promise<void> {
 
 async function refreshAll(api: Api): Promise<void> {
   const client = deps.client;
+  const tokenAtStart = api.getState().carwash.session?.sessionToken ?? null;
   const [packages, jobs, employees, summary] = await Promise.all([
     client.getPackages(),
     client.listJobs(),
@@ -337,13 +361,17 @@ async function refreshAll(api: Api): Promise<void> {
       return null;
     }),
   ]);
+  // Signed out, switched account or server while the requests were in flight: these rows are
+  // another session's data and must not repopulate the board.
+  if ((api.getState().carwash.session?.sessionToken ?? null) !== tokenAtStart) return;
   api.dispatch(a.refreshed({ packages, jobs, employees, summary }));
   await updateMarks(api);
 }
 
 async function exchangeIdToken(api: Api, idToken: string): Promise<CarwashSession> {
   const client = deps.client;
-  client.setToken(null);
+  // The login call is unauthenticated; keep the current token until the new one exists so
+  // concurrent requests are not turned into 401s.
   const login = await client.googleLogin(idToken);
   client.setToken(login.sessionToken);
   let email: string | null = null;
@@ -377,6 +405,7 @@ function ensureSync(api: Api): CarwashSyncService {
       outbox: deps.outbox,
       getSettings: () => api.getState().carwash.settings,
       getSession: () => api.getState().carwash.session,
+      getScope: () => currentScope(api),
       openStream: deps.openStream,
       debounceMs: deps.debounceMs,
     },
@@ -406,31 +435,41 @@ function ensureSync(api: Api): CarwashSyncService {
   return syncService;
 }
 
-type WriteOutcome = { failed: boolean; message: string | null };
+type WriteOutcome = { entryId: string; failed: boolean; message: string | null };
 
 /** Enqueue → mark → flush, then report whether the server rejected THIS entry. */
 async function queueWrite(api: Api, op: CarwashOutboxOp): Promise<WriteOutcome> {
-  const entry = await deps.outbox.enqueue(op);
+  const entry = await deps.outbox.enqueue(op, currentScope(api));
   await updateMarks(api);
   const sync = syncService;
   if (sync && api.getState().carwash.session) await sync.afterLocalWrite();
   const after = (await deps.outbox.list()).find((e) => e.id === entry.id);
   if (after?.failed) {
-    return { failed: true, message: after.lastError ?? 'El servidor rechazó el cambio' };
+    return { entryId: entry.id, failed: true, message: after.lastError ?? 'El servidor rechazó el cambio' };
   }
-  return { failed: false, message: null };
+  return { entryId: entry.id, failed: false, message: null };
 }
 
-async function rollbackFailed(api: Api, previous: CarwashJob, op: CarwashOutboxOp, message: string): Promise<void> {
-  const entries = await deps.outbox.failedEntries();
-  for (const e of entries) {
-    if (JSON.stringify(e.op) === JSON.stringify(op)) await deps.outbox.discard(e.id);
-  }
+/** Drops exactly the rejected entry (its op may have been remapped to a server id since) and restores the job. */
+async function rollbackFailed(api: Api, previous: CarwashJob, entryId: string, message: string): Promise<void> {
+  await deps.outbox.discard(entryId);
   await updateMarks(api);
-  api.dispatch(a.jobRestored({ job: previous, error: message }));
+  const currentId = await deps.outbox.resolveJobId(previous.id);
+  const remapped = currentId !== previous.id ? findJob(api, currentId) : undefined;
+  // A walk-in delivered in the same flush replaced the local job with the server copy, which never
+  // saw the rejected change: keep that copy and only flag the error on it.
+  api.dispatch(a.jobRestored({ job: remapped ?? previous, error: message }));
 }
 
 const findJob = (api: Api, jobId: string): CarwashJob | undefined => api.getState().carwash.jobs.find((j) => j.id === jobId);
+
+/**
+ * The job a caller refers to. Callers may still hold a `local-…` id (a POS cart line, an open
+ * modal) after the walk-in synced and the board swapped in the server id.
+ */
+async function locateJob(api: Api, jobId: string): Promise<CarwashJob | undefined> {
+  return findJob(api, jobId) ?? findJob(api, await deps.outbox.resolveJobId(jobId));
+}
 
 // ── Thunks ─────────────────────────────────────────────────────────────
 export const initCarwash = createAsyncThunk<void, void, ThunkConfig>('carwash/init', async (_arg, api) => {
@@ -535,11 +574,12 @@ export const signOutCarwash = createAsyncThunk<void, void, ThunkConfig>('carwash
 });
 
 export const refreshCarwash = createAsyncThunk<void, void, ThunkConfig>('carwash/refresh', async (_arg, api) => {
-  if (!api.getState().carwash.session) return api.rejectWithValue('Inicia sesión para sincronizar');
+  const session = api.getState().carwash.session;
+  if (!session) return api.rejectWithValue('Inicia sesión para sincronizar');
   try {
     await refreshAll(api);
   } catch (err) {
-    await syncService?.reportFailure(err);
+    await syncService?.reportFailure(err, session.sessionToken);
     return api.rejectWithValue(errMessage(err, 'No se pudo actualizar'));
   }
 });
@@ -600,41 +640,48 @@ export const createWalkInJob = createAsyncThunk<CarwashJob, WalkInInput, ThunkCo
     localJobId: localId,
     input: { ...input, plate, ticketNumber },
   });
+  if (outcome.failed) {
+    // The server rejected the walk-in (bad plate, inactive employee, ticket in use…): it does not
+    // exist, so it must not be reported as created or get a work ticket printed. Drop it so the
+    // operator can correct the form and try again.
+    await deps.outbox.discard(outcome.entryId);
+    api.dispatch(a.jobRemovedLocal(localId));
+    await updateMarks(api);
+    return api.rejectWithValue(outcome.message ?? 'El servidor rechazó el servicio');
+  }
   const serverId = await deps.outbox.resolveJobId(localId);
-  const latest = findJob(api, serverId) ?? findJob(api, localId) ?? job;
-  if (outcome.failed) return { ...latest, pendingSync: false, syncError: outcome.message };
-  return latest;
+  return findJob(api, serverId) ?? findJob(api, localId) ?? job;
 });
 
 async function simpleWrite(
   api: Api,
-  jobId: string,
-  op: CarwashOutboxOp,
-  optimistic: () => void,
+  requestedId: string,
+  makeOp: (jobId: string) => CarwashOutboxOp,
+  optimistic: (jobId: string) => void,
 ): Promise<CarwashJob | string> {
-  const previous = findJob(api, jobId);
+  const previous = await locateJob(api, requestedId);
   if (!previous) return 'El servicio ya no existe';
+  const jobId = previous.id;
   const snapshot = JSON.parse(JSON.stringify(previous)) as CarwashJob;
-  optimistic();
-  const outcome = await queueWrite(api, op);
+  optimistic(jobId);
+  const outcome = await queueWrite(api, makeOp(jobId));
   if (outcome.failed) {
     const message = outcome.message ?? 'El servidor rechazó el cambio';
-    await rollbackFailed(api, snapshot, op, message);
+    await rollbackFailed(api, snapshot, outcome.entryId, message);
     return message;
   }
-  const id = await deps.outbox.resolveJobId(jobId);
-  return findJob(api, id) ?? findJob(api, jobId) ?? snapshot;
+  return (await locateJob(api, jobId)) ?? snapshot;
 }
 
 export const transitionJob = createAsyncThunk<CarwashJob, { jobId: string; status: Exclude<JobStatus, 'arrived'> }, ThunkConfig>(
   'carwash/transition',
   async ({ jobId, status }, api) => {
-    const job = findJob(api, jobId);
+    const job = await locateJob(api, jobId);
     if (!job) return api.rejectWithValue('El servicio ya no existe');
     if (!NEXT_JOB_STATUSES[job.status].includes(status)) return api.rejectWithValue('Cambio de estado no permitido');
     const at = deps.now().toISOString();
-    const result = await simpleWrite(api, jobId, { kind: 'transition', jobId, status }, () =>
-      api.dispatch(a.jobTransitionedLocal({ jobId, status, at, key: deps.uuid() })),
+    const result = await simpleWrite(api, jobId, (id) => ({ kind: 'transition', jobId: id, status }), (id) =>
+      api.dispatch(a.jobTransitionedLocal({ jobId: id, status, at, key: deps.uuid() })),
     );
     return typeof result === 'string' ? api.rejectWithValue(result) : result;
   },
@@ -646,8 +693,8 @@ export const assignJobEmployee = createAsyncThunk<CarwashJob, { jobId: string; e
     const employee = api.getState().carwash.employees.find((e) => e.id === employeeId);
     if (!employee) return api.rejectWithValue('Empleado no encontrado');
     const at = deps.now().toISOString();
-    const result = await simpleWrite(api, jobId, { kind: 'assign', jobId, employeeId }, () =>
-      api.dispatch(a.jobAssignedLocal({ jobId, employeeId, employeeName: employee.name, at })),
+    const result = await simpleWrite(api, jobId, (id) => ({ kind: 'assign', jobId: id, employeeId }), (id) =>
+      api.dispatch(a.jobAssignedLocal({ jobId: id, employeeId, employeeName: employee.name, at })),
     );
     return typeof result === 'string' ? api.rejectWithValue(result) : result;
   },
@@ -658,8 +705,8 @@ export const attachJobTicket = createAsyncThunk<CarwashJob, { jobId: string; tic
   async ({ jobId, ticketNumber }, api) => {
     const ticket = ticketNumber.trim();
     if (!/^[A-Za-z0-9-]{1,32}$/.test(ticket)) return api.rejectWithValue('Número de ticket inválido');
-    const result = await simpleWrite(api, jobId, { kind: 'ticket', jobId, ticketNumber: ticket }, () =>
-      api.dispatch(a.jobTicketLocal({ jobId, ticketNumber: ticket })),
+    const result = await simpleWrite(api, jobId, (id) => ({ kind: 'ticket', jobId: id, ticketNumber: ticket }), (id) =>
+      api.dispatch(a.jobTicketLocal({ jobId: id, ticketNumber: ticket })),
     );
     return typeof result === 'string' ? api.rejectWithValue(result) : result;
   },
@@ -679,8 +726,8 @@ export const recordJobPayment = createAsyncThunk<CarwashJob, { jobId: string; pa
       actor: 'local',
       idempotencyKey: 'local',
     };
-    const result = await simpleWrite(api, jobId, { kind: 'payment', jobId, payment }, () =>
-      api.dispatch(a.jobPaymentLocal({ jobId, payment: local })),
+    const result = await simpleWrite(api, jobId, (id) => ({ kind: 'payment', jobId: id, payment }), (id) =>
+      api.dispatch(a.jobPaymentLocal({ jobId: id, payment: local })),
     );
     return typeof result === 'string' ? api.rejectWithValue(result) : result;
   },
@@ -702,9 +749,12 @@ export const selectCarwashJobsByStatus = createSelector([selectCarwashJobs], (jo
   return grouped;
 });
 
-/** Not cancelled and not fully paid — what the POS "Cobrar lavado" picker lists. */
+/**
+ * Not cancelled and not fully paid — what the POS "Cobrar lavado" picker lists. Jobs from before
+ * payment tracking existed (no source, no payments) are not receivables: they were settled outside.
+ */
 export const selectUnpaidCarwashJobs = createSelector([selectCarwashJobs], (jobs): CarwashJob[] =>
-  jobs.filter((j) => j.status !== 'cancelled' && j.paymentStatus !== 'paid'),
+  jobs.filter((j) => j.status !== 'cancelled' && j.paymentStatus !== 'paid' && !isUntrackedLegacyJob(j)),
 );
 
 export const selectCarwashSummary = createSelector([selectCarwashJobs, (s: CarwashRoot) => s.carwash.summary], (jobs, summary): JobSummary => {

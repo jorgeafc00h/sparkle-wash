@@ -806,8 +806,12 @@ export default function PosRegisterPage() {
     try {
       const dispatches = buildCarwashPayments(saleLines, ticketPayments, formatTicketNumber(ticket));
       for (const { jobId, payment } of dispatches) {
-        Promise.resolve(dispatch(recordJobPayment({ jobId, payment }))).catch((err) => {
+        // A rejected thunk resolves (it does not throw) unless unwrapped: surface it, or the
+        // customer is charged while the job stays "Por cobrar" with no trace.
+        dispatch(recordJobPayment({ jobId, payment })).unwrap().catch((err: unknown) => {
+          const message = typeof err === 'string' ? err : err instanceof Error ? err.message : String(err);
           console.warn('POS: no se pudo registrar el pago del lavado', err);
+          toast.warning(`Ticket ${label} guardado, pero el pago del lavado no se registró: ${message}`);
         });
       }
     } catch (err) {

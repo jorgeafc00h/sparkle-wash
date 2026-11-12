@@ -28,13 +28,13 @@ paths:
         '201': {description: Job created}
         '200': {description: Identical retry of the same key}
         '400': {description: Invalid plate, vehicle class, package, employee or ticket number}
-        '409': {description: Plate already has an open job, or key reused with different input}
+        '409': {description: Plate already has an open job, ticket number on another open job, or key reused with different input}
   /api/jobs/{id}/ticket:
     post:
       description: Attach a work-ticket number (write-once). Operator/admin Bearer.
       responses:
         '200': {description: Job with ticketNumber}
-        '409': {description: A different ticket number is already set}
+        '409': {description: A different ticket number is already set, or another open job carries it}
         '404': {description: Unknown job}
   /api/jobs/{id}/payments:
     post:

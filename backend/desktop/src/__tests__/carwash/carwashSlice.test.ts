@@ -177,13 +177,81 @@ describe('carwashSlice', () => {
       expect(empty.type).toBe('carwash/createWalkIn/rejected');
     });
 
-    it('keeps a rejected walk-in visible with its error', async () => {
+    it('rejects a walk-in the server refuses: not reported as created, nothing left behind', async () => {
+      const { store, client, outbox } = await signedInStore();
+      client.failNext.createWalkIn = httpError(400, { error: 'Employee is unknown or inactive' });
+      const res = await store.dispatch(createWalkInJob({ plate: 'BAD1', vehicleClass: 'sedan', packageId: 'basic', employeeId: 'e1' }));
+      expect(res.type).toBe('carwash/createWalkIn/rejected');
+      expect(res.payload).toBe('Employee is unknown or inactive');
+      expect(selectCarwashJobs(store.getState()).some((j) => j.plate === 'BAD1')).toBe(false);
+      expect(await outbox.list()).toEqual([]);
+    });
+
+    it('records a payment through a stale local id after the walk-in synced', async () => {
       const { store, client } = await signedInStore();
-      client.failNext.createWalkIn = httpError(400, { error: 'Invalid plate' });
-      const job = await store.dispatch(createWalkInJob({ plate: 'BAD', vehicleClass: 'sedan', packageId: 'basic' })).unwrap();
-      expect(job.syncError).toBe('Invalid plate');
-      const stored = selectCarwashJobById(job.id)(store.getState())!;
-      expect(stored).toMatchObject({ id: job.id, syncError: 'Invalid plate', pendingSync: false });
+      client.online = false;
+      const local = await store.dispatch(createWalkInJob({ plate: 'POS1', vehicleClass: 'sedan', packageId: 'basic' })).unwrap();
+      expect(local.id).toMatch(/^local-/);
+      client.online = true;
+      await store.dispatch(flushCarwashOutbox());
+      expect(selectCarwashJobById(local.id)(store.getState())).toBeUndefined();
+      // The POS cart line still holds the local id.
+      const paid = await store.dispatch(recordJobPayment({ jobId: local.id, payment: { method: 'cash', amountUsd: 12.5 } })).unwrap();
+      expect(paid.id).toMatch(/^srv-w/);
+      expect(paid.paymentStatus).toBe('paid');
+      expect(client.calls.filter((c) => c.method === 'recordPayment').map((c) => c.args[0])).toEqual([paid.id]);
+    });
+
+    it('rolls back exactly the rejected entry even after its job id was remapped', async () => {
+      const { store, client, outbox } = await signedInStore();
+      client.online = false;
+      const local = await store.dispatch(createWalkInJob({ plate: 'POS2', vehicleClass: 'sedan', packageId: 'basic' })).unwrap();
+      client.online = true;
+      // The same flush delivers the walk-in (local → server id) and then the payment is refused.
+      client.failNext.recordPayment = httpError(409, { error: 'Job cancelled' });
+      const res = await store.dispatch(recordJobPayment({ jobId: local.id, payment: { method: 'cash', amountUsd: 5 } }));
+      expect(res.type).toBe('carwash/recordPayment/rejected');
+      expect(await outbox.failedEntries()).toEqual([]);
+      const job = selectCarwashJobs(store.getState()).find((j) => j.plate === 'POS2')!;
+      expect(job).toMatchObject({ paidUsd: 0, syncError: 'Job cancelled' });
+    });
+  });
+
+  describe('account scoping', () => {
+    it('never sends one carwash\'s unsent writes with the next account that signs in', async () => {
+      const { store, client, outbox } = await signedInStore();
+      client.online = false;
+      await store.dispatch(createWalkInJob({ plate: 'TENA1', vehicleClass: 'sedan', packageId: 'basic' }));
+      await store.dispatch(signOutCarwash());
+      client.online = true;
+      // Another carwash signs in on this PC.
+      client.googleLogin = async (idToken: string) => {
+        client.calls.push({ method: 'googleLogin', args: [idToken] });
+        return { sessionToken: 'tok-b', subject: 's2', role: 'operator' as const, expiresAt: '2099-01-01T00:00:00Z', tenant: { id: 'tenant-b', name: 'B' } };
+      };
+      client.calls = [];
+      await store.dispatch(signInCarwashWithToken('dev:s2:b@c.d'));
+      await new Promise((r) => setTimeout(r, 10));
+      expect(client.calls.some((c) => c.method === 'createWalkIn')).toBe(false);
+      expect(selectCarwashJobs(store.getState()).some((j) => j.plate === 'TENA1')).toBe(false);
+      expect(selectCarwashSyncStatus(store.getState()).pending).toBe(0);
+      expect(await outbox.pendingCount()).toBe(1); // still queued for carwash A
+    });
+
+    it('a refresh that lands after sign-out does not repopulate the board', async () => {
+      const { store, client } = await signedInStore();
+      let release!: () => void;
+      const listJobs = client.listJobs.bind(client);
+      client.listJobs = async () => {
+        await new Promise<void>((r) => { release = r; });
+        return listJobs();
+      };
+      const refreshing = store.dispatch(refreshCarwash());
+      await new Promise((r) => setTimeout(r, 5));
+      await store.dispatch(signOutCarwash());
+      release();
+      await refreshing;
+      expect(selectCarwashJobs(store.getState())).toEqual([]);
     });
   });
 

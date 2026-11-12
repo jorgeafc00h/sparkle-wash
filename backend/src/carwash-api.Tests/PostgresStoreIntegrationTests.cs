@@ -162,6 +162,11 @@ public sealed class PostgresStoreIntegrationTests
                 using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
                 client.DefaultRequestHeaders.Add("X-SparkleWash-Client-Origin", client.BaseAddress.ToString().TrimEnd('/'));
                 Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/readyz")).StatusCode);
+                // The workflow store writes migration 004's job columns on every save: without them the API is not ready.
+                await ExecuteAsync(admin, "ALTER TABLE sparklewash.jobs RENAME COLUMN paid_at TO paid_at_pending_migration;");
+                Assert.Equal(HttpStatusCode.ServiceUnavailable, (await client.GetAsync("/readyz")).StatusCode);
+                await ExecuteAsync(admin, "ALTER TABLE sparklewash.jobs RENAME COLUMN paid_at_pending_migration TO paid_at;");
+                Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/readyz")).StatusCode);
                 using var apiLogin = await client.PostAsJsonAsync("/api/auth/google", new { idToken = "integration-test-token" });
                 Assert.Equal(HttpStatusCode.OK, apiLogin.StatusCode);
                 using var loginBody = JsonDocument.Parse(await apiLogin.Content.ReadAsStringAsync());
@@ -176,6 +181,24 @@ public sealed class PostgresStoreIntegrationTests
                 using var pageResponse = JsonDocument.Parse(await client.GetStringAsync($"/api/history/archive/{indexRevision}?limit=10"));
                 Assert.Equal(job.Id, pageResponse.RootElement.GetProperty("jobs")[0].GetProperty("id").GetString());
                 Assert.Equal("CHANGED", pageResponse.RootElement.GetProperty("jobs")[0].GetProperty("plate").GetString());
+
+                // Desktop POS walk-ins on the Postgres workflow: unique open work-ticket numbers, nothing left pending.
+                async Task<HttpResponseMessage> WalkIn(string plate, string ticket, string key)
+                {
+                    using var request = new HttpRequestMessage(HttpMethod.Post, "/api/jobs/walk-in")
+                    {
+                        Content = JsonContent.Create(new { plate, vehicleClass = "suv", packageId = "essential", ticketNumber = ticket })
+                    };
+                    request.Headers.Add("Idempotency-Key", key);
+                    return await client.SendAsync(request);
+                }
+                var walkInKey = "pg-walk-in-" + Guid.NewGuid().ToString("N");
+                Assert.Equal(HttpStatusCode.Created, (await WalkIn("PGW111", "OT-PG-000001", walkInKey)).StatusCode);
+                Assert.Equal(HttpStatusCode.OK, (await WalkIn("PGW111", "OT-PG-000001", walkInKey)).StatusCode);
+                Assert.Equal(HttpStatusCode.Conflict, (await WalkIn("PGW222", "OT-PG-000001", "pg-walk-in-" + Guid.NewGuid().ToString("N"))).StatusCode);
+                using var pendingArrivals = JsonDocument.Parse(await client.GetStringAsync("/api/arrivals?pending=true"));
+                Assert.DoesNotContain(pendingArrivals.RootElement.EnumerateArray(),
+                    arrival => arrival.GetProperty("cameraId").GetString() == ArrivalStore.PosCounterCameraId);
             }
 
             var tenantARevisionBeforeMove = (await archiveReader.GetIndexAsync(tenantA)).Revision;

@@ -17,9 +17,17 @@ export function jobBalanceUsd(job: Pick<CarwashJob, 'priceUsd' | 'paidUsd'>): nu
   return Math.max(0, round2(job.priceUsd - (job.paidUsd ?? 0)));
 }
 
-/** Jobs the register may charge: not cancelled and with a balance. */
+/**
+ * Jobs opened before payment tracking (API without `source`/payments) report "unpaid" only
+ * because nothing was recorded: they were settled outside the POS and are not receivables.
+ */
+export function isUntrackedLegacyJob(job: Pick<CarwashJob, 'source' | 'payments'>): boolean {
+  return !job.source && (job.payments?.length ?? 0) === 0;
+}
+
+/** Jobs the register may charge: not cancelled, payment-tracked and with a balance. */
 export function isChargeableJob(job: CarwashJob): boolean {
-  return job.status !== 'cancelled' && jobBalanceUsd(job) > 0;
+  return job.status !== 'cancelled' && !isUntrackedLegacyJob(job) && jobBalanceUsd(job) > 0;
 }
 
 export function carwashLineName(job: Pick<CarwashJob, 'packageName' | 'plate'>): string {

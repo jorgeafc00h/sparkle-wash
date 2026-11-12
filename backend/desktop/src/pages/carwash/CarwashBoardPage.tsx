@@ -39,6 +39,7 @@ import { NewServiceModal } from '@/components/carwash/NewServiceModal';
 import { useCarwashInit } from '@/components/carwash/useCarwashInit';
 import { useWorkTicketPrinter } from '@/components/carwash/useWorkTicketPrinter';
 import { buildBoard, formatElapsed, jobElapsedMs } from '@/components/carwash/carwashUi';
+import { isUntrackedLegacyJob } from '@/services/carwash/posCarwashLines';
 
 const SYNC_LABEL: Record<CarwashSyncState, { label: string; variant: 'success' | 'info' | 'warning' | 'error' | 'neutral' }> = {
   'signed-out': { label: 'Sin sesión', variant: 'neutral' },
@@ -73,6 +74,8 @@ function useNow(intervalMs = 1000): number {
 
 function PaymentChip({ job }: { job: CarwashJob }) {
   const paid = job.paidUsd ?? 0;
+  // Opened before payment tracking: settled outside the POS, nothing to collect.
+  if (isUntrackedLegacyJob(job)) return null;
   if (job.paymentStatus === 'paid' || (paid >= job.priceUsd && job.priceUsd > 0)) {
     return <Badge variant="success" size="sm" data-testid="carwash-pay-chip">Pagado</Badge>;
   }
@@ -97,7 +100,7 @@ function JobCard({ job, now, canCharge, onAdvance, onCancel, onAssign, onPrint, 
   const next = NEXT_JOB_STATUSES[job.status].find((s) => s !== 'cancelled');
   const canCancel = NEXT_JOB_STATUSES[job.status].includes('cancelled');
   const employees = Array.from(new Set(job.assignments.map((a) => a.employeeName)));
-  const unpaid = job.paymentStatus !== 'paid' && (job.paidUsd ?? 0) < job.priceUsd;
+  const unpaid = job.paymentStatus !== 'paid' && (job.paidUsd ?? 0) < job.priceUsd && !isUntrackedLegacyJob(job);
   return (
     <div
       data-testid="carwash-job-card"
