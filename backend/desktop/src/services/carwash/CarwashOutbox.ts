@@ -4,10 +4,12 @@
 // interrupted (crash, offline) can be repeated safely. Outcomes per entry:
 //   - network error / 5xx / 408 / 429 → stop, keep entry (retry next flush)
 //   - 401                             → stop, keep entry (session expired)
-//   - 409 on walk-in with a `job` body for the same ticket/plate → success
+//   - 409 on walk-in whose `job` body is this walk-in (opened with this idempotency key, or the same
+//     work ticket AND plate) → success; any other open job for the plate is a real conflict
 //   - other 4xx                       → entry marked `failed` (+ lastError), flush continues
 // A successful walk-in remaps its `local-…` id to the server id in every later
 // queued op and in `idMap`, which the caller uses to replace the local job.
+// Entries carry the account scope they were queued under; a flush only sends its own scope.
 
 import { appStorage } from '../storage/ElectronStorage';
 import { CarwashApiError, type CarwashClientLike } from './CarwashApiClient';
@@ -63,6 +65,11 @@ function defaultUuid(): string {
   });
 }
 
+/** Whether an entry may be sent by `scope` (undefined = no scoping, e.g. tests and legacy callers). */
+export function entryInScope(entry: Pick<CarwashOutboxEntry, 'scope'>, scope: string | null | undefined): boolean {
+  return scope === undefined || scope === null || !entry.scope || entry.scope === scope;
+}
+
 export function normalizePlate(plate: string): string {
   return String(plate ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
@@ -78,6 +85,21 @@ function withJobId(op: CarwashOutboxOp, jobId: string): CarwashOutboxOp {
 function describeError(err: unknown): string {
   if (err instanceof CarwashApiError) return err.message;
   return err instanceof Error ? err.message : 'Error desconocido';
+}
+
+/**
+ * A 409 carries the plate's open job. It is THIS walk-in only when it was opened with this entry's
+ * idempotency key, or carries this walk-in's work ticket AND plate. "The plate already has an open
+ * job" for any other job is a real conflict: accepting it would drop this sale's package, price,
+ * employee and ticket and move later payments onto the wrong job.
+ */
+function isSameWalkIn(existing: JobView, input: { plate: string; ticketNumber?: string | null }, key: string): boolean {
+  if ((existing.transitions ?? []).some((t) => t.idempotencyKey === key)) return true;
+  return (
+    !!input.ticketNumber &&
+    existing.ticketNumber === input.ticketNumber &&
+    normalizePlate(existing.plate) === normalizePlate(input.plate)
+  );
 }
 
 export class CarwashOutbox {
@@ -98,11 +120,19 @@ export class CarwashOutbox {
   load(): Promise<void> {
     if (!this.loaded) {
       this.loaded = (async () => {
+        let raw: string | null;
         try {
-          const raw = await this.storage.getItem(CARWASH_OUTBOX_KEY);
-          if (!raw) return;
+          raw = await this.storage.getItem(CARWASH_OUTBOX_KEY);
+        } catch (err) {
+          // A failed READ is not an empty outbox: starting empty here would let the next
+          // persist() overwrite the queued writes on disk. Fail this call and retry next time.
+          this.loaded = null;
+          throw err;
+        }
+        if (!raw) return;
+        try {
           const parsed = JSON.parse(raw) as Partial<PersistedOutbox>;
-          if (!Array.isArray(parsed.entries)) return;
+          if (!Array.isArray(parsed.entries)) throw new Error('outbox without entries');
           const entries = parsed.entries.filter((e) => e && typeof e.seq === 'number' && e.op).sort((a, b) => a.seq - b.seq);
           const maxSeq = entries.reduce((m, e) => Math.max(m, e.seq), 0);
           this.state = {
@@ -112,7 +142,8 @@ export class CarwashOutbox {
             nextSeq: Math.max(Number(parsed.nextSeq) || 1, maxSeq + 1),
           };
         } catch {
-          /* corrupt outbox: start empty rather than blocking the app */
+          // Corrupt outbox: keep a copy for support, then start empty rather than blocking the app.
+          await this.storage.setItem(`${CARWASH_OUTBOX_KEY}.corrupt`, raw).catch(() => undefined);
         }
       })();
     }
@@ -131,9 +162,9 @@ export class CarwashOutbox {
     return this.state.entries.map((e) => ({ ...e }));
   }
 
-  async pendingCount(): Promise<number> {
+  async pendingCount(scope?: string | null): Promise<number> {
     await this.load();
-    return this.state.entries.filter((e) => !e.failed).length;
+    return this.state.entries.filter((e) => !e.failed && entryInScope(e, scope)).length;
   }
 
   async failedEntries(): Promise<CarwashOutboxEntry[]> {
@@ -147,7 +178,7 @@ export class CarwashOutbox {
     return this.state.idMap[id] ?? id;
   }
 
-  async enqueue(op: CarwashOutboxOp): Promise<CarwashOutboxEntry> {
+  async enqueue(op: CarwashOutboxOp, scope: string | null = null): Promise<CarwashOutboxEntry> {
     await this.load();
     const jobId = opJobId(op);
     const mapped = jobId ? this.state.idMap[jobId] : undefined;
@@ -158,6 +189,7 @@ export class CarwashOutbox {
       createdAt: this.now().toISOString(),
       attempts: 0,
       lastError: null,
+      scope,
       op: mapped ? withJobId(op, mapped) : op,
     };
     this.state.entries.push(entry);
@@ -189,25 +221,29 @@ export class CarwashOutbox {
     await this.persist();
   }
 
-  /** Flushes run one after another, so a flush requested mid-flight also sees entries enqueued meanwhile. */
-  flush(client: CarwashClientLike): Promise<FlushResult> {
-    const run = this.flushChain.then(() => this.runFlush(client));
+  /**
+   * Flushes run one after another, so a flush requested mid-flight also sees entries enqueued meanwhile.
+   * With a `scope`, only that account's (and unscoped) entries are sent; unscoped ones are claimed.
+   */
+  flush(client: CarwashClientLike, scope?: string | null): Promise<FlushResult> {
+    const run = this.flushChain.then(() => this.runFlush(client, scope));
     this.flushChain = run.catch(() => undefined);
     return run;
   }
 
-  private nextReady(): CarwashOutboxEntry | undefined {
-    return this.state.entries.find((e) => !e.failed);
+  private nextReady(scope: string | null | undefined): CarwashOutboxEntry | undefined {
+    return this.state.entries.find((e) => !e.failed && entryInScope(e, scope));
   }
 
-  private async runFlush(client: CarwashClientLike): Promise<FlushResult> {
+  private async runFlush(client: CarwashClientLike, scope?: string | null): Promise<FlushResult> {
     await this.load();
     const result: FlushResult = { sent: 0, jobs: [], idMap: {}, failed: [], stopped: null, remaining: 0 };
     const latest = new Map<string, JobView>();
 
     for (;;) {
-      const entry = this.nextReady();
+      const entry = this.nextReady(scope);
       if (!entry) break;
+      if (scope && !entry.scope) entry.scope = scope;
 
       // Rewrite a local id that already has a server id (walk-in delivered earlier).
       const jobId = opJobId(entry.op);
@@ -255,7 +291,7 @@ export class CarwashOutbox {
     }
 
     result.jobs = [...latest.values()];
-    result.remaining = this.state.entries.filter((e) => !e.failed).length;
+    result.remaining = this.state.entries.filter((e) => !e.failed && entryInScope(e, scope)).length;
     return result;
   }
 
@@ -278,13 +314,7 @@ export class CarwashOutbox {
         } catch (err) {
           if (err instanceof CarwashApiError && err.status === 409) {
             const existing = (err.body as { job?: JobView } | null)?.job;
-            if (
-              existing &&
-              typeof existing === 'object' &&
-              (existing.ticketNumber === op.input.ticketNumber || normalizePlate(existing.plate) === normalizePlate(op.input.plate))
-            ) {
-              return existing;
-            }
+            if (existing && typeof existing === 'object' && isSameWalkIn(existing, op.input, key)) return existing;
           }
           throw err;
         }

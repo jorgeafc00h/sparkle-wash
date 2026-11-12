@@ -2,6 +2,7 @@
 // Salvador time, package pricing). No React / Redux so Jest can load them.
 
 import { RECEIPT_TIME_ZONE } from '@/services/printing/ReceiptDocument';
+import { isChargeableJob } from '@/services/carwash/posCarwashLines';
 import type { CarwashJob, JobStatus, ServicePackage } from '@/services/carwash/types';
 
 /** Uppercase, drop spaces/symbols (keeps A–Z, 0–9, "-"), max 10 chars. */
@@ -9,8 +10,9 @@ export function normalizePlate(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 10);
 }
 
+/** 3+ letters/digits (hyphens allowed but not counted), like the API's 3–12 alphanumeric rule. */
 export function isValidPlate(plate: string): boolean {
-  return /^[A-Z0-9][A-Z0-9-]{2,9}$/.test(plate);
+  return /^[A-Z0-9][A-Z0-9-]{0,9}$/.test(plate) && plate.replace(/-/g, '').length >= 3;
 }
 
 /** Price of `pkg` for a vehicle class, or null when it has none. */
@@ -92,7 +94,7 @@ export function buildBoard(jobs: CarwashJob[], now: number, term = ''): { column
     onSite: open.length,
     inProgress: open.filter((j) => j.status === 'in_progress').length,
     doneToday: all.filter((j) => j.status === 'completed' && svDay(j.completedAt ?? j.arrivalAt) === today).length,
-    toCollect: all.filter((j) => j.status !== 'cancelled' && (j.paymentStatus ?? 'unpaid') !== 'paid' && (j.paidUsd ?? 0) < j.priceUsd).length,
+    toCollect: all.filter((j) => (j.paymentStatus ?? 'unpaid') !== 'paid' && isChargeableJob(j)).length,
   };
   return { columns, summary };
 }

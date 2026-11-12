@@ -44,6 +44,7 @@ export function makeJob(over: Partial<JobView> = {}): JobView {
     activeSeconds: null,
     transitions: [],
     assignments: [],
+    source: 'camera',
     payments: [],
     paidUsd: 0,
     paymentStatus: 'unpaid',

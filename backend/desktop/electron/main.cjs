@@ -1092,6 +1092,9 @@ ipcMain.handle('mh:fetch', (_event, config) => mhFetch(config));
 // stream per window; the renderer parses frames and handles reconnects.
 ipcMain.handle('carwash:fetch', (_event, config) => carwashFetch(config));
 const carwashEventStreams = new Map();
+// webContents ids that already have a 'destroyed' cleanup listener: the renderer restarts the
+// stream on every reconnect, and one listener per start would pile up for the window's lifetime.
+const carwashEventCleanup = new Set();
 function stopCarwashEvents(webContentsId) {
   const handle = carwashEventStreams.get(webContentsId);
   if (handle) {
@@ -1106,7 +1109,14 @@ ipcMain.handle('carwash:events-start', (event, config) => {
     if (!sender.isDestroyed()) sender.send('carwash:event', msg);
   });
   carwashEventStreams.set(sender.id, handle);
-  sender.once('destroyed', () => stopCarwashEvents(sender.id));
+  if (!carwashEventCleanup.has(sender.id)) {
+    const id = sender.id;
+    carwashEventCleanup.add(id);
+    sender.once('destroyed', () => {
+      carwashEventCleanup.delete(id);
+      stopCarwashEvents(id);
+    });
+  }
   return true;
 });
 ipcMain.handle('carwash:events-stop', (event) => {

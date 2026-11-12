@@ -5,7 +5,7 @@ import type { CarwashJob } from '@/services/carwash/types';
 const mk = (id: string, over: Partial<CarwashJob>): CarwashJob => ({
   id, arrivalId: id, plate: 'P111111', vehicleClass: 'sedan', packageId: 'p', packageName: 'Básico', services: [], priceUsd: 10, currency: 'USD',
   status: 'arrived', arrivalAt: '2026-10-31T16:00:00Z', startedAt: null, completedAt: null, cancelledAt: null, elapsedSeconds: 0, activeSeconds: null,
-  transitions: [], assignments: [], ticketNumber: `OT-C1-${id}`, paidUsd: 0, paymentStatus: 'unpaid', ...over,
+  transitions: [], assignments: [], ticketNumber: `OT-C1-${id}`, source: 'desktop-pos', payments: [], paidUsd: 0, paymentStatus: 'unpaid', ...over,
 });
 
 describe('carwash UI helpers', () => {
@@ -14,6 +14,11 @@ describe('carwash UI helpers', () => {
     expect(isValidPlate('P123-456')).toBe(true);
     expect(isValidPlate('P1')).toBe(false);
     expect(isValidPlate('')).toBe(false);
+    // Hyphens do not count toward the API's 3-character minimum.
+    expect(isValidPlate('AB-1')).toBe(true);
+    expect(isValidPlate('A-1')).toBe(false);
+    expect(isValidPlate('AB-')).toBe(false);
+    expect(isValidPlate('A--')).toBe(false);
   });
   it('package price per class', () => {
     expect(packagePrice({ prices: { suv: 15 } }, 'suv')).toBe(15);

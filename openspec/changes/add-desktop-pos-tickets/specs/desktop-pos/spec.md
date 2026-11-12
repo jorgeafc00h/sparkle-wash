@@ -11,6 +11,10 @@ The API SHALL let an operator or admin open a job for a walk-in vehicle with `PO
 - **WHEN** the key is reused with a different plate or package, or the plate already has an open job
 - **THEN** the API returns 409 and, for an open job, includes that job in the response
 
+#### Scenario: Work-ticket number already on the lot
+- **WHEN** a walk-in carries a ticket number that another open job already has, including two walk-ins sent at the same moment
+- **THEN** only one job is opened with that number, the other request returns 409 with the job holding it, and its arrival is dismissed rather than left in the review queue
+
 #### Scenario: Invalid walk-in writes nothing
 - **WHEN** the plate, class, package, employee or ticket number is invalid
 - **THEN** the API returns 400 and no arrival or job is created
@@ -23,7 +27,7 @@ The plate, vehicle class, package, employee, ticket number (1-32 letters, digits
 - **THEN** the API returns 400 and stores nothing
 
 ### Requirement: Write-once work ticket
-`POST /api/jobs/{id}/ticket` SHALL set the job's ticket number when it has none, return 200 when the same number is already set, and return 409 when a different number is set. Unknown jobs SHALL return 404 and invalid numbers 400.
+`POST /api/jobs/{id}/ticket` SHALL set the job's ticket number when it has none, return 200 when the same number is already set, and return 409 when a different number is set or another open job carries the number. Unknown jobs SHALL return 404 and invalid numbers 400. A ticket number SHALL identify at most one open (not completed or cancelled) job per carwash.
 
 #### Scenario: Different ticket number
 - **WHEN** a job already has ticket `OT-1` and another number is posted

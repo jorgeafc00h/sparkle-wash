@@ -148,6 +148,10 @@ public static class Program
                            AND to_regclass('sparklewash.movements') IS NOT NULL
                            AND to_regclass('sparklewash.reservations') IS NOT NULL
                            AND (NOT $1 OR to_regclass('sparklewash.archive_revisions') IS NOT NULL)
+                           -- The workflow store writes the desktop POS job columns (migration 004) on every job save.
+                           AND (NOT $1 OR (SELECT count(*) FROM pg_catalog.pg_attribute
+                                WHERE attrelid = to_regclass('sparklewash.jobs') AND NOT attisdropped
+                                  AND attname IN ('source','ticket_number','customer_name','note','payments','paid_at')) = 6)
                         """, connection);
                     command.Parameters.AddWithValue(usePostgresWorkflow);
                     if (await command.ExecuteScalarAsync(timeout.Token) is not true)
@@ -501,11 +505,16 @@ public static class Program
             }
             var eventId = "pos-" + (key.Length <= 120 ? key : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
                 System.Text.Encoding.UTF8.GetBytes(key))));
-            var existing = (await t.Arrivals.ListAsync()).FirstOrDefault(x => x.CameraId == "pos-counter" && x.DeviceEventId == eventId);
+            var existing = (await t.Arrivals.ListAsync()).FirstOrDefault(x => x.CameraId == ArrivalStore.PosCounterCameraId && x.DeviceEventId == eventId);
             if (existing is null && await t.Jobs.FindOpenByPlateAsync(plate) is { } open)
                 return Results.Json(new { error = "Plate already has an open job", job = open }, statusCode: StatusCodes.Status409Conflict);
+            // A work ticket identifies one car on the lot: two registers numbering alike must not both open it.
+            if (input.TicketNumber is not null && await t.Jobs.FindOpenByTicketAsync(input.TicketNumber) is { } holder &&
+                !holder.Transitions.Any(x => x.IdempotencyKey == key))
+                return Results.Json(new { error = "Ticket number is already on another open job", job = holder },
+                    statusCode: StatusCodes.Status409Conflict);
             const string keyReused = "Idempotency key was reused with different input";
-            var added = await t.Arrivals.AddAsync(new ArrivalInput(eventId, "pos-counter", plate, null, DateTimeOffset.UtcNow, null), null, photoStore, "entry");
+            var added = await t.Arrivals.AddAsync(new ArrivalInput(eventId, ArrivalStore.PosCounterCameraId, plate, null, DateTimeOffset.UtcNow, null), null, photoStore, "entry");
             var arrival = added.Observation;
             if (arrival.PlateCandidate != plate) return Results.Conflict(new { error = keyReused });
             var confirmed = await t.Arrivals.ConfirmAsync(arrival.Id, plate, input.VehicleClass!, session.Subject);
@@ -516,9 +525,14 @@ public static class Program
             var result = await t.Jobs.CreateAsync(arrival, service, key, session.Subject, details);
             if (result.Status == JobActionStatus.Conflict)
             {
-                if (existing is null && added.Status == ArrivalAddStatus.Created) await t.Arrivals.DismissAsync(arrival.Id, "other", session.Subject);
                 var reused = result.Job is not null && result.Job.Transitions.Any(x => x.IdempotencyKey == key);
-                return Results.Json(new { error = reused ? keyReused : "Plate already has an open job", job = result.Job },
+                var ticketTaken = !reused && result.Job is not null && input.TicketNumber is not null &&
+                    result.Job.TicketNumber == input.TicketNumber && result.Job.Plate != plate;
+                // No job for this staff arrival (first attempt or a replay after the plate got another open job):
+                // close it so it never lingers as unlinked evidence.
+                if (!reused && arrival.JobId is null && arrival.DismissedAt is null)
+                    await t.Arrivals.DismissAsync(arrival.Id, "other", session.Subject);
+                return Results.Json(new { error = reused ? keyReused : ticketTaken ? "Ticket number is already on another open job" : "Plate already has an open job", job = result.Job },
                     statusCode: StatusCodes.Status409Conflict);
             }
             var job = result.Job!;
@@ -542,6 +556,10 @@ public static class Program
             if (session.Role is not ("operator" or "admin")) return Results.StatusCode(StatusCodes.Status403Forbidden);
             if (input?.TicketNumber is null || !ValidTicketNumber(input.TicketNumber))
                 return Results.BadRequest(new { error = "Ticket number must be 1-32 letters, digits or dashes" });
+            if (await t.Jobs.GetAsync(id) is null) return Results.NotFound();
+            if (await t.Jobs.FindOpenByTicketAsync(input.TicketNumber) is { } holder && holder.Id != id)
+                return Results.Json(new { error = "Ticket number is already on another open job", job = holder },
+                    statusCode: StatusCodes.Status409Conflict);
             var result = await t.Jobs.SetTicketAsync(id, input.TicketNumber);
             if (result.Status == JobActionStatus.Created) t.Changes.Publish("jobs");
             return result.Status switch
@@ -933,8 +951,8 @@ public static class Program
                 ["/api/packages"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Shared detailing catalog" } } } },
                 ["/api/packages/suggestion"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Package suggestion without a charge" } } } },
                 ["/api/jobs"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Staff job list" } } }, post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Confirmed arrival opened as a job" } } } },
-                ["/api/jobs/walk-in"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Staff-entered walk-in opened as a job (Idempotency-Key required)" }, ["200"] = new { description = "Replay of the same key and input" }, ["400"] = new { description = "Invalid plate, class, package, employee or ticket number" }, ["409"] = new { description = "Plate already has an open job, or the key was reused with different input" } } } },
-                ["/api/jobs/{id}/ticket"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Work-ticket number set (write-once) or identical" }, ["400"] = new { description = "Invalid ticket number" }, ["404"] = new { description = "Unknown job" }, ["409"] = new { description = "A different ticket number is already set" } } } },
+                ["/api/jobs/walk-in"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Staff-entered walk-in opened as a job (Idempotency-Key required)" }, ["200"] = new { description = "Replay of the same key and input" }, ["400"] = new { description = "Invalid plate, class, package, employee or ticket number" }, ["409"] = new { description = "Plate already has an open job, the ticket number is on another open job, or the key was reused with different input" } } } },
+                ["/api/jobs/{id}/ticket"] = new { post = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Work-ticket number set (write-once) or identical" }, ["400"] = new { description = "Invalid ticket number" }, ["404"] = new { description = "Unknown job" }, ["409"] = new { description = "A different ticket number is already set, or another open job carries this ticket number" } } } },
                 ["/api/jobs/{id}/payments"] = new { post = new { responses = new Dictionary<string, object> { ["201"] = new { description = "Payment recorded; returns the job with paidUsd and paymentStatus" }, ["200"] = new { description = "Replay of the same key and body" }, ["400"] = new { description = "Invalid method, amount, ticket number, reference or Idempotency-Key" }, ["404"] = new { description = "Unknown job" }, ["409"] = new { description = "Job cancelled, or the key was reused with different input" } } } },
                 ["/api/plates/{plate}/timeline"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Jobs and camera sightings for one plate" }, ["400"] = new { description = "Invalid plate" } } } },
                 ["/api/tenants/registration"] = new { get = new { responses = new Dictionary<string, object> { ["200"] = new { description = "Whether new carwashes can register" } } } },

@@ -45,7 +45,12 @@ public class ArrivalStore
 
     public static readonly string[] DismissReasons = ["misread", "duplicate", "staff", "not-a-customer", "bay-camera", "other"];
 
-    public static bool IsPending(ArrivalObservation x) => x.JobId is null && x.DismissedAt is null && x.CameraRole is not ("exit" or "bay");
+    /// <summary>Waiting for staff review. Staff-entered POS walk-ins (`pos-counter`) are confirmed by the cashier and
+    /// never belong in the review queue, even if their job could not be opened.</summary>
+    public static bool IsPending(ArrivalObservation x) => x.JobId is null && x.DismissedAt is null &&
+        x.CameraRole is not ("exit" or "bay") && x.CameraId != PosCounterCameraId;
+
+    public const string PosCounterCameraId = "pos-counter";
 
     public static string? NormalizePlate(string? candidate)
     {
