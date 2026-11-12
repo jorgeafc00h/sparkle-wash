@@ -132,15 +132,7 @@ code { font-family: var(--font-mono); font-size: .85em; background: var(--color-
 .plate-chip--sm .plate-text { font-size: 1.0625rem; }
 .plate-chip .cs-chip { background: var(--cs-teal-50); color: var(--cs-teal-700); }
 .layer--front .plate-chip { position: absolute; left: -3%; top: 9%; animation: bob 6s ease-in-out infinite alternate; }
-.status-chip {
-  position: absolute; right: -3%; bottom: 10%; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px;
-  border-radius: var(--radius-pill); background: var(--cs-navy-800); color: var(--cs-white); border: 1px solid var(--cs-navy-500);
-  font-weight: 600; font-size: .875rem; box-shadow: var(--shadow-2); animation: bob 7s ease-in-out -2s infinite alternate;
-}
-.status-chip .dot { position: relative; width: 9px; height: 9px; border-radius: 50%; background: var(--cs-orange-300); }
-.status-chip .dot::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: inherit; animation: ping 1.8s var(--ease-out) infinite; }
 @keyframes bob { from { translate: 0 0; } to { translate: 0 -8px; } }
-@keyframes ping { from { transform: scale(1); opacity: .7; } to { transform: scale(2.8); opacity: 0; } }
 @keyframes hero-sheen {
   0% { transform: translateX(-160%) skewX(-18deg); opacity: 0; }
   15% { opacity: 1; }
@@ -417,7 +409,6 @@ code { font-family: var(--font-mono); font-size: .85em; background: var(--color-
   .install-steps { gap: 26px; }
   .cta-row .cs-btn { width: 100%; white-space: normal; text-align: center; }
   .layer--front .plate-chip { left: 8px; top: -14px; }
-  .status-chip { right: 8px; bottom: -14px; }
   .plate-text { font-size: 1.0625rem; }
   .board-wrap { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 10px 0; }
   .board { width: 62%; margin-bottom: 12px; }

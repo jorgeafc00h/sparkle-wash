@@ -193,7 +193,6 @@ function Hero() {
           </div>
           <div className="layer layer--front" aria-hidden>
             <span className="plate-chip"><span className="plate-text">P903377</span><span className="cs-chip cs-chip--live">94 %</span></span>
-            <span className="status-chip"><span className="dot" />Lavando · 12 min</span>
           </div>
         </div>
       </div>
